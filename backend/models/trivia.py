@@ -4,17 +4,12 @@ Trivia game models
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, JSON
 from datetime import datetime, timezone
 
-# Import Base from oauth_server to share the same metadata
+# Import shared Base from database module
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-try:
-    from oauth_server import Base
-except ImportError:
-    # Fallback for standalone usage
-    from sqlalchemy.orm import declarative_base
-    Base = declarative_base()
+from database import Base
 
 
 class TriviaGame(Base):

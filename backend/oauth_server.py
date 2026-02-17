@@ -6,8 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from sqlalchemy import Column, Integer, String, Boolean, create_engine
-from sqlalchemy.orm import Session, sessionmaker, declarative_base
+from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime, timedelta
 from jose import jwt
@@ -16,11 +16,8 @@ from authlib.integrations.starlette_client import OAuth
 import os
 import httpx
 
-# Database setup
-DATABASE_URL = "sqlite:///./oauth_gamedb.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+# Import shared database configuration
+from database import Base, engine, SessionLocal
 
 # Models
 class User(Base):
@@ -42,14 +39,16 @@ class UserProfile(Base):
     elo_rating = Column(Integer, default=1200, nullable=False)
     total_games_played = Column(Integer, default=0, nullable=False)
 
-# Import trivia models so they register with the Base
+# Import trivia models BEFORE creating tables so they register with Base
 try:
     from models.trivia import TriviaGame, TriviaAnswer, TriviaLeaderboard
-except ImportError:
-    pass  # Trivia models not yet available
+    print("✓ Trivia models imported successfully")
+except ImportError as e:
+    print(f"⚠ Trivia models not available: {e}")
 
-# Create all tables (including trivia tables if imported)
+# Create all tables (User, UserProfile, and Trivia tables)
 Base.metadata.create_all(bind=engine)
+print(f"✓ Database tables created: {list(Base.metadata.tables.keys())}")
 
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
