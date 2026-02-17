@@ -64,6 +64,7 @@
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
+            margin-bottom: 10px;
         }
 
         .filter-tab {
@@ -79,6 +80,43 @@
         .filter-tab.active {
             background: #1e3c72;
             color: white;
+        }
+
+        .league-filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .league-filter {
+            padding: 6px 14px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .league-filter:hover {
+            border-color: #1e3c72;
+        }
+
+        .league-filter.active {
+            background: #1e3c72;
+            color: white;
+            border-color: #1e3c72;
+        }
+
+        .filter-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
         }
 
         .games-section {
@@ -385,13 +423,18 @@
     </div>
 
     <div class="filters">
-        <div class="filter-tabs">
-            <button class="filter-tab active" onclick="filterCategory('all')">All Sports</button>
+        <div class="filter-label">SPORT CATEGORY</div>
+        <div class="filter-tabs" id="category-tabs">
+            <button class="filter-tab" onclick="filterCategory('today')">📅 Games Today</button>
             <button class="filter-tab" onclick="filterCategory('football')">🏈 Football</button>
             <button class="filter-tab" onclick="filterCategory('basketball')">🏀 Basketball</button>
             <button class="filter-tab" onclick="filterCategory('baseball')">⚾ Baseball</button>
             <button class="filter-tab" onclick="filterCategory('hockey')">🏒 Hockey</button>
             <button class="filter-tab" onclick="filterCategory('soccer')">⚽ Soccer</button>
+        </div>
+        <div id="league-filters" style="display: none;">
+            <div class="filter-label">LEAGUE</div>
+            <div class="league-filters" id="league-buttons"></div>
         </div>
     </div>
 
@@ -414,19 +457,58 @@
     <script>
         const API_URL = window.location.origin;
         let allGames = [];
+        let allGamesRaw = []; // Store unfiltered data
         let betSlip = [];
-        let currentCategory = 'all';
+        let currentCategory = 'today';
+        let currentLeague = null;
+
+        // League mapping for display names
+        const leagueNames = {
+            'americanfootball_nfl': 'NFL',
+            'americanfootball_ncaaf': 'NCAA',
+            'americanfootball_cfl': 'CFL',
+            'australianfootball_afl': 'AFL',
+            'basketball_nba': 'NBA',
+            'basketball_ncaab': 'NCAA',
+            'basketball_wnba': 'WNBA',
+            'basketball_euroleague': 'Euroleague',
+            'baseball_mlb': 'MLB',
+            'baseball_kbo': 'KBO',
+            'baseball_npb': 'NPB',
+            'icehockey_nhl': 'NHL',
+            'icehockey_ahl': 'AHL',
+            'icehockey_shl': 'SHL',
+            'icehockey_allsvenskan': 'Allsvenskan',
+            'icehockey_liiga': 'Liiga',
+            'soccer_epl': 'EPL',
+            'soccer_germany_bundesliga': 'Bundesliga',
+            'soccer_spain_la_liga': 'La Liga',
+            'soccer_italy_serie_a': 'Serie A',
+            'soccer_france_ligue_one': 'Ligue 1',
+            'soccer_brazil_campeonato': 'Brasileirão',
+            'soccer_uefa_champs_league': 'Champions League',
+            'soccer_uefa_europa_league': 'Europa League'
+        };
 
         async function loadGames(category = null) {
             try {
-                const url = category && category !== 'all'
+                const url = category && category !== 'today'
                     ? `${API_URL}/api/sports/today?category=${category}`
                     : `${API_URL}/api/sports/today`;
 
                 const response = await fetch(url);
                 const data = await response.json();
 
+                allGamesRaw = data;
                 allGames = data;
+
+                // Show league filters if category selected (not "Games Today")
+                if (category && category !== 'today') {
+                    showLeagueFilters(category);
+                } else {
+                    hideLeagueFilters();
+                }
+
                 renderGames();
             } catch (error) {
                 console.error('Error loading games:', error);
@@ -436,33 +518,91 @@
             }
         }
 
+        function showLeagueFilters(category) {
+            const leagueFiltersDiv = document.getElementById('league-filters');
+            const leagueButtonsDiv = document.getElementById('league-buttons');
+
+            // Get unique leagues from current games
+            const leagues = new Set();
+            allGamesRaw.forEach(sportGroup => {
+                if (sportGroup.category === category) {
+                    leagues.add(sportGroup.sport_key);
+                }
+            });
+
+            if (leagues.size > 1) {
+                let html = '<button class="league-filter active" onclick="filterLeague(null)">All Leagues</button>';
+                leagues.forEach(league => {
+                    const displayName = leagueNames[league] || league;
+                    html += `<button class="league-filter" onclick="filterLeague('${league}')">${displayName}</button>`;
+                });
+
+                leagueButtonsDiv.innerHTML = html;
+                leagueFiltersDiv.style.display = 'block';
+            } else {
+                leagueFiltersDiv.style.display = 'none';
+            }
+        }
+
+        function hideLeagueFilters() {
+            document.getElementById('league-filters').style.display = 'none';
+            currentLeague = null;
+        }
+
+        function filterLeague(league) {
+            currentLeague = league;
+
+            // Update active button
+            document.querySelectorAll('.league-filter').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Filter games by league
+            if (league) {
+                allGames = allGamesRaw.filter(sportGroup => sportGroup.sport_key === league);
+            } else {
+                allGames = allGamesRaw;
+            }
+
+            renderGames();
+        }
+
         function renderGames() {
             const container = document.getElementById('games-container');
 
             if (!allGames || allGames.length === 0) {
-                container.innerHTML = '<div class="loading">No games available today</div>';
+                container.innerHTML = '<div class="loading">No games available for this selection</div>';
                 return;
             }
 
             let html = '';
+            let totalGames = 0;
 
             allGames.forEach(sportGroup => {
-                html += `
-                    <div class="sport-group">
-                        <div class="sport-header">
-                            <span>${sportGroup.sport_title}</span>
-                            <span style="color: #999; font-size: 14px;">${sportGroup.games.length} games</span>
-                        </div>
-                `;
+                if (sportGroup.games && sportGroup.games.length > 0) {
+                    totalGames += sportGroup.games.length;
+                    html += `
+                        <div class="sport-group">
+                            <div class="sport-header">
+                                <span>${sportGroup.sport_title}</span>
+                                <span style="color: #999; font-size: 14px;">${sportGroup.games.length} games</span>
+                            </div>
+                    `;
 
-                sportGroup.games.forEach(game => {
-                    html += renderGameCard(game, sportGroup.category);
-                });
+                    sportGroup.games.forEach(game => {
+                        html += renderGameCard(game, sportGroup.category);
+                    });
 
-                html += '</div>';
+                    html += '</div>';
+                }
             });
 
-            container.innerHTML = html;
+            if (totalGames === 0) {
+                container.innerHTML = '<div class="loading">No games available for this selection</div>';
+            } else {
+                container.innerHTML = html;
+            }
         }
 
         function renderGameCard(game, category) {
@@ -738,6 +878,7 @@
 
         function filterCategory(category) {
             currentCategory = category;
+            currentLeague = null; // Reset league filter
 
             // Update active tab
             document.querySelectorAll('.filter-tab').forEach(tab => {
@@ -746,11 +887,15 @@
             event.target.classList.add('active');
 
             // Reload games with filter
-            loadGames(category === 'all' ? null : category);
+            loadGames(category === 'today' ? null : category);
         }
 
-        // Initialize
-        loadGames();
+        // Initialize - Load "Games Today" by default
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set "Games Today" as active
+            document.querySelector('.filter-tab').classList.add('active');
+            loadGames(null);
+        });
     </script>
 </body>
 </html>
