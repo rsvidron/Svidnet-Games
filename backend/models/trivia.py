@@ -2,7 +2,7 @@
 Trivia game models
 """
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey, JSON
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Import Base from oauth_server to share the same metadata
 import sys
@@ -31,7 +31,7 @@ class TriviaGame(Base):
     score = Column(Integer, nullable=False, default=0)
     correct_answers = Column(Integer, nullable=False, default=0)
     wrong_answers = Column(Integer, nullable=False, default=0)
-    time_started = Column(DateTime, nullable=False, default=datetime.utcnow)
+    time_started = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     time_completed = Column(DateTime, nullable=True)
     is_completed = Column(Boolean, nullable=False, default=False)
     time_taken_seconds = Column(Integer, nullable=True)  # Total time taken
@@ -49,7 +49,7 @@ class TriviaAnswer(Base):
     correct_answer = Column(Integer, nullable=False)  # Index of correct option (0-3)
     is_correct = Column(Boolean, nullable=False)
     time_taken_seconds = Column(Integer, nullable=True)  # Time taken for this question
-    answered_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    answered_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
 class TriviaLeaderboard(Base):
@@ -65,5 +65,5 @@ class TriviaLeaderboard(Base):
     total_questions_answered = Column(Integer, nullable=False, default=0)
     total_correct_answers = Column(Integer, nullable=False, default=0)
     fastest_game_seconds = Column(Integer, nullable=True)
-    last_played = Column(DateTime, nullable=False, default=datetime.utcnow)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    last_played = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))

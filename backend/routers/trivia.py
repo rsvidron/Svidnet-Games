@@ -4,7 +4,7 @@ Trivia game API endpoints
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import sys
@@ -74,7 +74,7 @@ def start_game(
         score=0,
         correct_answers=0,
         wrong_answers=0,
-        time_started=datetime.utcnow(),
+        time_started=datetime.now(timezone.utc),
         is_completed=False
     )
 
@@ -146,7 +146,7 @@ def submit_answer(
         correct_answer=correct_answer_index,
         is_correct=is_correct,
         time_taken_seconds=request.time_taken_seconds,
-        answered_at=datetime.utcnow()
+        answered_at=datetime.now(timezone.utc)
     )
     db.add(answer)
 
@@ -167,7 +167,7 @@ def submit_answer(
     if game_completed:
         # Complete the game
         game.is_completed = True
-        game.time_completed = datetime.utcnow()
+        game.time_completed = datetime.now(timezone.utc)
         time_delta = game.time_completed - game.time_started
         game.time_taken_seconds = int(time_delta.total_seconds())
 
@@ -321,7 +321,7 @@ def update_leaderboard(db: Session, user_id: int, game: TriviaGame):
             total_questions_answered=game.total_questions,
             total_correct_answers=game.correct_answers,
             fastest_game_seconds=game.time_taken_seconds,
-            last_played=datetime.utcnow()
+            last_played=datetime.now(timezone.utc)
         )
         db.add(leaderboard)
     else:
@@ -329,7 +329,7 @@ def update_leaderboard(db: Session, user_id: int, game: TriviaGame):
         leaderboard.total_games_played += 1
         leaderboard.total_questions_answered += game.total_questions
         leaderboard.total_correct_answers += game.correct_answers
-        leaderboard.last_played = datetime.utcnow()
+        leaderboard.last_played = datetime.now(timezone.utc)
 
         # Update best score if improved
         if game.score > leaderboard.best_score:
