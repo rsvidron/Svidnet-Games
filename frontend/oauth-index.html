@@ -133,6 +133,10 @@
             font-weight: 500;
         }
 
+        .password-wrapper {
+            position: relative;
+        }
+
         input {
             width: 100%;
             padding: 12px 15px;
@@ -142,9 +146,37 @@
             transition: border-color 0.3s;
         }
 
+        .password-wrapper input {
+            padding-right: 45px;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #999;
+            font-size: 18px;
+            padding: 4px;
+            line-height: 1;
+        }
+
+        .toggle-password:hover {
+            color: #667eea;
+        }
+
         input:focus {
             outline: none;
             border-color: #667eea;
+        }
+
+        .field-error {
+            color: #ef4444;
+            font-size: 13px;
+            margin-top: 5px;
         }
 
         button[type="submit"] {
@@ -312,7 +344,10 @@
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" id="login-password" required>
+                    <div class="password-wrapper">
+                        <input type="password" id="login-password" required>
+                        <button type="button" class="toggle-password" onclick="togglePassword('login-password', this)">&#128065;</button>
+                    </div>
                 </div>
                 <button type="submit">Login</button>
             </form>
@@ -329,7 +364,18 @@
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" id="register-password" required>
+                    <div class="password-wrapper">
+                        <input type="password" id="register-password" required minlength="6">
+                        <button type="button" class="toggle-password" onclick="togglePassword('register-password', this)">&#128065;</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="register-confirm-password" required minlength="6">
+                        <button type="button" class="toggle-password" onclick="togglePassword('register-confirm-password', this)">&#128065;</button>
+                    </div>
+                    <div id="password-match-error" class="field-error hidden"></div>
                 </div>
                 <button type="submit">Create Account</button>
             </form>
@@ -406,6 +452,18 @@
             document.getElementById('message').innerHTML = '';
         }
 
+        // Toggle password visibility
+        function togglePassword(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.style.color = '#667eea';
+            } else {
+                input.type = 'password';
+                btn.style.color = '#999';
+            }
+        }
+
         // Show message
         function showMessage(text, type) {
             const messageDiv = document.getElementById('message');
@@ -447,6 +505,21 @@
             const username = document.getElementById('register-username').value;
             const email = document.getElementById('register-email').value;
             const password = document.getElementById('register-password').value;
+            const confirmPassword = document.getElementById('register-confirm-password').value;
+            const matchError = document.getElementById('password-match-error');
+
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                matchError.textContent = 'Passwords do not match';
+                matchError.classList.remove('hidden');
+                return;
+            }
+            if (password.length < 6) {
+                matchError.textContent = 'Password must be at least 6 characters';
+                matchError.classList.remove('hidden');
+                return;
+            }
+            matchError.classList.add('hidden');
 
             try {
                 const response = await fetch(`${API_URL}/api/auth/register`, {
