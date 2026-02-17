@@ -17,6 +17,8 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.1.2
 pydantic[email]==2.5.3
+authlib==1.4.0
+itsdangerous==2.2.0
 
 # WebSockets
 python-socketio==5.11.0
