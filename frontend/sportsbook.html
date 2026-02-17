@@ -114,6 +114,221 @@
             }
         }
 
+        .nav-toggle {
+            display: flex;
+            gap: 5px;
+            background: #f0f0f0;
+            padding: 3px;
+            border-radius: 8px;
+        }
+
+        .nav-toggle button {
+            background: transparent;
+            color: #666;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .nav-toggle button.active {
+            background: white;
+            color: #1e3c72;
+            font-weight: 600;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .my-bets-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            grid-column: 1 / -1;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-card.green {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .stat-card.red {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .stat-card .subvalue {
+            font-size: 14px;
+            margin-top: 5px;
+            opacity: 0.9;
+        }
+
+        .bets-list h3 {
+            color: #1e3c72;
+            margin-bottom: 15px;
+        }
+
+        .bet-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .bet-card.won {
+            border-left-color: #38ef7d;
+            background: #f0fdf4;
+        }
+
+        .bet-card.lost {
+            border-left-color: #f45c43;
+            background: #fef2f2;
+        }
+
+        .bet-card.push {
+            border-left-color: #fbbf24;
+            background: #fffbeb;
+        }
+
+        .bet-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .bet-type-badge {
+            font-size: 12px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .bet-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .bet-status.pending {
+            background: #e0e7ff;
+            color: #4338ca;
+        }
+
+        .bet-status.won {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .bet-status.lost {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .bet-status.push {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .bet-amount {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 14px;
+        }
+
+        .bet-amount .stake {
+            color: #666;
+        }
+
+        .bet-amount .payout {
+            font-weight: 600;
+            color: #1e3c72;
+        }
+
+        .bet-amount .payout.won {
+            color: #15803d;
+        }
+
+        .bet-picks {
+            margin-top: 10px;
+        }
+
+        .pick-item {
+            font-size: 14px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pick-item:last-child {
+            border-bottom: none;
+        }
+
+        .pick-result {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            line-height: 20px;
+            text-align: center;
+            border-radius: 50%;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        .pick-result.won {
+            background: #38ef7d;
+            color: white;
+        }
+
+        .pick-result.lost {
+            background: #f45c43;
+            color: white;
+        }
+
+        .pick-result.push {
+            background: #fbbf24;
+            color: white;
+        }
+
+        .pick-result.pending {
+            background: #e0e7ff;
+            color: #4338ca;
+        }
+
         .filters {
             background: white;
             padding: 20px;
@@ -482,6 +697,10 @@
     <div class="navbar">
         <h1>🏈 Sportsbook</h1>
         <div class="navbar-right">
+            <div class="nav-toggle">
+                <button class="active" onclick="showView('betting')">Place Bets</button>
+                <button onclick="showView('mybets')">My Bets</button>
+            </div>
             <div class="sync-status" id="sync-status">
                 <span id="sync-time">Loading...</span>
             </div>
@@ -492,33 +711,53 @@
         </div>
     </div>
 
-    <div class="filters">
-        <div class="filter-label">SPORT CATEGORY</div>
-        <div class="filter-tabs" id="category-tabs">
-            <button class="filter-tab" onclick="filterCategory('today')">📅 Games Today</button>
-            <button class="filter-tab" onclick="filterCategory('football')">🏈 Football</button>
-            <button class="filter-tab" onclick="filterCategory('basketball')">🏀 Basketball</button>
-            <button class="filter-tab" onclick="filterCategory('baseball')">⚾ Baseball</button>
-            <button class="filter-tab" onclick="filterCategory('hockey')">🏒 Hockey</button>
-            <button class="filter-tab" onclick="filterCategory('soccer')">⚽ Soccer</button>
+    <div id="betting-view">
+        <div class="filters">
+            <div class="filter-label">SPORT CATEGORY</div>
+            <div class="filter-tabs" id="category-tabs">
+                <button class="filter-tab" onclick="filterCategory('today')">📅 Games Today</button>
+                <button class="filter-tab" onclick="filterCategory('football')">🏈 Football</button>
+                <button class="filter-tab" onclick="filterCategory('basketball')">🏀 Basketball</button>
+                <button class="filter-tab" onclick="filterCategory('baseball')">⚾ Baseball</button>
+                <button class="filter-tab" onclick="filterCategory('hockey')">🏒 Hockey</button>
+                <button class="filter-tab" onclick="filterCategory('soccer')">⚽ Soccer</button>
+            </div>
+            <div id="league-filters" style="display: none;">
+                <div class="filter-label">LEAGUE</div>
+                <div class="league-filters" id="league-buttons"></div>
+            </div>
         </div>
-        <div id="league-filters" style="display: none;">
-            <div class="filter-label">LEAGUE</div>
-            <div class="league-filters" id="league-buttons"></div>
+
+        <div class="container">
+            <div class="games-section" id="games-container">
+                <div class="loading">Loading games...</div>
+            </div>
+
+            <div class="bet-slip">
+                <h2>Bet Slip</h2>
+                <div id="bet-slip-content">
+                    <div class="bet-slip-empty">
+                        <p>Select bets to get started</p>
+                        <p style="font-size: 12px; margin-top: 10px;">Add multiple picks for a parlay!</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="container">
-        <div class="games-section" id="games-container">
-            <div class="loading">Loading games...</div>
-        </div>
+    <div id="mybets-view" style="display: none;">
+        <div class="container">
+            <div class="my-bets-section">
+                <h2 style="color: #1e3c72; margin-bottom: 20px;">📊 My Betting Stats</h2>
+                <div class="stats-grid" id="stats-container">
+                    <div class="loading">Loading stats...</div>
+                </div>
 
-        <div class="bet-slip">
-            <h2>Bet Slip</h2>
-            <div id="bet-slip-content">
-                <div class="bet-slip-empty">
-                    <p>Select bets to get started</p>
-                    <p style="font-size: 12px; margin-top: 10px;">Add multiple picks for a parlay!</p>
+                <div class="bets-list">
+                    <h3>Recent Bets</h3>
+                    <div id="bets-history">
+                        <div class="loading">Loading bet history...</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1041,6 +1280,156 @@
                 toast.style.opacity = '0';
                 setTimeout(() => toast.remove(), 300);
             }, 4000);
+        }
+
+        // View switching
+        function showView(view) {
+            const bettingView = document.getElementById('betting-view');
+            const mybetsView = document.getElementById('mybets-view');
+            const navButtons = document.querySelectorAll('.nav-toggle button');
+
+            if (view === 'betting') {
+                bettingView.style.display = 'block';
+                mybetsView.style.display = 'none';
+                navButtons[0].classList.add('active');
+                navButtons[1].classList.remove('active');
+            } else {
+                bettingView.style.display = 'none';
+                mybetsView.style.display = 'block';
+                navButtons[0].classList.remove('active');
+                navButtons[1].classList.add('active');
+                loadMyBets();
+            }
+        }
+
+        // Load user's bets and stats
+        async function loadMyBets() {
+            try {
+                const token = localStorage.getItem('access_token');
+                const response = await fetch(`${API_URL}/api/sports/bets/my`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) throw new Error('Failed to load bets');
+
+                const data = await response.json();
+                displayStats(data.bets);
+                displayBetsHistory(data.bets);
+            } catch (error) {
+                console.error('Error loading bets:', error);
+                document.getElementById('stats-container').innerHTML = '<p>Error loading stats</p>';
+                document.getElementById('bets-history').innerHTML = '<p>Error loading bet history</p>';
+            }
+        }
+
+        // Display stats cards
+        function displayStats(bets) {
+            const statsContainer = document.getElementById('stats-container');
+
+            const totalBets = bets.length;
+            const wonBets = bets.filter(b => b.status === 'won').length;
+            const lostBets = bets.filter(b => b.status === 'lost').length;
+            const pendingBets = bets.filter(b => b.status === 'pending').length;
+
+            const totalWagered = bets.reduce((sum, b) => sum + b.stake, 0);
+            const totalWon = bets.filter(b => b.status === 'won').reduce((sum, b) => sum + b.actual_payout, 0);
+            const netProfit = totalWon - totalWagered;
+            const winRate = wonBets + lostBets > 0 ? ((wonBets / (wonBets + lostBets)) * 100).toFixed(1) : 0;
+
+            const profitClass = netProfit > 0 ? 'green' : netProfit < 0 ? 'red' : '';
+
+            statsContainer.innerHTML = `
+                <div class="stat-card">
+                    <div class="label">Total Bets</div>
+                    <div class="value">${totalBets}</div>
+                    <div class="subvalue">${pendingBets} pending</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Win Rate</div>
+                    <div class="value">${winRate}%</div>
+                    <div class="subvalue">${wonBets}W - ${lostBets}L</div>
+                </div>
+                <div class="stat-card ${profitClass}">
+                    <div class="label">Net Profit</div>
+                    <div class="value">${netProfit > 0 ? '+' : ''}${netProfit.toFixed(0)}</div>
+                    <div class="subvalue">Wagered: ${totalWagered} pts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Total Won</div>
+                    <div class="value">${totalWon.toFixed(0)}</div>
+                    <div class="subvalue">From ${wonBets} winning bets</div>
+                </div>
+            `;
+        }
+
+        // Display bet history
+        function displayBetsHistory(bets) {
+            const historyContainer = document.getElementById('bets-history');
+
+            if (bets.length === 0) {
+                historyContainer.innerHTML = '<p style="text-align: center; color: #666;">No bets placed yet</p>';
+                return;
+            }
+
+            historyContainer.innerHTML = bets.map(bet => {
+                const statusClass = bet.status.toLowerCase();
+                const betType = bet.is_parlay ? `${bet.total_picks}-Leg Parlay` : 'Single Bet';
+
+                const picksHtml = bet.picks.map(pick => {
+                    const resultIcon = pick.result
+                        ? (pick.result === 'won' ? '✓' : pick.result === 'lost' ? '✗' : pick.result === 'push' ? '↔' : '⋯')
+                        : '⋯';
+                    const resultClass = pick.result || 'pending';
+
+                    let selectionText = '';
+                    if (pick.bet_type === 'moneyline') {
+                        selectionText = `${pick.selection.toUpperCase()} ML`;
+                    } else if (pick.bet_type === 'spread') {
+                        selectionText = `${pick.selection.toUpperCase()} ${pick.point > 0 ? '+' : ''}${pick.point}`;
+                    } else if (pick.bet_type === 'total') {
+                        selectionText = `${pick.selection.toUpperCase()} ${pick.point}`;
+                    }
+
+                    return `
+                        <div class="pick-item">
+                            <span class="pick-result ${resultClass}">${resultIcon}</span>
+                            <div style="flex: 1;">
+                                <strong>${pick.match_description}</strong><br>
+                                <span style="color: #666;">${selectionText} (${pick.odds > 0 ? '+' : ''}${pick.odds})</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                const placedDate = new Date(bet.placed_at).toLocaleString();
+                const payout = bet.status === 'won' ? bet.actual_payout : bet.status === 'push' ? bet.stake : 0;
+
+                return `
+                    <div class="bet-card ${statusClass}">
+                        <div class="bet-header">
+                            <span class="bet-type-badge">${betType}</span>
+                            <span class="bet-status ${statusClass}">${bet.status}</span>
+                        </div>
+                        <div class="bet-picks">
+                            ${picksHtml}
+                        </div>
+                        <div class="bet-amount">
+                            <span class="stake">Stake: ${bet.stake} pts</span>
+                            <span class="payout ${bet.status === 'won' ? 'won' : ''}">
+                                ${bet.status === 'pending' ? `To Win: ${bet.potential_payout.toFixed(2)} pts` :
+                                  bet.status === 'won' ? `Won: +${payout.toFixed(2)} pts` :
+                                  bet.status === 'push' ? `Returned: ${payout.toFixed(2)} pts` :
+                                  `Lost: -${bet.stake} pts`}
+                            </span>
+                        </div>
+                        <div style="margin-top: 8px; font-size: 12px; color: #999;">
+                            ${placedDate}
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         // Initialize - Load "Games Today" by default
