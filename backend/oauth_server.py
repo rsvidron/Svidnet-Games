@@ -38,7 +38,7 @@ except ImportError as e:
 
 # Import admin models
 try:
-    from models.admin import TriviaCategory, CustomTriviaQuestion
+    from models.admin import TriviaCategory, CustomTriviaQuestion, WordleWord
     print("✓ Admin models imported successfully")
 except ImportError as e:
     print(f"⚠ Admin models not available: {e}")

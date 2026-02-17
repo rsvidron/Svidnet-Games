@@ -89,6 +89,8 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab('categories')">Categories</button>
             <button class="tab" onclick="switchTab('questions')">Questions</button>
+            <button class="tab" onclick="switchTab('wordle')">Wordle Words</button>
+            <button class="tab" onclick="switchTab('import')">Import/Export</button>
         </div>
 
         <!-- Categories Section -->
@@ -117,6 +119,66 @@
                 </div>
 
                 <div id="questions-list"></div>
+            </div>
+        </div>
+
+        <!-- Wordle Words Section -->
+        <div class="content-section" id="wordle-section">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Wordle Words</h2>
+                    <button class="btn btn-primary" onclick="showCreateWordModal()">+ New Word</button>
+                </div>
+
+                <div id="wordle-words-list"></div>
+            </div>
+        </div>
+
+        <!-- Import/Export Section -->
+        <div class="content-section" id="import-section">
+            <div class="card">
+                <h2>Bulk Import/Export</h2>
+                <p style="color: #666; margin-bottom: 25px;">Download CSV templates, edit them, and import in bulk</p>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                    <!-- Categories -->
+                    <div style="border: 2px solid #e0e0e0; border-radius: 12px; padding: 20px;">
+                        <h3 style="color: #667eea; margin-bottom: 15px;">📁 Categories</h3>
+                        <button class="btn btn-secondary" onclick="downloadTemplate('categories')" style="width: 100%; margin-bottom: 10px;">
+                            ⬇ Download Template
+                        </button>
+                        <input type="file" id="categories-file" accept=".csv" style="display: none;" onchange="handleFileUpload('categories', this.files[0])">
+                        <button class="btn btn-primary" onclick="document.getElementById('categories-file').click()" style="width: 100%;">
+                            ⬆ Import CSV
+                        </button>
+                    </div>
+
+                    <!-- Questions -->
+                    <div style="border: 2px solid #e0e0e0; border-radius: 12px; padding: 20px;">
+                        <h3 style="color: #667eea; margin-bottom: 15px;">❓ Questions</h3>
+                        <button class="btn btn-secondary" onclick="downloadTemplate('questions')" style="width: 100%; margin-bottom: 10px;">
+                            ⬇ Download Template
+                        </button>
+                        <input type="file" id="questions-file" accept=".csv" style="display: none;" onchange="handleFileUpload('questions', this.files[0])">
+                        <button class="btn btn-primary" onclick="document.getElementById('questions-file').click()" style="width: 100%;">
+                            ⬆ Import CSV
+                        </button>
+                    </div>
+
+                    <!-- Wordle Words -->
+                    <div style="border: 2px solid #e0e0e0; border-radius: 12px; padding: 20px;">
+                        <h3 style="color: #667eea; margin-bottom: 15px;">🟩 Wordle Words</h3>
+                        <button class="btn btn-secondary" onclick="downloadTemplate('wordle-words')" style="width: 100%; margin-bottom: 10px;">
+                            ⬇ Download Template
+                        </button>
+                        <input type="file" id="wordle-words-file" accept=".csv" style="display: none;" onchange="handleFileUpload('wordle-words', this.files[0])">
+                        <button class="btn btn-primary" onclick="document.getElementById('wordle-words-file').click()" style="width: 100%;">
+                            ⬆ Import CSV
+                        </button>
+                    </div>
+                </div>
+
+                <div id="import-results" style="margin-top: 20px;"></div>
             </div>
         </div>
     </div>
@@ -216,10 +278,39 @@
         </div>
     </div>
 
+    <!-- Wordle Word Modal -->
+    <div class="modal" id="word-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="word-modal-title">New Word</h3>
+                <button class="modal-close" onclick="closeModal('word-modal')">&times;</button>
+            </div>
+            <div id="word-alert"></div>
+            <form id="word-form" onsubmit="saveWord(event)">
+                <div class="form-group">
+                    <label>Word (5 letters)</label>
+                    <input type="text" id="word-text" maxlength="5" pattern="[A-Za-z]{5}" required style="text-transform: uppercase;">
+                </div>
+                <div class="form-group">
+                    <label>Difficulty</label>
+                    <select id="word-difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">Save Word</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         const API_URL = window.location.origin;
         let currentEditingCategory = null;
         let currentEditingQuestion = null;
+        let currentEditingWord = null;
 
         // Load initial data
         document.addEventListener('DOMContentLoaded', () => {
@@ -494,6 +585,192 @@
         function closeModal(modalId) {
             document.getElementById(modalId).classList.remove('show');
         }
+
+        // ==================== WORDLE WORDS ====================
+
+        async function loadWordleWords() {
+            try {
+                const res = await fetch(`${API_URL}/api/admin/wordle-words`);
+                const words = await res.json();
+
+                const list = document.getElementById('wordle-words-list');
+                if (words.length === 0) {
+                    list.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">No words yet. Add one!</p>';
+                    return;
+                }
+
+                list.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;">
+                        ${words.map(word => `
+                            <div style="border: 2px solid ${word.is_active ? '#6aaa64' : '#ccc'}; border-radius: 8px; padding: 12px; text-align: center; position: relative;">
+                                <div style="font-size: 20px; font-weight: 700; margin-bottom: 5px;">${word.word}</div>
+                                <div style="font-size: 11px; color: #888; margin-bottom: 8px;">${word.difficulty} • ${word.times_used} uses</div>
+                                <div style="display: flex; gap: 5px; justify-content: center;">
+                                    <button onclick="editWord(${word.id})" style="padding: 4px 8px; font-size: 11px; border: none; background: #667eea; color: white; border-radius: 4px; cursor: pointer;">Edit</button>
+                                    <button onclick="deleteWord(${word.id}, '${word.word}')" style="padding: 4px 8px; font-size: 11px; border: none; background: #ff6b6b; color: white; border-radius: 4px; cursor: pointer;">Del</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Failed to load words:', e);
+            }
+        }
+
+        function showCreateWordModal() {
+            currentEditingWord = null;
+            document.getElementById('word-modal-title').textContent = 'New Word';
+            document.getElementById('word-text').value = '';
+            document.getElementById('word-text').disabled = false;
+            document.getElementById('word-difficulty').value = 'medium';
+            document.getElementById('word-alert').innerHTML = '';
+            document.getElementById('word-modal').classList.add('show');
+        }
+
+        async function editWord(wordId) {
+            const res = await fetch(`${API_URL}/api/admin/wordle-words`);
+            const words = await res.json();
+            currentEditingWord = words.find(w => w.id === wordId);
+
+            if (!currentEditingWord) return;
+
+            document.getElementById('word-modal-title').textContent = 'Edit Word';
+            document.getElementById('word-text').value = currentEditingWord.word;
+            document.getElementById('word-text').disabled = true;
+            document.getElementById('word-difficulty').value = currentEditingWord.difficulty;
+            document.getElementById('word-alert').innerHTML = '';
+            document.getElementById('word-modal').classList.add('show');
+        }
+
+        async function saveWord(e) {
+            e.preventDefault();
+            const data = {
+                word: document.getElementById('word-text').value.toUpperCase().trim(),
+                difficulty: document.getElementById('word-difficulty').value
+            };
+
+            const url = currentEditingWord
+                ? `${API_URL}/api/admin/wordle-words/${currentEditingWord.id}`
+                : `${API_URL}/api/admin/wordle-words`;
+            const method = currentEditingWord ? 'PATCH' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentEditingWord ? { difficulty: data.difficulty } : data)
+                });
+
+                if (res.ok) {
+                    closeModal('word-modal');
+                    await loadWordleWords();
+                } else {
+                    const error = await res.json();
+                    document.getElementById('word-alert').innerHTML = `
+                        <div style="background: #ffebee; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                            ${error.detail || 'Failed to save word'}
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                document.getElementById('word-alert').innerHTML = `
+                    <div style="background: #ffebee; color: #c62828; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                        Error: ${e.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function deleteWord(wordId, word) {
+            if (!confirm(`Delete word "${word}"?`)) return;
+
+            try {
+                await fetch(`${API_URL}/api/admin/wordle-words/${wordId}`, { method: 'DELETE' });
+                await loadWordleWords();
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        // ==================== CSV IMPORT/EXPORT ====================
+
+        async function downloadTemplate(type) {
+            const url = `${API_URL}/api/admin/export/${type}/template`;
+            window.open(url, '_blank');
+        }
+
+        async function handleFileUpload(type, file) {
+            if (!file) return;
+
+            const resultsDiv = document.getElementById('import-results');
+            resultsDiv.innerHTML = '<div style="text-align: center; padding: 20px;">Uploading...</div>';
+
+            try {
+                const formData = new FormData();
+                const fileBuffer = await file.arrayBuffer();
+                const blob = new Blob([fileBuffer], { type: 'text/csv' });
+
+                const res = await fetch(`${API_URL}/api/admin/import/${type}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/csv' },
+                    body: await blob.text()
+                });
+
+                const result = await res.json();
+
+                if (res.ok) {
+                    resultsDiv.innerHTML = `
+                        <div style="background: #e8f5e9; color: #2e7d32; padding: 15px; border-radius: 8px;">
+                            <strong>✓ ${result.message}</strong><br>
+                            Imported: ${result.imported} rows
+                            ${result.errors.length > 0 ? `<br><br><strong>Errors:</strong><ul style="margin-top: 10px;">${result.errors.map(e => `<li>${e}</li>`).join('')}</ul>` : ''}
+                        </div>
+                    `;
+
+                    // Reload data
+                    if (type === 'categories') await loadCategories();
+                    if (type === 'questions') await loadQuestions();
+                    if (type === 'wordle-words') await loadWordleWords();
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div style="background: #ffebee; color: #c62828; padding: 15px; border-radius: 8px;">
+                            <strong>✗ Import Failed</strong><br>
+                            ${result.detail || 'Unknown error'}
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                resultsDiv.innerHTML = `
+                    <div style="background: #ffebee; color: #c62828; padding: 15px; border-radius: 8px;">
+                        <strong>✗ Error</strong><br>
+                        ${e.message}
+                    </div>
+                `;
+            }
+
+            // Clear file input
+            document.getElementById(`${type}-file`).value = '';
+        }
+
+        // Update tab switching to handle new tabs
+        const originalSwitchTab = switchTab;
+        switchTab = function(tab) {
+            if (tab === 'wordle') {
+                document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.getElementById('wordle-section').classList.add('active');
+                event.target.classList.add('active');
+                loadWordleWords();
+            } else if (tab === 'import') {
+                document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.getElementById('import-section').classList.add('active');
+                event.target.classList.add('active');
+            } else {
+                originalSwitchTab(tab);
+            }
+        };
     </script>
 </body>
 </html>

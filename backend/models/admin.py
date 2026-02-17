@@ -46,3 +46,17 @@ class CustomTriviaQuestion(Base):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+class WordleWord(Base):
+    """Custom Wordle word managed by admin"""
+    __tablename__ = "wordle_words"
+
+    id = Column(Integer, primary_key=True, index=True)
+    word = Column(String(5), unique=True, nullable=False, index=True)  # 5-letter word
+    difficulty = Column(String(20), default="medium", nullable=False)  # easy, medium, hard
+    is_active = Column(Boolean, default=True, nullable=False)
+    times_used = Column(Integer, default=0, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

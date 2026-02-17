@@ -13,8 +13,11 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from models.admin import TriviaCategory, CustomTriviaQuestion
+from models.admin import TriviaCategory, CustomTriviaQuestion, WordleWord
 from models.user import User
+from fastapi.responses import StreamingResponse
+import io
+import csv
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -430,3 +433,420 @@ def delete_question(
     db.commit()
 
     return {"message": "Question deleted"}
+
+
+# ==================== CSV IMPORT/EXPORT ====================
+
+@router.get("/export/categories/template")
+def export_categories_template():
+    """Export empty CSV template for categories"""
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Write header
+    writer.writerow(["name", "description", "icon"])
+
+    # Write example row
+    writer.writerow(["Science", "Questions about scientific topics", "🔬"])
+    writer.writerow(["History", "Questions about historical events", "📜"])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=categories_template.csv"}
+    )
+
+
+@router.get("/export/questions/template")
+def export_questions_template():
+    """Export empty CSV template for questions"""
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Write header
+    writer.writerow(["category_name", "question", "option_a", "option_b", "option_c", "option_d", "correct_answer", "explanation", "difficulty"])
+
+    # Write example rows
+    writer.writerow([
+        "Science",
+        "What is the chemical symbol for water?",
+        "H2O",
+        "CO2",
+        "O2",
+        "N2",
+        "0",
+        "Water is composed of two hydrogen atoms and one oxygen atom",
+        "easy"
+    ])
+    writer.writerow([
+        "History",
+        "In what year did World War II end?",
+        "1943",
+        "1944",
+        "1945",
+        "1946",
+        "2",
+        "World War II ended in 1945 with the surrender of Japan",
+        "medium"
+    ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=questions_template.csv"}
+    )
+
+
+@router.get("/export/wordle-words/template")
+def export_wordle_words_template():
+    """Export empty CSV template for Wordle words"""
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Write header
+    writer.writerow(["word", "difficulty"])
+
+    # Write example rows
+    writer.writerow(["APPLE", "easy"])
+    writer.writerow(["BRAVE", "medium"])
+    writer.writerow(["SWIFT", "hard"])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=wordle_words_template.csv"}
+    )
+
+
+@router.post("/import/categories")
+async def import_categories(
+    file: bytes,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Import categories from CSV"""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+
+    try:
+        content = file.decode('utf-8')
+        reader = csv.DictReader(io.StringIO(content))
+
+        imported = 0
+        errors = []
+
+        for row_num, row in enumerate(reader, start=2):
+            try:
+                name = row.get('name', '').strip()
+                if not name:
+                    errors.append(f"Row {row_num}: Missing name")
+                    continue
+
+                # Check if category already exists
+                existing = db.query(TriviaCategory).filter(TriviaCategory.name == name).first()
+                if existing:
+                    errors.append(f"Row {row_num}: Category '{name}' already exists")
+                    continue
+
+                category = TriviaCategory(
+                    name=name,
+                    slug=slugify(name),
+                    description=row.get('description', '').strip() or None,
+                    icon=row.get('icon', '').strip() or None,
+                    created_by=user_id
+                )
+                db.add(category)
+                imported += 1
+
+            except Exception as e:
+                errors.append(f"Row {row_num}: {str(e)}")
+
+        db.commit()
+
+        return {
+            "imported": imported,
+            "errors": errors,
+            "message": f"Successfully imported {imported} categories"
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(400, f"Failed to import CSV: {str(e)}")
+
+
+@router.post("/import/questions")
+async def import_questions(
+    file: bytes,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Import questions from CSV"""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+
+    try:
+        content = file.decode('utf-8')
+        reader = csv.DictReader(io.StringIO(content))
+
+        imported = 0
+        errors = []
+
+        for row_num, row in enumerate(reader, start=2):
+            try:
+                category_name = row.get('category_name', '').strip()
+                question_text = row.get('question', '').strip()
+
+                if not category_name or not question_text:
+                    errors.append(f"Row {row_num}: Missing category_name or question")
+                    continue
+
+                # Find category
+                category = db.query(TriviaCategory).filter(TriviaCategory.name == category_name).first()
+                if not category:
+                    errors.append(f"Row {row_num}: Category '{category_name}' not found")
+                    continue
+
+                # Parse correct answer (0-3)
+                try:
+                    correct_answer = int(row.get('correct_answer', '0'))
+                    if correct_answer not in [0, 1, 2, 3]:
+                        raise ValueError("Must be 0-3")
+                except ValueError:
+                    errors.append(f"Row {row_num}: Invalid correct_answer (must be 0-3)")
+                    continue
+
+                question = CustomTriviaQuestion(
+                    category_id=category.id,
+                    question=question_text,
+                    option_a=row.get('option_a', '').strip(),
+                    option_b=row.get('option_b', '').strip(),
+                    option_c=row.get('option_c', '').strip(),
+                    option_d=row.get('option_d', '').strip(),
+                    correct_answer=correct_answer,
+                    explanation=row.get('explanation', '').strip() or None,
+                    difficulty=row.get('difficulty', 'medium').strip(),
+                    created_by=user_id
+                )
+                db.add(question)
+                imported += 1
+
+            except Exception as e:
+                errors.append(f"Row {row_num}: {str(e)}")
+
+        db.commit()
+
+        return {
+            "imported": imported,
+            "errors": errors,
+            "message": f"Successfully imported {imported} questions"
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(400, f"Failed to import CSV: {str(e)}")
+
+
+@router.post("/import/wordle-words")
+async def import_wordle_words(
+    file: bytes,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Import Wordle words from CSV"""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+
+    try:
+        content = file.decode('utf-8')
+        reader = csv.DictReader(io.StringIO(content))
+
+        imported = 0
+        errors = []
+
+        for row_num, row in enumerate(reader, start=2):
+            try:
+                word = row.get('word', '').strip().upper()
+
+                if not word:
+                    errors.append(f"Row {row_num}: Missing word")
+                    continue
+
+                if len(word) != 5:
+                    errors.append(f"Row {row_num}: Word must be exactly 5 letters")
+                    continue
+
+                if not word.isalpha():
+                    errors.append(f"Row {row_num}: Word must contain only letters")
+                    continue
+
+                # Check if word already exists
+                existing = db.query(WordleWord).filter(WordleWord.word == word).first()
+                if existing:
+                    errors.append(f"Row {row_num}: Word '{word}' already exists")
+                    continue
+
+                wordle_word = WordleWord(
+                    word=word,
+                    difficulty=row.get('difficulty', 'medium').strip(),
+                    created_by=user_id
+                )
+                db.add(wordle_word)
+                imported += 1
+
+            except Exception as e:
+                errors.append(f"Row {row_num}: {str(e)}")
+
+        db.commit()
+
+        return {
+            "imported": imported,
+            "errors": errors,
+            "message": f"Successfully imported {imported} words"
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(400, f"Failed to import CSV: {str(e)}")
+
+
+# ==================== WORDLE WORDS MANAGEMENT ====================
+
+class WordleWordResponse(BaseModel):
+    id: int
+    word: str
+    difficulty: str
+    is_active: bool
+    times_used: int
+    created_at: str
+
+
+class WordleWordCreate(BaseModel):
+    word: str
+    difficulty: str = "medium"
+
+
+class WordleWordUpdate(BaseModel):
+    difficulty: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+@router.get("/wordle-words")
+def get_wordle_words(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Get all Wordle words"""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+
+    words = db.query(WordleWord).order_by(WordleWord.word).all()
+
+    return [
+        WordleWordResponse(
+            id=word.id,
+            word=word.word,
+            difficulty=word.difficulty,
+            is_active=word.is_active,
+            times_used=word.times_used,
+            created_at=word.created_at.isoformat() if word.created_at else ""
+        )
+        for word in words
+    ]
+
+
+@router.post("/wordle-words")
+def create_wordle_word(
+    data: WordleWordCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Create a new Wordle word"""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+
+    word = data.word.strip().upper()
+
+    if len(word) != 5:
+        raise HTTPException(400, "Word must be exactly 5 letters")
+
+    if not word.isalpha():
+        raise HTTPException(400, "Word must contain only letters")
+
+    # Check if word already exists
+    existing = db.query(WordleWord).filter(WordleWord.word == word).first()
+    if existing:
+        raise HTTPException(400, f"Word '{word}' already exists")
+
+    wordle_word = WordleWord(
+        word=word,
+        difficulty=data.difficulty,
+        created_by=user_id
+    )
+    db.add(wordle_word)
+    db.commit()
+    db.refresh(wordle_word)
+
+    return WordleWordResponse(
+        id=wordle_word.id,
+        word=wordle_word.word,
+        difficulty=wordle_word.difficulty,
+        is_active=wordle_word.is_active,
+        times_used=wordle_word.times_used,
+        created_at=wordle_word.created_at.isoformat() if wordle_word.created_at else ""
+    )
+
+
+@router.patch("/wordle-words/{word_id}")
+def update_wordle_word(
+    word_id: int,
+    data: WordleWordUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Update a Wordle word"""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+
+    word = db.query(WordleWord).filter(WordleWord.id == word_id).first()
+    if not word:
+        raise HTTPException(404, "Word not found")
+
+    if data.difficulty is not None:
+        word.difficulty = data.difficulty
+    if data.is_active is not None:
+        word.is_active = data.is_active
+
+    db.commit()
+    db.refresh(word)
+
+    return WordleWordResponse(
+        id=word.id,
+        word=word.word,
+        difficulty=word.difficulty,
+        is_active=word.is_active,
+        times_used=word.times_used,
+        created_at=word.created_at.isoformat() if word.created_at else ""
+    )
+
+
+@router.delete("/wordle-words/{word_id}")
+def delete_wordle_word(
+    word_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Delete a Wordle word"""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+
+    word = db.query(WordleWord).filter(WordleWord.id == word_id).first()
+    if not word:
+        raise HTTPException(404, "Word not found")
+
+    db.delete(word)
+    db.commit()
+
+    return {"message": "Word deleted"}
