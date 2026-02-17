@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-from database import get_db
 from models.user import User
 from models.wordle import WordleGame, WordleStats, DailyWordleLeaderboard
 from routers.auth import get_current_user
@@ -11,6 +10,15 @@ from datetime import datetime, timezone, date, timedelta
 import random
 
 router = APIRouter(prefix="/api/wordle", tags=["wordle"])
+
+def get_db():
+    """Get database session"""
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # Wordle word list (5-letter common words)
 WORDLE_WORDS = [
