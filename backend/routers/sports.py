@@ -48,6 +48,14 @@ def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
         return 1
 
 
+def is_admin(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)) -> bool:
+    """Check if current user is an admin"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or user.role != "admin":
+        raise HTTPException(403, "Admin access required")
+    return True
+
+
 # Pydantic schemas (inline for simplicity)
 class BetTypeEnum(str, Enum):
     MONEYLINE = "moneyline"
@@ -231,60 +239,112 @@ def update_leaderboard(db: Session, user_id: int, sport_category: str, bet: Bet)
 
 # Endpoints
 @router.get("/today")
-async def get_todays_games(category: Optional[str] = None, db: Session = Depends(get_db)):
-    """Fetch today's games with odds from The Odds API"""
+def get_todays_games(category: Optional[str] = None, db: Session = Depends(get_db)):
+    """
+    Get today's games from database (NOT from API)
+    Odds are synced automatically at 6 AM and 3 PM ET
+    """
     try:
-        # Import odds service (dynamic to avoid circular imports)
         from app.services.odds_service import odds_service
 
+        # Get matches from database (upcoming and today's completed)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=12)
+
+        query = db.query(SportsMatch).filter(
+            SportsMatch.commence_time >= cutoff_time
+        )
+
+        # Filter by sport category if provided
         if category:
-            odds_data = await odds_service.get_odds_by_category(category)
-            categories_to_process = {category: odds_data}
-        else:
-            categories_to_process = await odds_service.get_all_todays_games()
+            # Map category to sport keys
+            category_sports = {
+                "football": ["americanfootball_nfl", "americanfootball_ncaaf", "americanfootball_cfl", "australianfootball_afl"],
+                "basketball": ["basketball_nba", "basketball_ncaab", "basketball_wnba", "basketball_euroleague"],
+                "baseball": ["baseball_mlb", "baseball_kbo", "baseball_npb"],
+                "hockey": ["icehockey_nhl", "icehockey_ahl", "icehockey_shl", "icehockey_allsvenskan", "icehockey_liiga"],
+                "soccer": ["soccer_epl", "soccer_germany_bundesliga", "soccer_spain_la_liga", "soccer_italy_serie_a", "soccer_france_ligue_one", "soccer_brazil_campeonato", "soccer_uefa_champs_league", "soccer_uefa_europa_league"]
+            }
 
+            if category in category_sports:
+                query = query.filter(SportsMatch.sport_key.in_(category_sports[category]))
+
+        matches = query.order_by(SportsMatch.commence_time).all()
+
+        # Group by sport key
+        games_by_sport = {}
+        for match in matches:
+            if match.sport_key not in games_by_sport:
+                games_by_sport[match.sport_key] = []
+
+            # Parse odds from stored odds_data
+            parsed = odds_service.parse_odds_for_display({
+                "id": match.external_id,
+                "sport_key": match.sport_key,
+                "sport_title": match.sport_title,
+                "home_team": match.home_team,
+                "away_team": match.away_team,
+                "commence_time": match.commence_time.isoformat(),
+                "bookmakers": match.odds_data or []
+            })
+
+            game = MatchOddsResponse(
+                event_id=match.external_id,
+                match_id=match.id,
+                sport_key=match.sport_key,
+                sport_title=match.sport_title,
+                home_team=match.home_team,
+                away_team=match.away_team,
+                commence_time=match.commence_time,
+                moneyline=MoneylineOdds(**parsed["moneyline"]),
+                spreads=SpreadOdds(**parsed["spreads"]),
+                totals=TotalOdds(**parsed["totals"]),
+                home_score=match.home_score,
+                away_score=match.away_score
+            )
+            games_by_sport[match.sport_key].append(game)
+
+        # Build response grouped by category
         response = []
+        category_map = {
+            "americanfootball_nfl": "football",
+            "americanfootball_ncaaf": "football",
+            "americanfootball_cfl": "football",
+            "australianfootball_afl": "football",
+            "basketball_nba": "basketball",
+            "basketball_ncaab": "basketball",
+            "basketball_wnba": "basketball",
+            "basketball_euroleague": "basketball",
+            "baseball_mlb": "baseball",
+            "baseball_kbo": "baseball",
+            "baseball_npb": "baseball",
+            "icehockey_nhl": "hockey",
+            "icehockey_ahl": "hockey",
+            "icehockey_shl": "hockey",
+            "icehockey_allsvenskan": "hockey",
+            "icehockey_liiga": "hockey",
+            "soccer_epl": "soccer",
+            "soccer_germany_bundesliga": "soccer",
+            "soccer_spain_la_liga": "soccer",
+            "soccer_italy_serie_a": "soccer",
+            "soccer_france_ligue_one": "soccer",
+            "soccer_brazil_campeonato": "soccer",
+            "soccer_uefa_champs_league": "soccer",
+            "soccer_uefa_europa_league": "soccer"
+        }
 
-        for cat, sports_dict in categories_to_process.items():
-            for sport_key, events in sports_dict.items():
-                games = []
-
-                for event in events:
-                    parsed = odds_service.parse_odds_for_display(event)
-
-                    # Check if match exists in DB
-                    existing_match = db.query(SportsMatch).filter(
-                        SportsMatch.external_id == parsed["event_id"]
-                    ).first()
-
-                    match_id = existing_match.id if existing_match else None
-
-                    game = MatchOddsResponse(
-                        event_id=parsed["event_id"],
-                        match_id=match_id,
-                        sport_key=parsed["sport"],
-                        sport_title=event.get("sport_title", sport_key.upper()),
-                        home_team=parsed["home_team"],
-                        away_team=parsed["away_team"],
-                        commence_time=datetime.fromisoformat(parsed["commence_time"].replace('Z', '+00:00')),
-                        moneyline=MoneylineOdds(**parsed["moneyline"]),
-                        spreads=SpreadOdds(**parsed["spreads"]),
-                        totals=TotalOdds(**parsed["totals"])
-                    )
-                    games.append(game)
-
-                if games:
-                    response.append(TodaysGamesResponse(
-                        category=cat,
-                        sport_key=sport_key,
-                        sport_title=games[0].sport_title,
-                        games=games
-                    ))
+        for sport_key, games in games_by_sport.items():
+            cat = category_map.get(sport_key, "other")
+            response.append(TodaysGamesResponse(
+                category=cat,
+                sport_key=sport_key,
+                sport_title=games[0].sport_title if games else sport_key.upper(),
+                games=games
+            ))
 
         return response
 
     except Exception as e:
-        logger.error(f"Error fetching today's games: {str(e)}")
+        logger.error(f"Error fetching today's games from DB: {str(e)}", exc_info=True)
         raise HTTPException(500, f"Failed to fetch games: {str(e)}")
 
 
@@ -414,12 +474,66 @@ def get_my_bets(db: Session = Depends(get_db), user_id: int = Depends(get_curren
     return {"bets": result, "total": len(result)}
 
 
+@router.get("/sync-status")
+def get_sync_status(db: Session = Depends(get_db)):
+    """Get the last sync time and status"""
+    from models.sync_metadata import SyncMetadata
+    from zoneinfo import ZoneInfo
+
+    sync_meta = db.query(SyncMetadata).first()
+
+    if not sync_meta or not sync_meta.last_sync_time:
+        return {
+            "last_sync_time": None,
+            "status": "never",
+            "games_synced": 0,
+            "formatted_time": "Never synced"
+        }
+
+    # Convert to ET timezone for display
+    et_tz = ZoneInfo("America/New_York")
+    sync_time_et = sync_meta.last_sync_time.astimezone(et_tz)
+
+    # Format like "Today at 3:00 PM ET" or "Feb 17 at 6:00 AM ET"
+    now_et = datetime.now(et_tz)
+    if sync_time_et.date() == now_et.date():
+        formatted = f"Today at {sync_time_et.strftime('%-I:%M %p')} ET"
+    elif sync_time_et.date() == (now_et.date() - timedelta(days=1)):
+        formatted = f"Yesterday at {sync_time_et.strftime('%-I:%M %p')} ET"
+    else:
+        formatted = sync_time_et.strftime("%b %d at %-I:%M %p ET")
+
+    return {
+        "last_sync_time": sync_meta.last_sync_time.isoformat(),
+        "status": sync_meta.sync_status,
+        "games_synced": sync_meta.games_synced,
+        "formatted_time": formatted
+    }
+
+
 @router.post("/admin/sync-matches")
-async def sync_matches(category: Optional[str] = None, db: Session = Depends(get_db)):
-    """Admin: Sync matches from Odds API to database"""
+async def sync_matches(
+    category: Optional[str] = None,
+    db: Session = Depends(get_db),
+    _admin: bool = Depends(is_admin)
+):
+    """Admin-only: Manually sync matches from Odds API to database"""
     try:
         from app.services.odds_service import odds_service
+        from models.sync_metadata import SyncMetadata
 
+        # Get or create sync metadata
+        sync_meta = db.query(SyncMetadata).first()
+        if not sync_meta:
+            sync_meta = SyncMetadata()
+            db.add(sync_meta)
+            db.flush()
+
+        # Mark sync as running
+        sync_meta.sync_status = "running"
+        db.commit()
+
+        # Fetch all sports odds
         if category:
             odds_data = await odds_service.get_odds_by_category(category)
             categories_to_sync = {category: odds_data}
@@ -433,7 +547,9 @@ async def sync_matches(category: Optional[str] = None, db: Session = Depends(get
             for sport_key, events in sports_dict.items():
                 for event in events:
                     external_id = event.get("id")
-                    existing = db.query(SportsMatch).filter(SportsMatch.external_id == external_id).first()
+                    existing = db.query(SportsMatch).filter(
+                        SportsMatch.external_id == external_id
+                    ).first()
 
                     if existing:
                         existing.odds_data = event.get("bookmakers", [])
@@ -446,7 +562,9 @@ async def sync_matches(category: Optional[str] = None, db: Session = Depends(get
                             sport_title=event.get("sport_title", sport_key.upper()),
                             home_team=event.get("home_team"),
                             away_team=event.get("away_team"),
-                            commence_time=datetime.fromisoformat(event.get("commence_time").replace('Z', '+00:00')),
+                            commence_time=datetime.fromisoformat(
+                                event.get("commence_time").replace('Z', '+00:00')
+                            ),
                             status=MatchStatus.UPCOMING,
                             odds_data=event.get("bookmakers", [])
                         )
@@ -454,10 +572,50 @@ async def sync_matches(category: Optional[str] = None, db: Session = Depends(get
                         synced += 1
 
         db.commit()
-        return {"success": True, "new_matches": synced, "updated_matches": updated}
+
+        # Clean up old matches (>7 days with no bets)
+        cleanup_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+        old_matches = db.query(SportsMatch).filter(
+            SportsMatch.created_at < cleanup_cutoff
+        ).all()
+
+        cleaned_count = 0
+        for match in old_matches:
+            # Check if match has any bets
+            has_bets = db.query(BetPick).filter(
+                BetPick.match_id == match.id
+            ).first() is not None
+
+            if not has_bets:
+                db.delete(match)
+                cleaned_count += 1
+
+        db.commit()
+
+        # Update sync metadata
+        sync_meta.last_sync_time = datetime.now(timezone.utc)
+        sync_meta.sync_status = "success"
+        sync_meta.games_synced = synced + updated
+        sync_meta.error_message = None
+        db.commit()
+
+        return {
+            "success": True,
+            "new_matches": synced,
+            "updated_matches": updated,
+            "cleaned_matches": cleaned_count
+        }
 
     except Exception as e:
+        logger.error(f"Sync failed: {str(e)}", exc_info=True)
         db.rollback()
+
+        # Mark sync as failed
+        if sync_meta:
+            sync_meta.sync_status = "failed"
+            sync_meta.error_message = str(e)[:500]
+            db.commit()
+
         raise HTTPException(500, f"Failed to sync: {str(e)}")
 
 

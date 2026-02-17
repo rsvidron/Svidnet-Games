@@ -53,9 +53,10 @@ except ImportError as e:
 # Import Sports models
 try:
     from models.sports import SportsMatch, Bet, BetPick, SportsLeaderboard
+    from models.sync_metadata import SyncMetadata
     print("✓ Sports models imported successfully")
 except ImportError as e:
-    print(f"⚠ Wordle models not available: {e}")
+    print(f"⚠ Sports models not available: {e}")
 
 # Run Wordle table migration (if needed)
 try:
@@ -482,6 +483,25 @@ except Exception as e:
     print(f"⚠ Warning: Could not import sports router: {type(e).__name__}: {e}")
     import traceback
     traceback.print_exc()
+
+# Start odds sync scheduler on startup
+@app.on_event("startup")
+async def startup_event():
+    """Start background services on app startup"""
+    try:
+        from app.services.odds_sync_scheduler import sync_scheduler
+        sync_scheduler.start()
+    except Exception as e:
+        print(f"⚠ Warning: Could not start odds sync scheduler: {e}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop background services on app shutdown"""
+    try:
+        from app.services.odds_sync_scheduler import sync_scheduler
+        sync_scheduler.stop()
+    except Exception as e:
+        print(f"⚠ Warning: Could not stop odds sync scheduler: {e}")
 
 
 if __name__ == "__main__":

@@ -52,6 +52,68 @@
             font-size: 14px;
         }
 
+        .navbar-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .sync-status {
+            font-size: 13px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sync-btn {
+            background: #28a745 !important;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sync-btn:hover {
+            background: #218838 !important;
+        }
+
+        .sync-btn:disabled {
+            background: #ccc !important;
+            cursor: not-allowed;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success {
+            background: #28a745;
+        }
+
+        .toast.error {
+            background: #dc3545;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
         .filters {
             background: white;
             padding: 20px;
@@ -419,7 +481,15 @@
 <body>
     <div class="navbar">
         <h1>🏈 Sportsbook</h1>
-        <button onclick="window.location.href='/dashboard.html'">← Back to Dashboard</button>
+        <div class="navbar-right">
+            <div class="sync-status" id="sync-status">
+                <span id="sync-time">Loading...</span>
+            </div>
+            <button class="sync-btn" id="sync-btn" onclick="syncOdds()">
+                🔄 Get Odds
+            </button>
+            <button onclick="window.location.href='/dashboard.html'">← Back to Dashboard</button>
+        </div>
     </div>
 
     <div class="filters">
@@ -890,11 +960,96 @@
             loadGames(category === 'today' ? null : category);
         }
 
+        // Fetch and display sync status
+        async function loadSyncStatus() {
+            try {
+                const response = await fetch(`${API_URL}/api/sports/sync-status`);
+                const data = await response.json();
+
+                const syncTimeEl = document.getElementById('sync-time');
+                if (data.status === 'never') {
+                    syncTimeEl.textContent = '⚠️ No odds available';
+                    syncTimeEl.style.color = '#dc3545';
+                } else {
+                    syncTimeEl.textContent = `Last sync: ${data.formatted_time}`;
+                    syncTimeEl.style.color = '#666';
+                }
+            } catch (error) {
+                console.error('Error loading sync status:', error);
+                document.getElementById('sync-time').textContent = 'Sync status unavailable';
+            }
+        }
+
+        // Manual sync (admin only)
+        async function syncOdds() {
+            const syncBtn = document.getElementById('sync-btn');
+            const originalText = syncBtn.innerHTML;
+
+            try {
+                // Disable button and show loading
+                syncBtn.disabled = true;
+                syncBtn.innerHTML = '⏳ Syncing...';
+
+                // Show toast notification
+                showToast('Syncing odds from The Odds API...', 'info');
+
+                const response = await fetch(`${API_URL}/api/sports/admin/sync-matches`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showToast(
+                        `✅ Sync complete! ${result.new_matches} new, ${result.updated_matches} updated`,
+                        'success'
+                    );
+
+                    // Reload sync status and games
+                    await loadSyncStatus();
+                    await loadGames(currentCategory === 'today' ? null : currentCategory);
+                } else if (response.status === 403) {
+                    showToast('❌ Admin access required', 'error');
+                } else {
+                    const error = await response.json();
+                    showToast(`❌ Sync failed: ${error.detail || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error syncing odds:', error);
+                showToast('❌ Sync failed. Please try again.', 'error');
+            } finally {
+                // Re-enable button
+                syncBtn.disabled = false;
+                syncBtn.innerHTML = originalText;
+            }
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            // Remove after 4 seconds
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
         // Initialize - Load "Games Today" by default
         document.addEventListener('DOMContentLoaded', function() {
             // Set "Games Today" as active
             document.querySelector('.filter-tab').classList.add('active');
+
+            // Load sync status
+            loadSyncStatus();
+
+            // Load games
             loadGames(null);
+
+            // Refresh sync status every 5 minutes
+            setInterval(loadSyncStatus, 5 * 60 * 1000);
         });
     </script>
 </body>

@@ -93,6 +93,10 @@ class Settings(BaseSettings):
     ODDS_API_BASE_URL: str = "https://api.the-odds-api.com/v4"
     ODDS_CACHE_TTL_SECONDS: int = 300  # 5 minutes cache for live odds
 
+    # Auto-sync settings for sportsbook
+    AUTO_SYNC_ENABLED: bool = True  # Enable automatic odds syncing
+    SYNC_TIMEZONE: str = "America/New_York"  # ET timezone for sync times
+
     # Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
