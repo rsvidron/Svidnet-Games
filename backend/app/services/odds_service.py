@@ -7,7 +7,13 @@ import logging
 from typing import List, Dict, Optional, Any
 from datetime import datetime, timezone
 from app.core.config import settings
-from app.core.redis import redis_client
+
+# Try to import redis, but make it optional
+try:
+    from app.core.redis import redis_client
+except ImportError:
+    redis_client = None
+    logging.warning("Redis not available - caching disabled for odds service")
 
 logger = logging.getLogger(__name__)
 
