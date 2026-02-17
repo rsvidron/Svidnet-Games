@@ -79,7 +79,7 @@ class Notification(Base, IdMixin, TimestampMixin):
     message = Column(String, nullable=True)
     is_read = Column(Boolean, default=False, nullable=False, index=True)
     action_url = Column(String(500), nullable=True)
-    metadata = Column(String, nullable=True)  # JSON string
+    extra_data = Column(String, nullable=True)  # JSON string (renamed from metadata to avoid SQLAlchemy conflict)
 
     # Relationships
     user = relationship("User", back_populates="notifications")
