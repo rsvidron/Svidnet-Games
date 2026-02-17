@@ -290,6 +290,10 @@ async def make_guess(
                     break
                 except ValueError:
                     continue
+        elif isinstance(time_started, datetime):
+            # Ensure timezone-aware
+            if time_started.tzinfo is None:
+                time_started = time_started.replace(tzinfo=timezone.utc)
 
         if isinstance(time_started, datetime):
             time_delta = game.time_completed - time_started
