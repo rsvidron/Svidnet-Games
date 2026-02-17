@@ -446,8 +446,10 @@ try:
     from routers.wordle import router as wordle_router
     app.include_router(wordle_router)
     print("✓ Wordle router loaded")
-except ImportError as e:
-    print(f"Warning: Could not import wordle router: {e}")
+except Exception as e:
+    print(f"⚠ Warning: Could not import wordle router: {type(e).__name__}: {e}")
+    import traceback
+    traceback.print_exc()
 
 
 if __name__ == "__main__":
