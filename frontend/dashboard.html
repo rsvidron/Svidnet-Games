@@ -152,6 +152,7 @@
             <div class="nav-left">
                 <a href="/" class="nav-btn active">Home</a>
                 <a href="/profile" class="nav-btn">Profile</a>
+                <a href="/admin" class="nav-btn" id="admin-nav-btn" style="display: none;">Admin</a>
             </div>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
@@ -256,6 +257,15 @@
             return null;
         }
 
+        function isAdmin(user) {
+            if (!user) return false;
+            // Check if user is in admin list
+            const adminUsernames = ['svidthekid'];
+            const adminEmails = ['svidron.robert@gmail.com'];
+            return adminUsernames.includes(user.username) ||
+                   adminEmails.includes(user.email);
+        }
+
         function logout() {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
@@ -322,6 +332,18 @@
             if (!currentUser) {
                 window.location.href = '/login';
                 return;
+            }
+
+            // Debug admin check
+            console.log('Current user:', currentUser);
+            console.log('Username:', currentUser.username);
+            console.log('Email:', currentUser.email);
+            console.log('Is admin?', isAdmin(currentUser));
+
+            // Show admin button if user is admin
+            if (isAdmin(currentUser)) {
+                document.getElementById('admin-nav-btn').style.display = 'block';
+                console.log('Admin button should now be visible');
             }
 
             // Set welcome text

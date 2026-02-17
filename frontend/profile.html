@@ -86,6 +86,12 @@
             font-weight: 600; cursor: pointer; margin-top: 10px;
         }
         .load-more:hover { background: #eef; }
+        .logout-btn {
+            background: rgba(255,80,80,0.2); color: #ff6b6b; border: 2px solid rgba(255,80,80,0.4);
+            padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .logout-btn:hover { background: rgba(255,80,80,0.3); }
     </style>
 </head>
 <body>
@@ -94,7 +100,9 @@
             <div class="nav-left">
                 <a href="/" class="nav-btn">Home</a>
                 <a href="/profile" class="nav-btn active">Profile</a>
+                <a href="/admin" class="nav-btn" id="admin-nav-btn" style="display: none;">Admin</a>
             </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
 
         <div class="profile-card">
@@ -137,9 +145,36 @@
             return s ? JSON.parse(s) : null;
         }
 
+        function isAdmin(user) {
+            if (!user) return false;
+            // Check if user is in admin list
+            const adminUsernames = ['svidthekid'];
+            const adminEmails = ['svidron.robert@gmail.com'];
+            return adminUsernames.includes(user.username) ||
+                   adminEmails.includes(user.email);
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/login';
+        }
+
         async function loadProfile() {
             const user = getUser();
             if (!user) { window.location.href = '/login'; return; }
+
+            // Debug admin check
+            console.log('Current user:', user);
+            console.log('Username:', user.username);
+            console.log('Email:', user.email);
+            console.log('Is admin?', isAdmin(user));
+
+            // Show admin button if user is admin
+            if (isAdmin(user)) {
+                document.getElementById('admin-nav-btn').style.display = 'block';
+                console.log('Admin button should now be visible');
+            }
 
             // Set basic user info
             document.getElementById('profile-username').textContent = user.username;
