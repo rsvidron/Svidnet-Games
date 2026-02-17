@@ -3,7 +3,8 @@ Enhanced API with Google OAuth support
 """
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import Column, Integer, String, Boolean, create_engine
 from sqlalchemy.orm import Session, sessionmaker, declarative_base
 from pydantic import BaseModel, EmailStr, Field
@@ -113,6 +114,11 @@ if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
 
 @app.get("/")
 def root():
+    """Serve the frontend HTML"""
+    frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "oauth-index.html")
+    if os.path.exists(frontend_path):
+        return FileResponse(frontend_path)
+    # Fallback to API response if frontend not found
     oauth_enabled = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
     return {
         "message": "🎮 SvidNet Arena - With Google OAuth",
@@ -122,7 +128,8 @@ def root():
             "standard_auth": True,
             "google_oauth": oauth_enabled
         },
-        "docs": "/docs"
+        "docs": "/docs",
+        "frontend": "not found - check deployment"
     }
 
 @app.get("/health")
