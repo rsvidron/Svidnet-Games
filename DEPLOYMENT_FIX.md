@@ -1,21 +1,22 @@
-# 🔧 Railway Deployment - Issue Fixed!
+# 🔧 Railway Deployment - Issue Fixed! (v2)
 
 ## ✅ What Was Wrong
 
-**Error:** `pip: command not found`
+**First Error:** `pip: command not found`
+**Second Error:** `undefined variable 'pip'` in nixpacks.toml
 
-**Cause:** Railway's Nixpacks builder wasn't installing Python and pip properly with the custom build command.
+**Root Cause:** In Nix, pip is not a standalone package - it comes bundled with Python. The nixpacks.toml was trying to reference 'pip' as a separate Nix package which doesn't exist.
 
 ## ✅ What I Fixed
 
-### 1. Added `nixpacks.toml`
-Tells Railway exactly how to set up Python:
+### 1. Corrected `nixpacks.toml`
+Removed 'pip' from nixPkgs and simplified the install command:
 ```toml
 [phases.setup]
-nixPkgs = ['python311', 'pip']
+nixPkgs = ['python311']
 
 [phases.install]
-cmds = ['cd backend && pip install -r requirements-simple.txt']
+cmds = ['pip install -r requirements.txt']
 
 [start]
 cmd = 'cd backend && python oauth_server.py'
