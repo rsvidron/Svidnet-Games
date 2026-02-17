@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from models.user import User
 from models.wordle import WordleGame, WordleStats, DailyWordleLeaderboard
-from routers.auth import get_current_user
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime, timezone, date, timedelta
@@ -19,6 +18,24 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
+    """Extract user ID from JWT token in Authorization header"""
+    if not authorization:
+        raise HTTPException(401, "Authorization header required")
+
+    try:
+        token = authorization.replace("Bearer ", "")
+        from jose import jwt
+        import os
+        SECRET_KEY = os.getenv("SECRET_KEY", "test-secret-key-for-development")
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(401, "Invalid token")
+        return int(user_id)
+    except Exception as e:
+        raise HTTPException(401, f"Invalid token: {e}")
 
 # Wordle word list (5-letter common words)
 WORDLE_WORDS = [
@@ -167,13 +184,13 @@ def check_guess(guess: str, target: str) -> List[str]:
     return result
 
 @router.post("/start")
-async def start_game(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def start_game(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
     """Start a new daily Wordle game"""
     today = date.today()
 
     # Check if user has already played today
     today_game = db.query(WordleGame).filter(
-        WordleGame.user_id == current_user.id,
+        WordleGame.user_id == user_id,
         WordleGame.challenge_date == today
     ).first()
 
@@ -193,7 +210,7 @@ async def start_game(current_user: User = Depends(get_current_user), db: Session
 
     # Create new game for today
     new_game = WordleGame(
-        user_id=current_user.id,
+        user_id=user_id,
         challenge_date=today,
         target_word=target_word,
         guesses=[],
@@ -217,14 +234,14 @@ async def start_game(current_user: User = Depends(get_current_user), db: Session
 async def make_guess(
     game_id: int,
     request: GuessRequest,
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
     """Submit a guess for a Wordle game"""
     # Get the game
     game = db.query(WordleGame).filter(
         WordleGame.id == game_id,
-        WordleGame.user_id == current_user.id
+        WordleGame.user_id == user_id
     ).first()
 
     if not game:
@@ -279,12 +296,12 @@ async def make_guess(
             game.time_taken_seconds = int(time_delta.total_seconds())
 
         # Update user stats
-        update_user_stats(current_user.id, is_won, game.attempts_used, game.challenge_date, db)
+        update_user_stats(user_id, is_won, game.attempts_used, game.challenge_date, db)
 
         # Add to daily leaderboard
         leaderboard_entry = DailyWordleLeaderboard(
             challenge_date=game.challenge_date,
-            user_id=current_user.id,
+            user_id=user_id,
             attempts_used=game.attempts_used,
             is_won=is_won,
             time_taken_seconds=game.time_taken_seconds,
@@ -306,13 +323,13 @@ async def make_guess(
 @router.get("/game/{game_id}", response_model=GameState)
 async def get_game_state(
     game_id: int,
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
     """Get current game state"""
     game = db.query(WordleGame).filter(
         WordleGame.id == game_id,
-        WordleGame.user_id == current_user.id
+        WordleGame.user_id == user_id
     ).first()
 
     if not game:
@@ -329,9 +346,9 @@ async def get_game_state(
     )
 
 @router.get("/stats", response_model=StatsResponse)
-async def get_stats(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def get_stats(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
     """Get user's Wordle statistics"""
-    stats = db.query(WordleStats).filter(WordleStats.user_id == current_user.id).first()
+    stats = db.query(WordleStats).filter(WordleStats.user_id == user_id).first()
 
     if not stats:
         return StatsResponse(
@@ -406,7 +423,7 @@ def update_user_stats(user_id: int, is_won: bool, attempts_used: int, challenge_
     db.commit()
 
 @router.get("/leaderboard/today", response_model=List[LeaderboardEntry])
-async def get_today_leaderboard(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def get_today_leaderboard(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
     """Get today's Wordle leaderboard"""
     today = date.today()
 
