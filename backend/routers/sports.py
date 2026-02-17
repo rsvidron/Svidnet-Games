@@ -51,8 +51,21 @@ def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
 def is_admin(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)) -> bool:
     """Check if current user is an admin"""
     user = db.query(User).filter(User.id == user_id).first()
-    if not user or user.role != "admin":
+    if not user:
         raise HTTPException(403, "Admin access required")
+
+    # Default admin users
+    admin_usernames = ["svidthekid"]
+    admin_emails = ["svidron.robert@gmail.com"]
+
+    # Check if user is marked as admin OR is in the default admin list
+    is_user_admin = (user.role == "admin" or
+                     user.username in admin_usernames or
+                     user.email in admin_emails)
+
+    if not is_user_admin:
+        raise HTTPException(403, "Admin access required")
+
     return True
 
 
