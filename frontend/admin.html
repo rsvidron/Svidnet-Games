@@ -708,13 +708,11 @@
 
             try {
                 const formData = new FormData();
-                const fileBuffer = await file.arrayBuffer();
-                const blob = new Blob([fileBuffer], { type: 'text/csv' });
+                formData.append('file', file);
 
                 const res = await fetch(`${API_URL}/api/admin/import/${type}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'text/csv' },
-                    body: await blob.text()
+                    body: formData
                 });
 
                 const result = await res.json();

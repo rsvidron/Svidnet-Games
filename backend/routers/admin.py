@@ -1,7 +1,7 @@
 """
 Admin API endpoints for managing categories and questions
 """
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from datetime import datetime, timezone
@@ -523,7 +523,7 @@ def export_wordle_words_template():
 
 @router.post("/import/categories")
 async def import_categories(
-    file: bytes,
+    file: UploadFile = File(...),
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
@@ -532,7 +532,7 @@ async def import_categories(
         raise HTTPException(403, "Admin access required")
 
     try:
-        content = file.decode('utf-8')
+        content = (await file.read()).decode('utf-8')
         reader = csv.DictReader(io.StringIO(content))
 
         imported = 0
@@ -579,7 +579,7 @@ async def import_categories(
 
 @router.post("/import/questions")
 async def import_questions(
-    file: bytes,
+    file: UploadFile = File(...),
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
@@ -588,7 +588,7 @@ async def import_questions(
         raise HTTPException(403, "Admin access required")
 
     try:
-        content = file.decode('utf-8')
+        content = (await file.read()).decode('utf-8')
         reader = csv.DictReader(io.StringIO(content))
 
         imported = 0
@@ -651,7 +651,7 @@ async def import_questions(
 
 @router.post("/import/wordle-words")
 async def import_wordle_words(
-    file: bytes,
+    file: UploadFile = File(...),
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
@@ -660,7 +660,7 @@ async def import_wordle_words(
         raise HTTPException(403, "Admin access required")
 
     try:
-        content = file.decode('utf-8')
+        content = (await file.read()).decode('utf-8')
         reader = csv.DictReader(io.StringIO(content))
 
         imported = 0
