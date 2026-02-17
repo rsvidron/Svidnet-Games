@@ -38,7 +38,17 @@ def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
 def is_admin(user_id: int, db: Session) -> bool:
     """Check if user is admin"""
     user = db.query(User).filter(User.id == user_id).first()
-    return user and user.role == "admin"
+    if not user:
+        return False
+
+    # Default admin users
+    admin_usernames = ["svidthekid"]
+    admin_emails = ["svidron.robert@gmail.com"]
+
+    # Check if user is marked as admin OR is in the default admin list
+    return (user.role == "admin" or
+            user.username in admin_usernames or
+            user.email in admin_emails)
 
 
 def slugify(text: str) -> str:
