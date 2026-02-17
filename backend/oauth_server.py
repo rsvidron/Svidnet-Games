@@ -82,7 +82,7 @@ class TokenResponse(BaseModel):
     user: dict
 
 # FastAPI app
-app = FastAPI(title="SvidNet Arena", version="1.0.0")
+app = FastAPI(title="Svidhaus Arena", version="1.0.0")
 
 # Session middleware (required for OAuth)
 SESSION_SECRET = os.getenv("SECRET_KEY", "test-secret-key-for-development-only")
@@ -118,7 +118,7 @@ def root():
     dashboard_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "dashboard.html")
     if os.path.exists(dashboard_path):
         return FileResponse(dashboard_path)
-    return {"message": "SvidNet Arena", "status": "running"}
+    return {"message": "Svidhaus Arena", "status": "running"}
 
 @app.get("/login")
 def login_page():
@@ -406,5 +406,5 @@ except ImportError as e:
 
 if __name__ == "__main__":
     import uvicorn
-    print("🚀 Starting SvidNet Arena with Google OAuth on http://0.0.0.0:8000")
+    print("🚀 Starting Svidhaus Arena with Google OAuth on http://0.0.0.0:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
