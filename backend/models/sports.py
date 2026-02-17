@@ -96,7 +96,7 @@ class Bet(Base):
 
     # Wagering
     stake = Column(Integer, default=10, nullable=False)  # Virtual points wagered
-    potential_payout = Column(Float, nullable=False)  # Calculated from odds
+    potential_payout = Column(Float, default=0.0, nullable=False)  # Calculated from odds
     actual_payout = Column(Float, default=0.0, nullable=False)  # After bet settles
 
     # Status
