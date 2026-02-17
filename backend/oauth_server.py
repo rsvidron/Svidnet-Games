@@ -162,6 +162,78 @@ def health():
         "oauth_configured": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
     }
 
+@app.get("/debug")
+def debug_info():
+    """Debug endpoint to check system status and configuration"""
+    import sys
+    from sqlalchemy import inspect
+
+    # Check database tables
+    inspector = inspect(engine)
+    tables = inspector.get_table_names()
+
+    # Check trivia models import
+    trivia_models_loaded = False
+    trivia_import_error = None
+    try:
+        from models.trivia import TriviaGame, TriviaAnswer, TriviaLeaderboard
+        trivia_models_loaded = True
+    except Exception as e:
+        trivia_import_error = str(e)
+
+    # Check trivia router
+    trivia_router_loaded = False
+    trivia_router_error = None
+    try:
+        from routers.trivia import router as trivia_router
+        trivia_router_loaded = True
+    except Exception as e:
+        trivia_router_error = str(e)
+
+    # Get sample data from DB
+    db = SessionLocal()
+    try:
+        user_count = db.query(User).count()
+        if "trivia_games" in tables:
+            trivia_game_count = db.execute("SELECT COUNT(*) FROM trivia_games").scalar()
+        else:
+            trivia_game_count = "table not found"
+    except Exception as e:
+        user_count = f"error: {e}"
+        trivia_game_count = f"error: {e}"
+    finally:
+        db.close()
+
+    return {
+        "status": "debug_info",
+        "python_version": sys.version,
+        "database": {
+            "url": DATABASE_URL,
+            "tables": tables,
+            "user_count": user_count,
+            "trivia_game_count": trivia_game_count,
+        },
+        "models": {
+            "trivia_models_loaded": trivia_models_loaded,
+            "trivia_import_error": trivia_import_error,
+            "base_tables": list(Base.metadata.tables.keys()),
+        },
+        "routers": {
+            "trivia_router_loaded": trivia_router_loaded,
+            "trivia_router_error": trivia_router_error,
+        },
+        "environment": {
+            "gemini_api_key_set": bool(os.getenv("GEMINI_API_KEY")),
+            "google_oauth_configured": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
+            "secret_key_set": bool(os.getenv("SECRET_KEY")),
+        },
+        "api_routes": [
+            {"path": route.path, "name": route.name, "methods": list(route.methods) if hasattr(route, 'methods') else []}
+            for route in app.routes
+            if hasattr(route, 'path')
+        ]
+    }
+
 @app.post("/api/auth/register", response_model=TokenResponse, status_code=201)
 def register(data: UserRegister, db: Session = Depends(get_db)):
     """Register new user (traditional)"""
