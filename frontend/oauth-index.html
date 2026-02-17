@@ -357,7 +357,8 @@
     </div>
 
     <script>
-        const API_URL = 'http://localhost:8000';
+        // Use current domain for API calls (works for both localhost and production)
+        const API_URL = window.location.origin;
 
         // Check API status
         async function checkAPI() {
