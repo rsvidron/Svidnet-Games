@@ -50,6 +50,13 @@ try:
 except ImportError as e:
     print(f"⚠ Wordle models not available: {e}")
 
+# Run Wordle table migration (if needed)
+try:
+    from migrate_wordle_tables import migrate_wordle_tables
+    migrate_wordle_tables()
+except Exception as e:
+    print(f"⚠ Wordle migration skipped: {e}")
+
 # Create all tables (User, UserProfile, Trivia, Friends, Admin, and Wordle tables)
 Base.metadata.create_all(bind=engine)
 print(f"✓ Database tables created: {list(Base.metadata.tables.keys())}")
