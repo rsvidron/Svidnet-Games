@@ -33,8 +33,8 @@ def get_current_user_id(authorization: Optional[str] = None) -> int:
 
 
 def get_db():
-    """Get database session - placeholder"""
-    from oauth_server import SessionLocal
+    """Get database session"""
+    from database import SessionLocal
     db = SessionLocal()
     try:
         yield db
@@ -253,7 +253,7 @@ def get_leaderboard(
     Returns top players ranked by best score, then accuracy.
     """
     # Import User model
-    from oauth_server import User
+    from models.user import User
 
     # Get top entries
     entries_query = db.query(
