@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - SvidNet Arena</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh; padding: 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .nav-left { display: flex; gap: 10px; }
+        .nav-btn {
+            background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.4);
+            padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
+            cursor: pointer; text-decoration: none; transition: all 0.2s;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.3); }
+        .nav-btn.active { background: rgba(255,255,255,0.35); border-color: white; }
+        .profile-card {
+            background: white; border-radius: 20px; padding: 35px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3); margin-bottom: 20px;
+        }
+        .profile-header { display: flex; align-items: center; gap: 25px; margin-bottom: 25px; }
+        .profile-avatar {
+            width: 90px; height: 90px; border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 36px; font-weight: 700; flex-shrink: 0;
+        }
+        .profile-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+        .profile-info h2 { font-size: 28px; color: #333; margin-bottom: 4px; }
+        .profile-info .email { color: #888; font-size: 14px; margin-bottom: 4px; }
+        .profile-info .member-since { color: #aaa; font-size: 13px; }
+        .profile-info .auth-badge {
+            display: inline-block; padding: 3px 10px; border-radius: 5px;
+            font-size: 11px; font-weight: 600; margin-top: 5px;
+        }
+        .auth-badge.google { background: #e8f5e9; color: #4caf50; }
+        .auth-badge.local { background: #e3f2fd; color: #2196f3; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-box { background: #f9f9f9; border-radius: 15px; padding: 20px; text-align: center; }
+        .stat-box .value { font-size: 30px; font-weight: 700; color: #667eea; }
+        .stat-box .label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+        .section-title {
+            font-size: 20px; font-weight: 600; color: #333; margin-bottom: 15px;
+            padding-bottom: 8px; border-bottom: 2px solid #f0f0f0;
+        }
+        .category-stats { margin-bottom: 30px; }
+        .category-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 0; border-bottom: 1px solid #f5f5f5;
+        }
+        .category-row:last-child { border-bottom: none; }
+        .category-name { font-weight: 500; color: #333; text-transform: capitalize; }
+        .category-detail { display: flex; gap: 20px; }
+        .category-detail span { font-size: 13px; color: #888; }
+        .category-detail .highlight { color: #667eea; font-weight: 600; }
+        .game-history { margin-bottom: 30px; }
+        .history-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 0; border-bottom: 1px solid #f5f5f5;
+        }
+        .history-row:last-child { border-bottom: none; }
+        .history-left h4 { font-size: 14px; color: #333; margin-bottom: 3px; }
+        .history-left p { font-size: 12px; color: #999; }
+        .history-right { text-align: right; }
+        .history-right .score { font-size: 20px; font-weight: 700; color: #667eea; }
+        .history-right .detail { font-size: 12px; color: #888; }
+        .progress-ring { margin-bottom: 30px; text-align: center; }
+        .accuracy-ring {
+            width: 140px; height: 140px; margin: 0 auto 10px;
+            position: relative; display: flex; align-items: center; justify-content: center;
+        }
+        .accuracy-ring svg { position: absolute; top: 0; left: 0; }
+        .accuracy-ring .accuracy-text { font-size: 32px; font-weight: 700; color: #667eea; }
+        .accuracy-ring .accuracy-label { font-size: 12px; color: #888; display: block; margin-top: 2px; }
+        .empty-state { text-align: center; padding: 25px; color: #aaa; font-size: 14px; }
+        .load-more {
+            display: block; width: 100%; padding: 12px; background: #f5f5f5;
+            border: none; border-radius: 10px; color: #667eea; font-size: 14px;
+            font-weight: 600; cursor: pointer; margin-top: 10px;
+        }
+        .load-more:hover { background: #eef; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav-bar">
+            <div class="nav-left">
+                <a href="/" class="nav-btn">Home</a>
+                <a href="/profile" class="nav-btn active">Profile</a>
+            </div>
+        </div>
+
+        <div class="profile-card">
+            <div class="profile-header">
+                <div class="profile-avatar" id="profile-avatar"></div>
+                <div class="profile-info">
+                    <h2 id="profile-username">Loading...</h2>
+                    <div class="email" id="profile-email"></div>
+                    <div class="member-since" id="member-since"></div>
+                </div>
+            </div>
+
+            <div class="stats-grid" id="stats-grid">
+                <div class="stat-box"><div class="value" id="total-games">0</div><div class="label">Games Played</div></div>
+                <div class="stat-box"><div class="value" id="total-score">0</div><div class="label">Total Score</div></div>
+                <div class="stat-box"><div class="value" id="avg-accuracy">0%</div><div class="label">Avg Accuracy</div></div>
+                <div class="stat-box"><div class="value" id="best-accuracy">0%</div><div class="label">Best Accuracy</div></div>
+                <div class="stat-box"><div class="value" id="total-correct">0</div><div class="label">Correct Answers</div></div>
+                <div class="stat-box"><div class="value" id="total-questions">0</div><div class="label">Total Questions</div></div>
+            </div>
+
+            <div class="section-title">Performance by Category</div>
+            <div class="category-stats" id="category-stats">
+                <div class="empty-state">No category data yet.</div>
+            </div>
+
+            <div class="section-title">Game History</div>
+            <div class="game-history" id="game-history">
+                <div class="empty-state">No games played yet. <a href="/trivia" style="color:#667eea;">Play your first game!</a></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+
+        function getToken() { return localStorage.getItem('token'); }
+        function getUser() {
+            const s = localStorage.getItem('user');
+            return s ? JSON.parse(s) : null;
+        }
+
+        async function loadProfile() {
+            const user = getUser();
+            if (!user) { window.location.href = '/login'; return; }
+
+            // Set basic user info
+            document.getElementById('profile-username').textContent = user.username;
+            document.getElementById('profile-email').textContent = user.email || '';
+            const avatarEl = document.getElementById('profile-avatar');
+            if (user.avatar_url) {
+                avatarEl.innerHTML = `<img src="${user.avatar_url}" alt="avatar">`;
+            } else {
+                avatarEl.textContent = user.username.charAt(0).toUpperCase();
+            }
+
+            // Load profile data from API
+            try {
+                const res = await fetch(`${API_URL}/api/user/profile`, {
+                    headers: { 'Authorization': `Bearer ${getToken()}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('total-games').textContent = data.total_games;
+                    document.getElementById('total-score').textContent = data.total_score;
+                    document.getElementById('avg-accuracy').textContent = data.avg_accuracy + '%';
+                    document.getElementById('best-accuracy').textContent = data.best_accuracy + '%';
+                    document.getElementById('total-correct').textContent = data.total_correct;
+                    document.getElementById('total-questions').textContent = data.total_questions_answered;
+
+                    // Category stats
+                    renderCategories(data.category_stats);
+                    // Game history
+                    renderHistory(data.game_history);
+                }
+            } catch (e) { console.error('Failed to load profile:', e); }
+        }
+
+        function renderCategories(cats) {
+            const container = document.getElementById('category-stats');
+            if (!cats || cats.length === 0) {
+                container.innerHTML = '<div class="empty-state">No category data yet.</div>';
+                return;
+            }
+            container.innerHTML = cats.map(c => `
+                <div class="category-row">
+                    <div class="category-name">${c.category}</div>
+                    <div class="category-detail">
+                        <span><span class="highlight">${c.games}</span> games</span>
+                        <span><span class="highlight">${c.accuracy}%</span> accuracy</span>
+                        <span><span class="highlight">${c.best_score}</span> best</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderHistory(games) {
+            const container = document.getElementById('game-history');
+            if (!games || games.length === 0) {
+                container.innerHTML = '<div class="empty-state">No games played yet. <a href="/trivia" style="color:#667eea;">Play your first game!</a></div>';
+                return;
+            }
+            container.innerHTML = games.map(g => `
+                <div class="history-row">
+                    <div class="history-left">
+                        <h4>${capitalize(g.category)} Trivia</h4>
+                        <p>${g.correct}/${g.total} correct &middot; ${formatTime(g.time_taken)} &middot; ${timeAgo(g.played_at)}</p>
+                    </div>
+                    <div class="history-right">
+                        <div class="score">${g.score}</div>
+                        <div class="detail">${g.accuracy}%</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+
+        function formatTime(sec) {
+            if (!sec) return '0s';
+            const m = Math.floor(sec/60), s = sec%60;
+            return m > 0 ? `${m}m ${s}s` : `${s}s`;
+        }
+
+        function timeAgo(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            const now = new Date();
+            const diff = Math.floor((now - d) / 1000);
+            if (diff < 60) return 'just now';
+            if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+            if (diff < 604800) return Math.floor(diff/86400) + 'd ago';
+            return d.toLocaleDateString();
+        }
+
+        loadProfile();
+    </script>
+</body>
+</html>

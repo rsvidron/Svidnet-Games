@@ -29,6 +29,13 @@ try:
 except ImportError as e:
     print(f"⚠ Trivia models not available: {e}")
 
+# Import friends model
+try:
+    from models.friends import Friendship
+    print("✓ Friends model imported successfully")
+except ImportError as e:
+    print(f"⚠ Friends model not available: {e}")
+
 # Create all tables (User, UserProfile, and Trivia tables)
 Base.metadata.create_all(bind=engine)
 print(f"✓ Database tables created: {list(Base.metadata.tables.keys())}")
@@ -107,23 +114,27 @@ if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
 
 @app.get("/")
 def root():
-    """Serve the frontend HTML"""
+    """Serve the dashboard (home page)"""
+    dashboard_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "dashboard.html")
+    if os.path.exists(dashboard_path):
+        return FileResponse(dashboard_path)
+    return {"message": "SvidNet Arena", "status": "running"}
+
+@app.get("/login")
+def login_page():
+    """Serve the login/register page"""
     frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "oauth-index.html")
     if os.path.exists(frontend_path):
         return FileResponse(frontend_path)
-    # Fallback to API response if frontend not found
-    oauth_enabled = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
-    return {
-        "message": "🎮 SvidNet Arena - With Google OAuth",
-        "version": "1.0.0",
-        "status": "running",
-        "features": {
-            "standard_auth": True,
-            "google_oauth": oauth_enabled
-        },
-        "docs": "/docs",
-        "frontend": "not found - check deployment"
-    }
+    return {"message": "Login page not found"}
+
+@app.get("/profile")
+def profile_page():
+    """Serve the profile page"""
+    profile_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "profile.html")
+    if os.path.exists(profile_path):
+        return FileResponse(profile_path)
+    raise HTTPException(404, "Profile page not found")
 
 @app.get("/trivia")
 def trivia_game():
@@ -360,8 +371,9 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         access_token = create_token({"sub": user.id, "username": user.username})
         refresh_token = create_token({"sub": user.id})
 
-        # Redirect to frontend with token
-        frontend_url = f"http://localhost:3000/?token={access_token}&user_id={user.id}&username={user.username}&email={user.email}"
+        # Redirect to frontend with token (use the request's origin)
+        base_url = str(request.base_url).rstrip('/')
+        frontend_url = f"{base_url}/?token={access_token}&user_id={user.id}&username={user.username}&email={user.email}"
         return RedirectResponse(url=frontend_url)
 
     except Exception as e:
@@ -372,8 +384,17 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
 try:
     from routers.trivia import router as trivia_router
     app.include_router(trivia_router)
+    print("✓ Trivia router loaded")
 except ImportError as e:
     print(f"Warning: Could not import trivia router: {e}")
+
+# Include user/friends router
+try:
+    from routers.user import router as user_router
+    app.include_router(user_router)
+    print("✓ User router loaded")
+except ImportError as e:
+    print(f"Warning: Could not import user router: {e}")
 
 
 if __name__ == "__main__":

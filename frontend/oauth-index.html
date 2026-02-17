@@ -429,9 +429,9 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('token', data.access_token);
                     localStorage.setItem('user', JSON.stringify(data.user));
-                    showDashboard(data);
+                    window.location.href = '/';
                 } else {
                     showMessage(data.detail || 'Login failed', 'error');
                 }
@@ -458,9 +458,9 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('token', data.access_token);
                     localStorage.setItem('user', JSON.stringify(data.user));
-                    showDashboard(data);
+                    window.location.href = '/';
                 } else {
                     showMessage(data.detail || 'Registration failed', 'error');
                 }
@@ -495,7 +495,7 @@
 
         // Logout
         function logout() {
-            localStorage.removeItem('access_token');
+            localStorage.removeItem('token');
             localStorage.removeItem('user');
             document.getElementById('auth-section').classList.remove('hidden');
             document.getElementById('dashboard-section').classList.add('hidden');
@@ -515,34 +515,24 @@
             const email = params.get('email');
 
             if (token && userId) {
-                // OAuth callback
+                // OAuth callback - store and redirect to dashboard
                 const user = {
-                    id: userId,
+                    id: parseInt(userId),
                     username: username,
                     email: email,
                     role: 'user',
                     auth_provider: 'google'
                 };
-                localStorage.setItem('access_token', token);
+                localStorage.setItem('token', token);
                 localStorage.setItem('user', JSON.stringify(user));
-
-                // Remove params from URL
-                window.history.replaceState({}, document.title, "/");
-
-                showDashboard({
-                    access_token: token,
-                    user: user
-                });
+                window.location.href = '/';
             } else {
-                // Check if already logged in
-                const storedToken = localStorage.getItem('access_token');
+                // Check if already logged in - redirect to dashboard
+                const storedToken = localStorage.getItem('token');
                 const storedUser = localStorage.getItem('user');
 
                 if (storedToken && storedUser) {
-                    showDashboard({
-                        access_token: storedToken,
-                        user: JSON.parse(storedUser)
-                    });
+                    window.location.href = '/';
                 }
             }
         });
