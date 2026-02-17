@@ -167,6 +167,7 @@ def debug_info():
     """Debug endpoint to check system status and configuration"""
     import sys
     from sqlalchemy import inspect
+    from database import DATABASE_URL
 
     # Check database tables
     inspector = inspect(engine)
@@ -195,7 +196,8 @@ def debug_info():
     try:
         user_count = db.query(User).count()
         if "trivia_games" in tables:
-            trivia_game_count = db.execute("SELECT COUNT(*) FROM trivia_games").scalar()
+            from sqlalchemy import text
+            trivia_game_count = db.execute(text("SELECT COUNT(*) FROM trivia_games")).scalar()
         else:
             trivia_game_count = "table not found"
     except Exception as e:
