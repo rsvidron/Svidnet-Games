@@ -42,15 +42,13 @@ class UserProfile(Base):
     elo_rating = Column(Integer, default=1200, nullable=False)
     total_games_played = Column(Integer, default=0, nullable=False)
 
-# Import trivia models to create their tables
+# Import trivia models so they register with the Base
 try:
     from models.trivia import TriviaGame, TriviaAnswer, TriviaLeaderboard
-    from models.trivia import Base as TriviaBase
-    TriviaBase.metadata.create_all(bind=engine)
 except ImportError:
     pass  # Trivia models not yet available
 
-# Create tables
+# Create all tables (including trivia tables if imported)
 Base.metadata.create_all(bind=engine)
 
 # Security
