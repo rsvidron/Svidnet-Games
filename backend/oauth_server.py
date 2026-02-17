@@ -50,6 +50,13 @@ try:
 except ImportError as e:
     print(f"⚠ Wordle models not available: {e}")
 
+# Import Sports models
+try:
+    from models.sports import SportsMatch, Bet, BetPick, SportsLeaderboard
+    print("✓ Sports models imported successfully")
+except ImportError as e:
+    print(f"⚠ Wordle models not available: {e}")
+
 # Run Wordle table migration (if needed)
 try:
     from migrate_wordle_tables import migrate_wordle_tables
@@ -455,6 +462,16 @@ try:
     print("✓ Wordle router loaded")
 except Exception as e:
     print(f"⚠ Warning: Could not import wordle router: {type(e).__name__}: {e}")
+    import traceback
+    traceback.print_exc()
+
+# Include Sports router
+try:
+    from routers.sports import router as sports_router
+    app.include_router(sports_router)
+    print("✓ Sports router loaded")
+except Exception as e:
+    print(f"⚠ Warning: Could not import sports router: {type(e).__name__}: {e}")
     import traceback
     traceback.print_exc()
 

@@ -88,9 +88,10 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FILE: str = "logs/app.log"
 
-    # External APIs
-    SPORTS_API_KEY: str = ""
-    SPORTS_API_URL: str = ""
+    # External APIs - The Odds API
+    ODDS_API_KEY: str = ""
+    ODDS_API_BASE_URL: str = "https://api.the-odds-api.com/v4"
+    ODDS_CACHE_TTL_SECONDS: int = 300  # 5 minutes cache for live odds
 
     # Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"

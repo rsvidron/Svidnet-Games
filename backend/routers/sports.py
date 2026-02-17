@@ -1,38 +1,22 @@
 """
-Sports Betting API Endpoints
-Supports single bets and parlays with live odds integration
+Sports Betting Router
+Sportsbook with single bets and parlays, powered by The Odds API
 """
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
-from datetime import datetime, timezone, timedelta
-from typing import Optional, List
-import logging
-
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
-from models.sports import SportsMatch, Bet, BetPick, SportsLeaderboard, BetStatus, MatchStatus, BetType
+from sqlalchemy import desc
 from models.user import User
-from app.schemas.sports import (
-    MatchOddsResponse, TodaysGamesResponse, PlaceBetRequest, BetResponse,
-    UserBetsResponse, LeaderboardResponse, LeaderboardEntry, UserStatsResponse,
-    UpdateMatchResultRequest, BetPickResponse, MoneylineOdds, SpreadOdds, TotalOdds,
-    MatchStatusEnum
-)
-from app.services.odds_service import odds_service
+from models.sports import SportsMatch, Bet, BetPick, SportsLeaderboard, BetStatus, MatchStatus, BetType
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
+from datetime import datetime, timezone, timedelta
+from enum import Enum
+import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/sports", tags=["sports"])
-
-
-def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
-    """Extract user ID from authorization header"""
-    # TODO: Implement proper JWT token validation
-    # For now, return user ID 1 for testing
-    return 1
 
 
 def get_db():
@@ -45,109 +29,178 @@ def get_db():
         db.close()
 
 
-def calculate_payout(picks: List[BetPick], stake: int) -> float:
-    """
-    Calculate potential payout from American odds
-    For parlays, odds are combined multiplicatively
-    """
-    total_decimal_odds = 1.0
+def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
+    """Extract user ID from JWT token"""
+    if not authorization:
+        return 1
 
+    try:
+        token = authorization.replace("Bearer ", "")
+        from jose import jwt
+        import os
+        SECRET_KEY = os.getenv("SECRET_KEY", "test-secret-key-for-development")
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        user_id = payload.get("sub")
+        if user_id is None:
+            return 1
+        return int(user_id)
+    except Exception:
+        return 1
+
+
+# Pydantic schemas (inline for simplicity)
+class BetTypeEnum(str, Enum):
+    MONEYLINE = "moneyline"
+    SPREAD = "spread"
+    TOTAL = "total"
+
+
+class BetSelectionEnum(str, Enum):
+    HOME = "home"
+    AWAY = "away"
+    DRAW = "draw"
+    OVER = "over"
+    UNDER = "under"
+
+
+class MoneylineOdds(BaseModel):
+    home: Optional[int] = None
+    away: Optional[int] = None
+    draw: Optional[int] = None
+
+
+class SpreadOdds(BaseModel):
+    home: Optional[Dict[str, float]] = None
+    away: Optional[Dict[str, float]] = None
+
+
+class TotalOdds(BaseModel):
+    over: Optional[Dict[str, float]] = None
+    under: Optional[Dict[str, float]] = None
+
+
+class MatchOddsResponse(BaseModel):
+    event_id: str
+    match_id: Optional[int] = None
+    sport_key: str
+    sport_title: str
+    home_team: str
+    away_team: str
+    commence_time: datetime
+    moneyline: MoneylineOdds
+    spreads: SpreadOdds
+    totals: TotalOdds
+    home_score: Optional[int] = None
+    away_score: Optional[int] = None
+
+
+class TodaysGamesResponse(BaseModel):
+    category: str
+    sport_key: str
+    sport_title: str
+    games: List[MatchOddsResponse]
+
+
+class BetPickRequest(BaseModel):
+    match_id: int
+    bet_type: BetTypeEnum
+    selection: BetSelectionEnum
+    odds: int
+    point: Optional[float] = None
+
+
+class PlaceBetRequest(BaseModel):
+    picks: List[BetPickRequest] = Field(..., min_items=1, max_items=10)
+    stake: int = Field(default=10, ge=1, le=1000)
+
+
+class BetPickResponse(BaseModel):
+    id: int
+    match_id: int
+    match_description: str
+    bet_type: str
+    selection: str
+    odds: int
+    point: Optional[float]
+    result: Optional[str]
+
+
+class BetResponse(BaseModel):
+    id: int
+    user_id: int
+    is_parlay: bool
+    total_picks: int
+    stake: int
+    potential_payout: float
+    actual_payout: float
+    status: str
+    placed_at: datetime
+    settled_at: Optional[datetime]
+    picks: List[BetPickResponse]
+
+
+# Helper functions
+def calculate_payout(picks: List[BetPick], stake: int) -> float:
+    """Calculate potential payout from American odds (parlays multiply)"""
+    total_decimal_odds = 1.0
     for pick in picks:
         american_odds = pick.odds
-
-        # Convert American odds to decimal
         if american_odds > 0:
             decimal_odds = (american_odds / 100) + 1
         else:
             decimal_odds = (100 / abs(american_odds)) + 1
-
         total_decimal_odds *= decimal_odds
-
     return round(stake * total_decimal_odds, 2)
 
 
 def determine_pick_result(pick: BetPick, match: SportsMatch) -> BetStatus:
-    """
-    Determine if a single pick won, lost, or pushed
-
-    Args:
-        pick: The bet pick to evaluate
-        match: The completed match with scores
-
-    Returns:
-        BetStatus: won, lost, or push
-    """
-    if match.status != MatchStatus.COMPLETED:
-        return BetStatus.PENDING
-
-    if match.home_score is None or match.away_score is None:
+    """Determine if a pick won, lost, or pushed"""
+    if match.status != MatchStatus.COMPLETED or match.home_score is None:
         return BetStatus.PENDING
 
     home_score = match.home_score
     away_score = match.away_score
 
-    # Moneyline
     if pick.bet_type == BetType.MONEYLINE:
         if home_score == away_score:
-            # Tie
-            if pick.selection.value == "draw":
-                return BetStatus.WON
-            else:
-                return BetStatus.PUSH  # Most sports don't allow ties
+            return BetStatus.WON if pick.selection.value == "draw" else BetStatus.PUSH
         elif home_score > away_score:
             return BetStatus.WON if pick.selection.value == "home" else BetStatus.LOST
         else:
             return BetStatus.WON if pick.selection.value == "away" else BetStatus.LOST
 
-    # Spread
     elif pick.bet_type == BetType.SPREAD:
-        if pick.point is None:
-            return BetStatus.CANCELLED
-
-        # Apply spread to home team
         home_with_spread = home_score + pick.point
-
         if home_with_spread == away_score:
             return BetStatus.PUSH
-
         if pick.selection.value == "home":
             return BetStatus.WON if home_with_spread > away_score else BetStatus.LOST
-        else:  # away
+        else:
             return BetStatus.WON if home_with_spread < away_score else BetStatus.LOST
 
-    # Total (Over/Under)
     elif pick.bet_type == BetType.TOTAL:
-        if pick.point is None:
-            return BetStatus.CANCELLED
-
         total_points = home_score + away_score
-
         if total_points == pick.point:
             return BetStatus.PUSH
-
         if pick.selection.value == "over":
             return BetStatus.WON if total_points > pick.point else BetStatus.LOST
-        else:  # under
+        else:
             return BetStatus.WON if total_points < pick.point else BetStatus.LOST
 
     return BetStatus.PENDING
 
 
 def update_leaderboard(db: Session, user_id: int, sport_category: str, bet: Bet):
-    """Update leaderboard stats after bet settles"""
+    """Update user's leaderboard stats"""
     leaderboard = db.query(SportsLeaderboard).filter(
         SportsLeaderboard.user_id == user_id,
         SportsLeaderboard.sport_category == sport_category
     ).first()
 
     if not leaderboard:
-        leaderboard = SportsLeaderboard(
-            user_id=user_id,
-            sport_category=sport_category
-        )
+        leaderboard = SportsLeaderboard(user_id=user_id, sport_category=sport_category)
         db.add(leaderboard)
 
-    # Update totals
     leaderboard.total_bets += 1
     if bet.is_parlay:
         leaderboard.total_parlays += 1
@@ -156,27 +209,18 @@ def update_leaderboard(db: Session, user_id: int, sport_category: str, bet: Bet)
     leaderboard.total_won += int(bet.actual_payout)
     leaderboard.net_profit = leaderboard.total_won - leaderboard.total_wagered
 
-    # Update win/loss record
     if bet.status == BetStatus.WON:
         leaderboard.bets_won += 1
         leaderboard.current_streak = max(1, leaderboard.current_streak + 1) if leaderboard.current_streak >= 0 else 1
         leaderboard.best_win_streak = max(leaderboard.best_win_streak, leaderboard.current_streak)
-
         if bet.actual_payout > leaderboard.biggest_win:
             leaderboard.biggest_win = bet.actual_payout
-
-        if bet.is_parlay and bet.total_picks > leaderboard.biggest_parlay_hits:
-            leaderboard.biggest_parlay_hits = bet.total_picks
-
     elif bet.status == BetStatus.LOST:
         leaderboard.bets_lost += 1
         leaderboard.current_streak = min(-1, leaderboard.current_streak - 1) if leaderboard.current_streak <= 0 else -1
-        leaderboard.worst_loss_streak = min(leaderboard.worst_loss_streak, leaderboard.current_streak)
-
     elif bet.status == BetStatus.PUSH:
         leaderboard.bets_pushed += 1
 
-    # Update win percentage
     total_decided = leaderboard.bets_won + leaderboard.bets_lost
     if total_decided > 0:
         leaderboard.win_percentage = round((leaderboard.bets_won / total_decided) * 100, 2)
@@ -185,22 +229,14 @@ def update_leaderboard(db: Session, user_id: int, sport_category: str, bet: Bet)
     db.commit()
 
 
-@router.get("/today", response_model=List[TodaysGamesResponse])
-async def get_todays_games(
-    category: Optional[str] = None,
-    db: Session = Depends(get_db)
-):
-    """
-    Fetch today's games with live odds
-
-    Args:
-        category: Optional filter (football, basketball, baseball, hockey, soccer)
-
-    Returns:
-        List of games grouped by sport
-    """
+# Endpoints
+@router.get("/today")
+async def get_todays_games(category: Optional[str] = None, db: Session = Depends(get_db)):
+    """Fetch today's games with odds from The Odds API"""
     try:
-        # Fetch odds from The Odds API
+        # Import odds service (dynamic to avoid circular imports)
+        from app.services.odds_service import odds_service
+
         if category:
             odds_data = await odds_service.get_odds_by_category(category)
             categories_to_process = {category: odds_data}
@@ -214,7 +250,6 @@ async def get_todays_games(
                 games = []
 
                 for event in events:
-                    # Parse odds
                     parsed = odds_service.parse_odds_for_display(event)
 
                     # Check if match exists in DB
@@ -224,7 +259,6 @@ async def get_todays_games(
 
                     match_id = existing_match.id if existing_match else None
 
-                    # Build response
                     game = MatchOddsResponse(
                         event_id=parsed["event_id"],
                         match_id=match_id,
@@ -233,7 +267,6 @@ async def get_todays_games(
                         home_team=parsed["home_team"],
                         away_team=parsed["away_team"],
                         commence_time=datetime.fromisoformat(parsed["commence_time"].replace('Z', '+00:00')),
-                        status=MatchStatusEnum.UPCOMING,
                         moneyline=MoneylineOdds(**parsed["moneyline"]),
                         spreads=SpreadOdds(**parsed["spreads"]),
                         totals=TotalOdds(**parsed["totals"])
@@ -245,8 +278,7 @@ async def get_todays_games(
                         category=cat,
                         sport_key=sport_key,
                         sport_title=games[0].sport_title,
-                        games=games,
-                        total_games=len(games)
+                        games=games
                     ))
 
         return response
@@ -262,13 +294,8 @@ async def place_bet(
     db: Session = Depends(get_db),
     user_id: int = Depends(get_current_user_id)
 ):
-    """
-    Place a bet (single or parlay)
-
-    For parlays: All picks must win for the bet to win
-    """
+    """Place a bet (single or parlay)"""
     try:
-        # Validate all matches exist and haven't started
         now = datetime.now(timezone.utc)
         match_ids = [pick.match_id for pick in request.picks]
 
@@ -277,24 +304,22 @@ async def place_bet(
         if len(matches) != len(match_ids):
             raise HTTPException(400, "One or more matches not found")
 
-        # Check if any match has already started
+        # Check if games have started
         for match in matches:
             if match.commence_time <= now:
                 raise HTTPException(400, f"Match {match.home_team} vs {match.away_team} has already started")
 
         # Create bet
-        is_parlay = len(request.picks) > 1
-
         bet = Bet(
             user_id=user_id,
-            is_parlay=is_parlay,
+            is_parlay=len(request.picks) > 1,
             total_picks=len(request.picks),
             stake=request.stake,
             status=BetStatus.PENDING,
-            potential_payout=0  # Will calculate after adding picks
+            potential_payout=0
         )
         db.add(bet)
-        db.flush()  # Get bet.id
+        db.flush()
 
         # Create picks
         bet_picks = []
@@ -310,9 +335,7 @@ async def place_bet(
             db.add(pick)
             bet_picks.append(pick)
 
-        # Calculate potential payout
         bet.potential_payout = calculate_payout(bet_picks, request.stake)
-
         db.commit()
         db.refresh(bet)
 
@@ -324,11 +347,11 @@ async def place_bet(
                 id=pick.id,
                 match_id=pick.match_id,
                 match_description=f"{match.away_team} @ {match.home_team}",
-                bet_type=pick.bet_type,
-                selection=pick.selection,
+                bet_type=pick.bet_type.value,
+                selection=pick.selection.value,
                 odds=pick.odds,
                 point=pick.point,
-                result=pick.result
+                result=pick.result.value if pick.result else None
             ))
 
         return BetResponse(
@@ -339,7 +362,7 @@ async def place_bet(
             stake=bet.stake,
             potential_payout=bet.potential_payout,
             actual_payout=bet.actual_payout,
-            status=bet.status,
+            status=bet.status.value,
             placed_at=bet.placed_at,
             settled_at=bet.settled_at,
             picks=pick_responses
@@ -353,19 +376,13 @@ async def place_bet(
         raise HTTPException(500, f"Failed to place bet: {str(e)}")
 
 
-@router.get("/bets/my", response_model=UserBetsResponse)
-def get_my_bets(
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
-):
-    """Get user's betting history"""
-    bets = db.query(Bet).filter(Bet.user_id == user_id).order_by(desc(Bet.placed_at)).all()
+@router.get("/bets/my")
+def get_my_bets(db: Session = Depends(get_db), user_id: int = Depends(get_current_user_id)):
+    """Get user's bets"""
+    bets = db.query(Bet).filter(Bet.user_id == user_id).order_by(desc(Bet.placed_at)).limit(50).all()
 
-    active_bets = []
-    settled_bets = []
-
+    result = []
     for bet in bets:
-        # Build pick responses
         pick_responses = []
         for pick in bet.picks:
             match = db.query(SportsMatch).get(pick.match_id)
@@ -373,14 +390,14 @@ def get_my_bets(
                 id=pick.id,
                 match_id=pick.match_id,
                 match_description=f"{match.away_team} @ {match.home_team}",
-                bet_type=pick.bet_type,
-                selection=pick.selection,
+                bet_type=pick.bet_type.value,
+                selection=pick.selection.value,
                 odds=pick.odds,
                 point=pick.point,
-                result=pick.result
+                result=pick.result.value if pick.result else None
             ))
 
-        bet_response = BetResponse(
+        result.append(BetResponse(
             id=bet.id,
             user_id=bet.user_id,
             is_parlay=bet.is_parlay,
@@ -388,162 +405,41 @@ def get_my_bets(
             stake=bet.stake,
             potential_payout=bet.potential_payout,
             actual_payout=bet.actual_payout,
-            status=bet.status,
+            status=bet.status.value,
             placed_at=bet.placed_at,
             settled_at=bet.settled_at,
             picks=pick_responses
-        )
+        ))
 
-        if bet.status == BetStatus.PENDING:
-            active_bets.append(bet_response)
-        else:
-            settled_bets.append(bet_response)
-
-    return UserBetsResponse(
-        active_bets=active_bets,
-        settled_bets=settled_bets,
-        total_active=len(active_bets),
-        total_settled=len(settled_bets)
-    )
-
-
-@router.get("/leaderboard/{category}", response_model=LeaderboardResponse)
-def get_leaderboard(
-    category: str,
-    limit: int = 100,
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
-):
-    """Get leaderboard for a sport category"""
-    entries = db.query(SportsLeaderboard).filter(
-        SportsLeaderboard.sport_category == category
-    ).order_by(
-        desc(SportsLeaderboard.net_profit),
-        desc(SportsLeaderboard.win_percentage)
-    ).limit(limit).all()
-
-    leaderboard_entries = []
-    user_rank = None
-
-    for idx, entry in enumerate(entries, start=1):
-        user = db.query(User).get(entry.user_id)
-
-        leaderboard_entry = LeaderboardEntry(
-            rank=idx,
-            user_id=entry.user_id,
-            username=user.username if user else "Unknown",
-            total_bets=entry.total_bets,
-            bets_won=entry.bets_won,
-            win_percentage=entry.win_percentage,
-            net_profit=entry.net_profit,
-            current_streak=entry.current_streak,
-            best_win_streak=entry.best_win_streak
-        )
-        leaderboard_entries.append(leaderboard_entry)
-
-        if entry.user_id == user_id:
-            user_rank = idx
-
-    return LeaderboardResponse(
-        sport_category=category,
-        entries=leaderboard_entries,
-        total_entries=len(leaderboard_entries),
-        user_rank=user_rank
-    )
-
-
-@router.get("/stats/my", response_model=UserStatsResponse)
-def get_my_stats(
-    db: Session = Depends(get_db),
-    user_id: int = Depends(get_current_user_id)
-):
-    """Get user's personal betting statistics across all sports"""
-    user = db.query(User).get(user_id)
-    if not user:
-        raise HTTPException(404, "User not found")
-
-    leaderboards = db.query(SportsLeaderboard).filter(
-        SportsLeaderboard.user_id == user_id
-    ).all()
-
-    # Aggregate totals
-    total_bets = sum(lb.total_bets for lb in leaderboards)
-    total_parlays = sum(lb.total_parlays for lb in leaderboards)
-    total_wagered = sum(lb.total_wagered for lb in leaderboards)
-    total_won = sum(lb.total_won for lb in leaderboards)
-    net_profit = total_won - total_wagered
-
-    bets_won = sum(lb.bets_won for lb in leaderboards)
-    bets_lost = sum(lb.bets_lost for lb in leaderboards)
-    win_percentage = round((bets_won / (bets_won + bets_lost)) * 100, 2) if (bets_won + bets_lost) > 0 else 0.0
-
-    # Overall streaks and bests
-    current_streak = max((lb.current_streak for lb in leaderboards), default=0)
-    best_win_streak = max((lb.best_win_streak for lb in leaderboards), default=0)
-    biggest_win = max((lb.biggest_win for lb in leaderboards), default=0.0)
-
-    # By sport
-    stats_by_sport = {}
-    for lb in leaderboards:
-        stats_by_sport[lb.sport_category] = {
-            "total_bets": lb.total_bets,
-            "bets_won": lb.bets_won,
-            "win_percentage": lb.win_percentage,
-            "net_profit": lb.net_profit,
-            "current_streak": lb.current_streak
-        }
-
-    return UserStatsResponse(
-        user_id=user_id,
-        username=user.username,
-        total_bets=total_bets,
-        total_parlays=total_parlays,
-        total_wagered=total_wagered,
-        total_won=total_won,
-        net_profit=net_profit,
-        win_percentage=win_percentage,
-        current_streak=current_streak,
-        best_win_streak=best_win_streak,
-        biggest_win=biggest_win,
-        stats_by_sport=stats_by_sport
-    )
+    return {"bets": result, "total": len(result)}
 
 
 @router.post("/admin/sync-matches")
-async def sync_matches_from_api(
-    category: Optional[str] = None,
-    db: Session = Depends(get_db)
-):
-    """
-    Admin endpoint: Sync matches from Odds API to database
-    Creates/updates SportsMatch records
-    """
+async def sync_matches(category: Optional[str] = None, db: Session = Depends(get_db)):
+    """Admin: Sync matches from Odds API to database"""
     try:
+        from app.services.odds_service import odds_service
+
         if category:
             odds_data = await odds_service.get_odds_by_category(category)
             categories_to_sync = {category: odds_data}
         else:
             categories_to_sync = await odds_service.get_all_todays_games()
 
-        synced_count = 0
-        updated_count = 0
+        synced = 0
+        updated = 0
 
         for cat, sports_dict in categories_to_sync.items():
             for sport_key, events in sports_dict.items():
                 for event in events:
                     external_id = event.get("id")
-
-                    existing = db.query(SportsMatch).filter(
-                        SportsMatch.external_id == external_id
-                    ).first()
+                    existing = db.query(SportsMatch).filter(SportsMatch.external_id == external_id).first()
 
                     if existing:
-                        # Update odds data
                         existing.odds_data = event.get("bookmakers", [])
                         existing.updated_at = datetime.now(timezone.utc)
-                        updated_count += 1
+                        updated += 1
                     else:
-                        # Create new match
                         match = SportsMatch(
                             external_id=external_id,
                             sport_key=sport_key,
@@ -555,57 +451,47 @@ async def sync_matches_from_api(
                             odds_data=event.get("bookmakers", [])
                         )
                         db.add(match)
-                        synced_count += 1
+                        synced += 1
 
         db.commit()
-
-        return {
-            "success": True,
-            "new_matches": synced_count,
-            "updated_matches": updated_count
-        }
+        return {"success": True, "new_matches": synced, "updated_matches": updated}
 
     except Exception as e:
-        logger.error(f"Error syncing matches: {str(e)}")
         db.rollback()
-        raise HTTPException(500, f"Failed to sync matches: {str(e)}")
+        raise HTTPException(500, f"Failed to sync: {str(e)}")
 
 
-@router.post("/admin/settle-bets")
-def settle_completed_bets(
+@router.post("/admin/update-result/{match_id}")
+def update_match_result(
     match_id: int,
+    home_score: int,
+    away_score: int,
     db: Session = Depends(get_db)
 ):
-    """
-    Admin endpoint: Settle all bets for a completed match
-    Updates pick results and bet statuses
-    """
+    """Admin: Update match result and settle bets"""
     match = db.query(SportsMatch).get(match_id)
     if not match:
         raise HTTPException(404, "Match not found")
 
-    if match.status != MatchStatus.COMPLETED:
-        raise HTTPException(400, "Match not completed yet")
+    match.home_score = home_score
+    match.away_score = away_score
+    match.status = MatchStatus.COMPLETED
+    match.completed_at = datetime.now(timezone.utc)
 
     # Get all picks for this match
     picks = db.query(BetPick).filter(BetPick.match_id == match_id).all()
-
     settled_bets = set()
 
     for pick in picks:
-        # Determine pick result
         pick.result = determine_pick_result(pick, match)
         settled_bets.add(pick.bet_id)
 
-    # Now evaluate each bet
+    # Evaluate each bet
     for bet_id in settled_bets:
         bet = db.query(Bet).get(bet_id)
-        bet_picks = bet.picks
-
-        # Check all picks in the bet
-        all_won = all(p.result == BetStatus.WON for p in bet_picks)
-        any_lost = any(p.result == BetStatus.LOST for p in bet_picks)
-        all_push = all(p.result == BetStatus.PUSH for p in bet_picks)
+        all_won = all(p.result == BetStatus.WON for p in bet.picks)
+        any_lost = any(p.result == BetStatus.LOST for p in bet.picks)
+        all_push = all(p.result == BetStatus.PUSH for p in bet.picks)
 
         if any_lost:
             bet.status = BetStatus.LOST
@@ -615,24 +501,21 @@ def settle_completed_bets(
             bet.actual_payout = bet.potential_payout
         elif all_push:
             bet.status = BetStatus.PUSH
-            bet.actual_payout = bet.stake  # Return stake
-        # else: still pending (other matches in parlay not finished)
+            bet.actual_payout = bet.stake
 
         if bet.status != BetStatus.PENDING:
             bet.settled_at = datetime.now(timezone.utc)
 
-            # Update leaderboard
-            # Determine sport category from match
-            match_obj = db.query(SportsMatch).get(bet_picks[0].match_id)
+            # Determine sport category
+            match_obj = db.query(SportsMatch).get(bet.picks[0].match_id)
             sport_key = match_obj.sport_key
 
-            # Map sport_key to category
             category_map = {
-                "basketball": ["basketball_nba", "basketball_ncaab", "basketball_wnba", "basketball_euroleague"],
-                "football": ["americanfootball_nfl", "americanfootball_ncaaf", "americanfootball_cfl", "australianfootball_afl"],
+                "basketball": ["basketball_nba", "basketball_ncaab", "basketball_wnba"],
+                "football": ["americanfootball_nfl", "americanfootball_ncaaf", "americanfootball_cfl"],
                 "baseball": ["baseball_mlb", "baseball_kbo", "baseball_npb"],
                 "hockey": ["icehockey_nhl", "icehockey_ahl", "icehockey_shl"],
-                "soccer": ["soccer_epl", "soccer_germany_bundesliga", "soccer_spain_la_liga", "soccer_italy_serie_a", "soccer_france_ligue_one"]
+                "soccer": ["soccer_epl", "soccer_germany_bundesliga", "soccer_spain_la_liga"]
             }
 
             sport_category = "other"
@@ -645,33 +528,4 @@ def settle_completed_bets(
 
     db.commit()
 
-    return {
-        "success": True,
-        "match_id": match_id,
-        "picks_settled": len(picks),
-        "bets_evaluated": len(settled_bets)
-    }
-
-
-@router.post("/admin/update-match-result")
-def update_match_result(
-    request: UpdateMatchResultRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Admin endpoint: Manually update match result
-    Then automatically settle all bets
-    """
-    match = db.query(SportsMatch).get(request.match_id)
-    if not match:
-        raise HTTPException(404, "Match not found")
-
-    match.home_score = request.home_score
-    match.away_score = request.away_score
-    match.status = MatchStatus.COMPLETED
-    match.completed_at = datetime.now(timezone.utc)
-
-    db.commit()
-
-    # Auto-settle bets
-    return settle_completed_bets(request.match_id, db)
+    return {"success": True, "picks_settled": len(picks), "bets_evaluated": len(settled_bets)}
