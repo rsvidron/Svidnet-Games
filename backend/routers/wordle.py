@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from database import get_db
 from models.user import User
-from models.wordle import WordleGame, WordleStats
+from models.wordle import WordleGame, WordleStats, DailyWordleLeaderboard
 from routers.auth import get_current_user
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date, timedelta
 import random
 
 router = APIRouter(prefix="/api/wordle", tags=["wordle"])
@@ -76,6 +77,24 @@ VALID_GUESSES = set(WORDLE_WORDS + [
     # ... add more valid words as needed
 ])
 
+def get_daily_word(target_date: date = None) -> str:
+    """
+    Get the daily Wordle word for a specific date.
+    Uses deterministic random selection so everyone gets the same word each day.
+    """
+    if target_date is None:
+        target_date = date.today()
+
+    # Use the date as a seed for reproducible random selection
+    # Convert date to a unique number: days since epoch
+    epoch = date(2024, 1, 1)
+    days_since_epoch = (target_date - epoch).days
+
+    # Use modulo to cycle through the word list
+    word_index = days_since_epoch % len(WORDLE_WORDS)
+
+    return WORDLE_WORDS[word_index].upper()
+
 class GuessRequest(BaseModel):
     guess: str
 
@@ -103,6 +122,13 @@ class StatsResponse(BaseModel):
     current_streak: int
     max_streak: int
     guess_distribution: dict
+
+class LeaderboardEntry(BaseModel):
+    username: str
+    attempts_used: int
+    is_won: bool
+    time_taken_seconds: Optional[int]
+    completed_at: str
 
 def check_guess(guess: str, target: str) -> List[str]:
     """
@@ -134,28 +160,33 @@ def check_guess(guess: str, target: str) -> List[str]:
 
 @router.post("/start")
 async def start_game(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Start a new Wordle game"""
-    # Check if user has an active game
-    active_game = db.query(WordleGame).filter(
+    """Start a new daily Wordle game"""
+    today = date.today()
+
+    # Check if user has already played today
+    today_game = db.query(WordleGame).filter(
         WordleGame.user_id == current_user.id,
-        WordleGame.is_completed == False
+        WordleGame.challenge_date == today
     ).first()
 
-    if active_game:
+    if today_game:
         return {
-            "game_id": active_game.id,
-            "guesses": active_game.guesses,
-            "attempts_used": active_game.attempts_used,
-            "max_attempts": active_game.max_attempts,
-            "is_completed": active_game.is_completed,
-            "is_won": active_game.is_won
+            "game_id": today_game.id,
+            "challenge_date": today.isoformat(),
+            "guesses": today_game.guesses,
+            "attempts_used": today_game.attempts_used,
+            "max_attempts": today_game.max_attempts,
+            "is_completed": today_game.is_completed,
+            "is_won": today_game.is_won
         }
 
-    # Create new game
-    target_word = random.choice(WORDLE_WORDS).upper()
+    # Get daily word
+    target_word = get_daily_word(today)
 
+    # Create new game for today
     new_game = WordleGame(
         user_id=current_user.id,
+        challenge_date=today,
         target_word=target_word,
         guesses=[],
         max_attempts=6
@@ -166,6 +197,7 @@ async def start_game(current_user: User = Depends(get_current_user), db: Session
 
     return {
         "game_id": new_game.id,
+        "challenge_date": today.isoformat(),
         "guesses": [],
         "attempts_used": 0,
         "max_attempts": 6,
@@ -239,7 +271,18 @@ async def make_guess(
             game.time_taken_seconds = int(time_delta.total_seconds())
 
         # Update user stats
-        update_user_stats(current_user.id, is_won, game.attempts_used, db)
+        update_user_stats(current_user.id, is_won, game.attempts_used, game.challenge_date, db)
+
+        # Add to daily leaderboard
+        leaderboard_entry = DailyWordleLeaderboard(
+            challenge_date=game.challenge_date,
+            user_id=current_user.id,
+            attempts_used=game.attempts_used,
+            is_won=is_won,
+            time_taken_seconds=game.time_taken_seconds,
+            completed_at=game.time_completed
+        )
+        db.add(leaderboard_entry)
 
     db.commit()
 
@@ -303,8 +346,8 @@ async def get_stats(current_user: User = Depends(get_current_user), db: Session 
         guess_distribution=stats.guess_distribution
     )
 
-def update_user_stats(user_id: int, is_won: bool, attempts_used: int, db: Session):
-    """Update user's Wordle statistics"""
+def update_user_stats(user_id: int, is_won: bool, attempts_used: int, challenge_date: date, db: Session):
+    """Update user's Wordle statistics with daily challenge tracking"""
     stats = db.query(WordleStats).filter(WordleStats.user_id == user_id).first()
 
     if not stats:
@@ -314,16 +357,33 @@ def update_user_stats(user_id: int, is_won: bool, attempts_used: int, db: Sessio
             games_won=0,
             current_streak=0,
             max_streak=0,
-            guess_distribution={"1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0}
+            guess_distribution={"1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0},
+            last_played_date=None
         )
         db.add(stats)
 
     # Update stats
     stats.games_played += 1
 
+    # Check if streak should continue
+    if stats.last_played_date:
+        days_since_last = (challenge_date - stats.last_played_date).days
+
+        # Streak continues if played yesterday or today (edge case handling)
+        if days_since_last == 1:
+            # Played yesterday, streak can continue if won
+            if is_won:
+                stats.current_streak += 1
+        elif days_since_last > 1:
+            # Missed a day, reset streak
+            stats.current_streak = 1 if is_won else 0
+        # else days_since_last == 0, same day (shouldn't happen with daily challenge)
+    else:
+        # First game ever
+        stats.current_streak = 1 if is_won else 0
+
     if is_won:
         stats.games_won += 1
-        stats.current_streak += 1
         stats.max_streak = max(stats.max_streak, stats.current_streak)
 
         # Update guess distribution
@@ -331,7 +391,51 @@ def update_user_stats(user_id: int, is_won: bool, attempts_used: int, db: Sessio
         dist[str(attempts_used)] = dist.get(str(attempts_used), 0) + 1
         stats.guess_distribution = dist
     else:
+        # Lost today - streak is broken
         stats.current_streak = 0
 
-    stats.last_played = datetime.now(timezone.utc)
+    stats.last_played_date = challenge_date
     db.commit()
+
+@router.get("/leaderboard/today", response_model=List[LeaderboardEntry])
+async def get_today_leaderboard(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Get today's Wordle leaderboard"""
+    today = date.today()
+
+    entries = db.query(DailyWordleLeaderboard, User).join(
+        User, DailyWordleLeaderboard.user_id == User.id
+    ).filter(
+        DailyWordleLeaderboard.challenge_date == today
+    ).order_by(
+        DailyWordleLeaderboard.is_won.desc(),  # Winners first
+        DailyWordleLeaderboard.attempts_used.asc(),  # Fewer attempts is better
+        DailyWordleLeaderboard.time_taken_seconds.asc()  # Faster time is better
+    ).limit(50).all()
+
+    return [
+        LeaderboardEntry(
+            username=user.username,
+            attempts_used=entry.attempts_used,
+            is_won=entry.is_won,
+            time_taken_seconds=entry.time_taken_seconds,
+            completed_at=entry.completed_at.isoformat() if entry.completed_at else ""
+        )
+        for entry, user in entries
+    ]
+
+@router.get("/info")
+async def get_daily_info():
+    """Get today's challenge info (without spoiling the word)"""
+    today = date.today()
+    tomorrow = today + timedelta(days=1)
+
+    # Calculate time until next challenge
+    midnight_tomorrow = datetime.combine(tomorrow, datetime.min.time()).replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    seconds_until_next = int((midnight_tomorrow - now).total_seconds())
+
+    return {
+        "challenge_date": today.isoformat(),
+        "challenge_number": (today - date(2024, 1, 1)).days + 1,
+        "seconds_until_next": seconds_until_next
+    }

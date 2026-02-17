@@ -45,7 +45,7 @@ except ImportError as e:
 
 # Import Wordle models
 try:
-    from models.wordle import WordleGame, WordleStats
+    from models.wordle import WordleGame, WordleStats, DailyWordleLeaderboard
     print("✓ Wordle models imported successfully")
 except ImportError as e:
     print(f"⚠ Wordle models not available: {e}")

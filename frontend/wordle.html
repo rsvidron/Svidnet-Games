@@ -106,6 +106,22 @@
             font-size: 24px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         .stats-btn:hover { transform: scale(1.1); }
+        .daily-info {
+            text-align: center; color: white; margin-bottom: 15px; font-size: 14px;
+        }
+        .daily-info .challenge-number { font-weight: 700; font-size: 16px; }
+        .daily-info .timer { color: rgba(255,255,255,0.8); margin-top: 5px; }
+        .leaderboard { margin-top: 25px; }
+        .leaderboard h3 { font-size: 16px; color: #333; margin-bottom: 15px; text-transform: uppercase; }
+        .leaderboard-entry {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 0; border-bottom: 1px solid #f0f0f0;
+        }
+        .leaderboard-entry:last-child { border-bottom: none; }
+        .leaderboard-entry .rank { font-weight: 700; color: #667eea; min-width: 30px; }
+        .leaderboard-entry .username { flex: 1; color: #333; font-weight: 500; }
+        .leaderboard-entry .score { color: #888; font-size: 13px; }
+        .leaderboard-entry.won .score { color: #6aaa64; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -120,6 +136,11 @@
 
         <div class="header">
             <h1>WORDLE</h1>
+        </div>
+
+        <div class="daily-info" id="daily-info">
+            <div class="challenge-number">Challenge #<span id="challenge-number">-</span></div>
+            <div class="timer" id="timer">Next challenge in --:--:--</div>
         </div>
 
         <div class="game-card">
@@ -183,9 +204,12 @@
                 <h3>Guess Distribution</h3>
                 <div id="distribution"></div>
             </div>
+            <div class="leaderboard">
+                <h3>Today's Leaderboard</h3>
+                <div id="leaderboard"></div>
+            </div>
             <div class="modal-btns">
                 <button class="btn btn-primary" onclick="hideStats()">Close</button>
-                <button class="btn btn-primary" onclick="playAgain()">New Game</button>
             </div>
         </div>
     </div>
@@ -415,32 +439,77 @@
             }
         }
 
+        async function loadLeaderboard() {
+            try {
+                const res = await fetch(`${API_URL}/api/wordle/leaderboard/today`, {
+                    headers: { 'Authorization': `Bearer ${getToken()}` }
+                });
+
+                if (res.ok) {
+                    const entries = await res.json();
+                    const container = document.getElementById('leaderboard');
+
+                    if (entries.length === 0) {
+                        container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">No entries yet. Be the first!</div>';
+                        return;
+                    }
+
+                    container.innerHTML = entries.slice(0, 10).map((entry, idx) => {
+                        const emoji = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
+                        const scoreText = entry.is_won
+                            ? `${entry.attempts_used}/6 guesses`
+                            : 'X/6';
+
+                        return `
+                            <div class="leaderboard-entry ${entry.is_won ? 'won' : ''}">
+                                <div class="rank">${emoji || (idx + 1)}</div>
+                                <div class="username">${entry.username}</div>
+                                <div class="score">${scoreText}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (e) {
+                console.error('Failed to load leaderboard:', e);
+            }
+        }
+
+        async function loadDailyInfo() {
+            try {
+                const res = await fetch(`${API_URL}/api/wordle/info`);
+                if (res.ok) {
+                    const info = await res.json();
+                    document.getElementById('challenge-number').textContent = info.challenge_number;
+
+                    // Update timer
+                    function updateTimer() {
+                        const hours = Math.floor(info.seconds_until_next / 3600);
+                        const minutes = Math.floor((info.seconds_until_next % 3600) / 60);
+                        const seconds = info.seconds_until_next % 60;
+
+                        document.getElementById('timer').textContent =
+                            `Next challenge in ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+                        info.seconds_until_next--;
+                        if (info.seconds_until_next >= 0) {
+                            setTimeout(updateTimer, 1000);
+                        }
+                    }
+                    updateTimer();
+                }
+            } catch (e) {
+                console.error('Failed to load daily info:', e);
+            }
+        }
+
         function showStats() {
             loadStats();
+            loadLeaderboard();
             document.getElementById('stats-modal').classList.add('show');
         }
 
         function hideStats() {
             document.getElementById('stats-modal').classList.remove('show');
-        }
-
-        async function playAgain() {
-            // Reset current game state
-            currentRow = 0;
-            currentGuess = '';
-            gameState = null;
-            keyboardState = {};
-
-            // Reset UI
-            createBoard();
-            document.querySelectorAll('.key').forEach(key => {
-                key.classList.remove('correct', 'present', 'absent');
-            });
-
-            hideStats();
-
-            // Start new game
-            await startGame();
         }
 
         // Event listeners
@@ -473,6 +542,7 @@
             window.location.href = '/login';
         } else {
             createBoard();
+            loadDailyInfo();
             startGame();
         }
     </script>
