@@ -379,7 +379,13 @@ async def place_bet(
 
         # Check if games have started
         for match in matches:
-            if match.commence_time <= now:
+            # Ensure commence_time is timezone-aware for comparison
+            commence_time = match.commence_time
+            if commence_time.tzinfo is None:
+                # If naive, assume UTC
+                commence_time = commence_time.replace(tzinfo=timezone.utc)
+
+            if commence_time <= now:
                 raise HTTPException(400, f"Match {match.home_team} vs {match.away_team} has already started")
 
         # Create bet
