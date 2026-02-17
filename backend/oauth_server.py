@@ -9,7 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import jwt
 from passlib.context import CryptContext
 from authlib.integrations.starlette_client import OAuth
@@ -53,7 +53,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(hours=24)
+    expire = datetime.now(timezone.utc) + timedelta(hours=24)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -277,7 +277,14 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
     """Login user (traditional)"""
 
     user = db.query(User).filter(User.username == data.username).first()
-    if not user or not user.hashed_password or not verify_password(data.password, user.hashed_password):
+    if not user:
+        print(f"Login failed: user '{data.username}' not found")
+        raise HTTPException(401, "Invalid username or password")
+    if not user.hashed_password:
+        print(f"Login failed: user '{data.username}' has no password (OAuth-only account)")
+        raise HTTPException(401, "Invalid username or password - try Google Sign-In")
+    if not verify_password(data.password, user.hashed_password):
+        print(f"Login failed: wrong password for user '{data.username}'")
         raise HTTPException(401, "Invalid username or password")
 
     if not user.is_active:
