@@ -488,7 +488,7 @@
             <button class="sync-btn" id="sync-btn" onclick="syncOdds()">
                 🔄 Get Odds
             </button>
-            <button onclick="window.location.href='/dashboard.html'">← Back to Dashboard</button>
+            <button onclick="window.location.href='/'">← Back to Dashboard</button>
         </div>
     </div>
 
@@ -993,8 +993,14 @@
                 // Show toast notification
                 showToast('Syncing odds from The Odds API...', 'info');
 
+                // Get JWT token for admin authentication
+                const token = localStorage.getItem('access_token');
+
                 const response = await fetch(`${API_URL}/api/sports/admin/sync-matches`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
                 });
 
                 if (response.ok) {
