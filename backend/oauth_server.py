@@ -43,7 +43,14 @@ try:
 except ImportError as e:
     print(f"⚠ Admin models not available: {e}")
 
-# Create all tables (User, UserProfile, Trivia, Friends, and Admin tables)
+# Import Wordle models
+try:
+    from models.wordle import WordleGame, WordleStats
+    print("✓ Wordle models imported successfully")
+except ImportError as e:
+    print(f"⚠ Wordle models not available: {e}")
+
+# Create all tables (User, UserProfile, Trivia, Friends, Admin, and Wordle tables)
 Base.metadata.create_all(bind=engine)
 print(f"✓ Database tables created: {list(Base.metadata.tables.keys())}")
 
@@ -150,6 +157,14 @@ def admin_page():
     if os.path.exists(admin_path):
         return FileResponse(admin_path)
     raise HTTPException(404, "Admin page not found")
+
+@app.get("/wordle")
+def wordle_page():
+    """Serve the Wordle game page"""
+    wordle_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "wordle.html")
+    if os.path.exists(wordle_path):
+        return FileResponse(wordle_path)
+    raise HTTPException(404, "Wordle page not found")
 
 @app.get("/trivia")
 def trivia_game():
@@ -425,6 +440,14 @@ try:
     print("✓ Admin router loaded")
 except ImportError as e:
     print(f"Warning: Could not import admin router: {e}")
+
+# Include Wordle router
+try:
+    from routers.wordle import router as wordle_router
+    app.include_router(wordle_router)
+    print("✓ Wordle router loaded")
+except ImportError as e:
+    print(f"Warning: Could not import wordle router: {e}")
 
 
 if __name__ == "__main__":
