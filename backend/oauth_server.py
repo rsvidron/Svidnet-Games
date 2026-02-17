@@ -188,6 +188,14 @@ def trivia_game():
         return FileResponse(trivia_path)
     raise HTTPException(404, "Trivia game not found")
 
+@app.get("/sportsbook.html")
+def sportsbook_page():
+    """Serve the sportsbook page"""
+    sportsbook_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "sportsbook.html")
+    if os.path.exists(sportsbook_path):
+        return FileResponse(sportsbook_path)
+    raise HTTPException(404, "Sportsbook page not found")
+
 @app.get("/health")
 def health():
     user_count = SessionLocal().query(User).count()
