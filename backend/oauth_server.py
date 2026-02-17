@@ -42,6 +42,14 @@ class UserProfile(Base):
     elo_rating = Column(Integer, default=1200, nullable=False)
     total_games_played = Column(Integer, default=0, nullable=False)
 
+# Import trivia models to create their tables
+try:
+    from models.trivia import TriviaGame, TriviaAnswer, TriviaLeaderboard
+    from models.trivia import Base as TriviaBase
+    TriviaBase.metadata.create_all(bind=engine)
+except ImportError:
+    pass  # Trivia models not yet available
+
 # Create tables
 Base.metadata.create_all(bind=engine)
 
@@ -136,6 +144,14 @@ def root():
         "docs": "/docs",
         "frontend": "not found - check deployment"
     }
+
+@app.get("/trivia")
+def trivia_game():
+    """Serve the trivia game HTML"""
+    trivia_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "trivia-game.html")
+    if os.path.exists(trivia_path):
+        return FileResponse(trivia_path)
+    raise HTTPException(404, "Trivia game not found")
 
 @app.get("/health")
 def health():
@@ -296,6 +312,15 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
 
     except Exception as e:
         raise HTTPException(500, f"OAuth error: {str(e)}")
+
+
+# Include trivia router
+try:
+    from routers.trivia import router as trivia_router
+    app.include_router(trivia_router)
+except ImportError as e:
+    print(f"Warning: Could not import trivia router: {e}")
+
 
 if __name__ == "__main__":
     import uvicorn
