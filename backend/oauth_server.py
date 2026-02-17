@@ -5,6 +5,7 @@ from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import Column, Integer, String, Boolean, create_engine
 from sqlalchemy.orm import Session, sessionmaker, declarative_base
 from pydantic import BaseModel, EmailStr, Field
@@ -87,6 +88,10 @@ class TokenResponse(BaseModel):
 
 # FastAPI app
 app = FastAPI(title="SvidNet Arena", version="1.0.0")
+
+# Session middleware (required for OAuth)
+SESSION_SECRET = os.getenv("SECRET_KEY", "test-secret-key-for-development-only")
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
 
 # CORS
 app.add_middleware(
