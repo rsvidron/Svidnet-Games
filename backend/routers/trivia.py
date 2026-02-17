@@ -125,12 +125,18 @@ def submit_answer(
     if game.is_completed:
         raise HTTPException(400, "Game already completed")
 
+    # Ensure questions_data is a list (SQLite JSON can return string)
+    questions = game.questions_data
+    if isinstance(questions, str):
+        import json
+        questions = json.loads(questions)
+
     # Get current question
     current_index = game.current_question_index
-    if current_index >= len(game.questions_data):
-        raise HTTPException(400, "No more questions available")
+    if current_index >= len(questions):
+        raise HTTPException(400, f"No more questions available (index {current_index}, total {len(questions)})")
 
-    current_question = game.questions_data[current_index]
+    current_question = questions[current_index]
     correct_answer_index = current_question["correct_answer"]
     is_correct = request.selected_answer == correct_answer_index
 
@@ -186,7 +192,7 @@ def submit_answer(
         }
     else:
         # Get next question (without correct answer)
-        next_q = game.questions_data[game.current_question_index]
+        next_q = questions[game.current_question_index]
         next_question = {
             "question": next_q["question"],
             "options": next_q["options"],

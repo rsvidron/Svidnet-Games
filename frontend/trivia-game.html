@@ -303,7 +303,15 @@
                     nextBtn.style.display = 'block';
                     nextBtn.onclick = () => displayQuestion();
                 }
-            } catch (e) { showError('Failed to submit answer: ' + e.message); }
+            } catch (e) {
+                showError('Failed to submit answer: ' + e.message);
+                // Re-enable options so user can retry
+                selectedAnswer = null;
+                document.querySelectorAll('.option').forEach((opt, i) => {
+                    opt.classList.remove('disabled');
+                    opt.onclick = () => selectAnswer(i);
+                });
+            }
         }
 
         function startTimer() {
