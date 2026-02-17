@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Svidhaus Arena</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa; min-height: 100vh;
+        }
+        .nav {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 15px 30px; display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .nav h1 { font-size: 24px; }
+        .nav-links { display: flex; gap: 15px; }
+        .nav-links a { color: white; text-decoration: none; padding: 8px 16px; border-radius: 8px; transition: background 0.2s; }
+        .nav-links a:hover { background: rgba(255,255,255,0.2); }
+        .container { max-width: 1400px; margin: 0 auto; padding: 30px 20px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 30px; }
+        .tab { padding: 12px 24px; background: white; border: 2px solid #e0e0e0; border-radius: 10px; cursor: pointer;
+            font-size: 16px; font-weight: 600; transition: all 0.2s; }
+        .tab.active { background: #667eea; color: white; border-color: #667eea; }
+        .tab:hover:not(.active) { border-color: #667eea; }
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+        .card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .card h2 { color: #333; margin-bottom: 20px; font-size: 22px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; }
+        .btn-secondary { background: #e0e0e0; color: #333; }
+        .btn-secondary:hover { background: #d0d0d0; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-sm { padding: 6px 12px; font-size: 13px; }
+        .form-grid { display: grid; gap: 15px; margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 6px; color: #555; font-weight: 500; font-size: 14px; }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 10px 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none; border-color: #667eea;
+        }
+        .form-group textarea { min-height: 80px; resize: vertical; font-family: inherit; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th { background: #f9fafb; padding: 12px; text-align: left; font-weight: 600; color: #555; font-size: 13px;
+            text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e0e0e0; }
+        .table td { padding: 12px; border-bottom: 1px solid #f0f0f0; }
+        .table tr:hover { background: #f9fafb; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        .badge.active { background: #d1fae5; color: #065f46; }
+        .badge.inactive { background: #fee2e2; color: #991b1b; }
+        .badge.easy { background: #dbeafe; color: #1e40af; }
+        .badge.medium { background: #fef3c7; color: #92400e; }
+        .badge.hard { background: #fecaca; color: #991b1b; }
+        .actions { display: flex; gap: 8px; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+        .empty-state-icon { font-size: 48px; margin-bottom: 15px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; }
+        .stat-label { font-size: 13px; opacity: 0.9; margin-bottom: 8px; }
+        .stat-value { font-size: 32px; font-weight: 700; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);
+            z-index: 1000; align-items: center; justify-content: center; }
+        .modal.show { display: flex; }
+        .modal-content { background: white; border-radius: 12px; padding: 30px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h3 { font-size: 20px; color: #333; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+        .alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 15px; }
+        .alert-success { background: #d1fae5; color: #065f46; }
+        .alert-error { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <h1>Admin Panel</h1>
+        <div class="nav-links">
+            <a href="/">Dashboard</a>
+            <a href="/profile">Profile</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('categories')">Categories</button>
+            <button class="tab" onclick="switchTab('questions')">Questions</button>
+        </div>
+
+        <!-- Categories Section -->
+        <div class="content-section active" id="categories-section">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Trivia Categories</h2>
+                    <button class="btn btn-primary" onclick="showCreateCategoryModal()">+ New Category</button>
+                </div>
+
+                <div id="categories-list"></div>
+            </div>
+        </div>
+
+        <!-- Questions Section -->
+        <div class="content-section" id="questions-section">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Trivia Questions</h2>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="filter-category" onchange="loadQuestions()" style="padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 8px;">
+                            <option value="">All Categories</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="showCreateQuestionModal()">+ New Question</button>
+                    </div>
+                </div>
+
+                <div id="questions-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Modal -->
+    <div class="modal" id="category-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="category-modal-title">New Category</h3>
+                <button class="modal-close" onclick="closeModal('category-modal')">&times;</button>
+            </div>
+            <div id="category-alert"></div>
+            <form id="category-form" onsubmit="saveCategory(event)">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Name *</label>
+                        <input type="text" id="category-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Icon (emoji)</label>
+                        <input type="text" id="category-icon" placeholder="e.g., 🧬" maxlength="2">
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="category-description"></textarea>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('category-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Category</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Question Modal -->
+    <div class="modal" id="question-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="question-modal-title">New Question</h3>
+                <button class="modal-close" onclick="closeModal('question-modal')">&times;</button>
+            </div>
+            <div id="question-alert"></div>
+            <form id="question-form" onsubmit="saveQuestion(event)">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Category *</label>
+                        <select id="question-category" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Difficulty *</label>
+                        <select id="question-difficulty" required>
+                            <option value="easy">Easy</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Question *</label>
+                        <textarea id="question-text" required rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Option A *</label>
+                        <input type="text" id="question-option-a" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Option B *</label>
+                        <input type="text" id="question-option-b" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Option C *</label>
+                        <input type="text" id="question-option-c" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Option D *</label>
+                        <input type="text" id="question-option-d" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Correct Answer *</label>
+                        <select id="question-correct" required>
+                            <option value="0">A</option>
+                            <option value="1">B</option>
+                            <option value="2">C</option>
+                            <option value="3">D</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Explanation</label>
+                        <textarea id="question-explanation" rows="2"></textarea>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('question-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Question</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+        let currentEditingCategory = null;
+        let currentEditingQuestion = null;
+
+        // Load initial data
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCategories();
+            loadQuestions();
+        });
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+
+            if (tab === 'categories') {
+                document.querySelector('.tab:nth-child(1)').classList.add('active');
+                document.getElementById('categories-section').classList.add('active');
+            } else {
+                document.querySelector('.tab:nth-child(2)').classList.add('active');
+                document.getElementById('questions-section').classList.add('active');
+            }
+        }
+
+        async function loadCategories() {
+            try {
+                const res = await fetch(`${API_URL}/api/admin/categories`);
+                const categories = await res.json();
+
+                const list = document.getElementById('categories-list');
+                const filterSelect = document.getElementById('filter-category');
+                const questionCategorySelect = document.getElementById('question-category');
+
+                if (categories.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📁</div><p>No categories yet. Create your first category!</p></div>';
+                    filterSelect.innerHTML = '<option value="">All Categories</option>';
+                    questionCategorySelect.innerHTML = '<option value="">Select a category</option>';
+                    return;
+                }
+
+                // Update categories list
+                list.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Icon</th>
+                                <th>Name</th>
+                                <th>Description</th>
+                                <th>Questions</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${categories.map(cat => `
+                                <tr>
+                                    <td>${cat.icon || '📄'}</td>
+                                    <td><strong>${cat.name}</strong></td>
+                                    <td>${cat.description || '-'}</td>
+                                    <td>${cat.question_count}</td>
+                                    <td><span class="badge ${cat.is_active ? 'active' : 'inactive'}">${cat.is_active ? 'Active' : 'Inactive'}</span></td>
+                                    <td class="actions">
+                                        <button class="btn btn-sm btn-secondary" onclick='editCategory(${JSON.stringify(cat)})'>Edit</button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteCategory(${cat.id})">Delete</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+
+                // Update filter and question category selects
+                filterSelect.innerHTML = '<option value="">All Categories</option>' +
+                    categories.map(c => `<option value="${c.id}">${c.icon || ''} ${c.name}</option>`).join('');
+                questionCategorySelect.innerHTML = categories.map(c => `<option value="${c.id}">${c.icon || ''} ${c.name}</option>`).join('');
+
+            } catch (e) {
+                alert('Error loading categories: ' + e.message);
+            }
+        }
+
+        async function loadQuestions() {
+            try {
+                const categoryId = document.getElementById('filter-category').value;
+                const url = categoryId ? `${API_URL}/api/admin/questions?category_id=${categoryId}` : `${API_URL}/api/admin/questions`;
+                const res = await fetch(url);
+                const questions = await res.json();
+
+                const list = document.getElementById('questions-list');
+
+                if (questions.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">❓</div><p>No questions yet. Create your first question!</p></div>';
+                    return;
+                }
+
+                list.innerHTML = `
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Question</th>
+                                <th>Difficulty</th>
+                                <th>Stats</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${questions.map(q => {
+                                const accuracy = q.times_used > 0 ? Math.round((q.times_correct / q.times_used) * 100) : 0;
+                                return `
+                                    <tr>
+                                        <td><strong>${q.question.substring(0, 80)}${q.question.length > 80 ? '...' : ''}</strong></td>
+                                        <td><span class="badge ${q.difficulty}">${q.difficulty}</span></td>
+                                        <td>Used: ${q.times_used} | Accuracy: ${accuracy}%</td>
+                                        <td><span class="badge ${q.is_active ? 'active' : 'inactive'}">${q.is_active ? 'Active' : 'Inactive'}</span></td>
+                                        <td class="actions">
+                                            <button class="btn btn-sm btn-secondary" onclick='editQuestion(${JSON.stringify(q).replace(/'/g, "&apos;")})'>Edit</button>
+                                            <button class="btn btn-sm btn-danger" onclick="deleteQuestion(${q.id})">Delete</button>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+
+            } catch (e) {
+                alert('Error loading questions: ' + e.message);
+            }
+        }
+
+        // Category functions
+        function showCreateCategoryModal() {
+            currentEditingCategory = null;
+            document.getElementById('category-modal-title').textContent = 'New Category';
+            document.getElementById('category-form').reset();
+            document.getElementById('category-alert').innerHTML = '';
+            document.getElementById('category-modal').classList.add('show');
+        }
+
+        function editCategory(category) {
+            currentEditingCategory = category;
+            document.getElementById('category-modal-title').textContent = 'Edit Category';
+            document.getElementById('category-name').value = category.name;
+            document.getElementById('category-icon').value = category.icon || '';
+            document.getElementById('category-description').value = category.description || '';
+            document.getElementById('category-alert').innerHTML = '';
+            document.getElementById('category-modal').classList.add('show');
+        }
+
+        async function saveCategory(e) {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById('category-name').value,
+                icon: document.getElementById('category-icon').value || null,
+                description: document.getElementById('category-description').value || null
+            };
+
+            try {
+                const url = currentEditingCategory
+                    ? `${API_URL}/api/admin/categories/${currentEditingCategory.id}`
+                    : `${API_URL}/api/admin/categories`;
+                const method = currentEditingCategory ? 'PATCH' : 'POST';
+
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Failed to save category');
+                }
+
+                closeModal('category-modal');
+                loadCategories();
+                loadQuestions(); // Reload to update filter
+            } catch (e) {
+                document.getElementById('category-alert').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+            }
+        }
+
+        async function deleteCategory(id) {
+            if (!confirm('Delete this category? This will fail if it has questions.')) return;
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/categories/${id}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Failed to delete category');
+                }
+                loadCategories();
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        // Question functions
+        function showCreateQuestionModal() {
+            currentEditingQuestion = null;
+            document.getElementById('question-modal-title').textContent = 'New Question';
+            document.getElementById('question-form').reset();
+            document.getElementById('question-alert').innerHTML = '';
+            document.getElementById('question-modal').classList.add('show');
+        }
+
+        function editQuestion(question) {
+            currentEditingQuestion = question;
+            document.getElementById('question-modal-title').textContent = 'Edit Question';
+            document.getElementById('question-category').value = question.category_id;
+            document.getElementById('question-difficulty').value = question.difficulty;
+            document.getElementById('question-text').value = question.question;
+            document.getElementById('question-option-a').value = question.option_a;
+            document.getElementById('question-option-b').value = question.option_b;
+            document.getElementById('question-option-c').value = question.option_c;
+            document.getElementById('question-option-d').value = question.option_d;
+            document.getElementById('question-correct').value = question.correct_answer;
+            document.getElementById('question-explanation').value = question.explanation || '';
+            document.getElementById('question-alert').innerHTML = '';
+            document.getElementById('question-modal').classList.add('show');
+        }
+
+        async function saveQuestion(e) {
+            e.preventDefault();
+            const data = {
+                category_id: parseInt(document.getElementById('question-category').value),
+                difficulty: document.getElementById('question-difficulty').value,
+                question: document.getElementById('question-text').value,
+                option_a: document.getElementById('question-option-a').value,
+                option_b: document.getElementById('question-option-b').value,
+                option_c: document.getElementById('question-option-c').value,
+                option_d: document.getElementById('question-option-d').value,
+                correct_answer: parseInt(document.getElementById('question-correct').value),
+                explanation: document.getElementById('question-explanation').value || null
+            };
+
+            try {
+                const url = currentEditingQuestion
+                    ? `${API_URL}/api/admin/questions/${currentEditingQuestion.id}`
+                    : `${API_URL}/api/admin/questions`;
+                const method = currentEditingQuestion ? 'PATCH' : 'POST';
+
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Failed to save question');
+                }
+
+                closeModal('question-modal');
+                loadQuestions();
+                loadCategories(); // Reload to update question counts
+            } catch (e) {
+                document.getElementById('question-alert').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+            }
+        }
+
+        async function deleteQuestion(id) {
+            if (!confirm('Delete this question?')) return;
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/questions/${id}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error('Failed to delete question');
+                loadQuestions();
+                loadCategories(); // Update question counts
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+    </script>
+</body>
+</html>

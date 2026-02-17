@@ -51,14 +51,45 @@ def start_game(
     """
     Start a new trivia game
 
-    Generates questions using Gemini AI and creates a new game session.
+    Uses custom questions if available, otherwise generates with Gemini AI.
     """
-    # Generate questions using Gemini
-    questions = gemini_service.generate_trivia_questions(
-        category=request.category,
-        difficulty=request.difficulty,
-        count=request.num_questions
-    )
+    # Try to get custom questions from database first
+    from models.admin import TriviaCategory, CustomTriviaQuestion
+    import random
+
+    questions = []
+
+    # Check if category exists in custom categories
+    category_record = db.query(TriviaCategory).filter(
+        TriviaCategory.slug == request.category,
+        TriviaCategory.is_active == True
+    ).first()
+
+    if category_record:
+        # Get custom questions for this category
+        custom_questions = db.query(CustomTriviaQuestion).filter(
+            CustomTriviaQuestion.category_id == category_record.id,
+            CustomTriviaQuestion.is_active == True
+        ).all()
+
+        if len(custom_questions) >= request.num_questions:
+            # Use custom questions
+            selected = random.sample(custom_questions, request.num_questions)
+            questions = [{
+                "question": q.question,
+                "options": [q.option_a, q.option_b, q.option_c, q.option_d],
+                "correct_answer": q.correct_answer,
+                "explanation": q.explanation or "Great job!",
+                "category": category_record.name
+            } for q in selected]
+
+    # If no custom questions, fall back to Gemini
+    if not questions:
+        questions = gemini_service.generate_trivia_questions(
+            category=request.category,
+            difficulty=request.difficulty,
+            count=request.num_questions
+        )
 
     if not questions:
         raise HTTPException(500, "Failed to generate trivia questions")

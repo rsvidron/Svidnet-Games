@@ -36,7 +36,14 @@ try:
 except ImportError as e:
     print(f"⚠ Friends model not available: {e}")
 
-# Create all tables (User, UserProfile, and Trivia tables)
+# Import admin models
+try:
+    from models.admin import TriviaCategory, CustomTriviaQuestion
+    print("✓ Admin models imported successfully")
+except ImportError as e:
+    print(f"⚠ Admin models not available: {e}")
+
+# Create all tables (User, UserProfile, Trivia, Friends, and Admin tables)
 Base.metadata.create_all(bind=engine)
 print(f"✓ Database tables created: {list(Base.metadata.tables.keys())}")
 
@@ -135,6 +142,14 @@ def profile_page():
     if os.path.exists(profile_path):
         return FileResponse(profile_path)
     raise HTTPException(404, "Profile page not found")
+
+@app.get("/admin")
+def admin_page():
+    """Serve the admin panel"""
+    admin_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "admin.html")
+    if os.path.exists(admin_path):
+        return FileResponse(admin_path)
+    raise HTTPException(404, "Admin page not found")
 
 @app.get("/trivia")
 def trivia_game():
@@ -402,6 +417,14 @@ try:
     print("✓ User router loaded")
 except ImportError as e:
     print(f"Warning: Could not import user router: {e}")
+
+# Include admin router
+try:
+    from routers.admin import router as admin_router
+    app.include_router(admin_router)
+    print("✓ Admin router loaded")
+except ImportError as e:
+    print(f"Warning: Could not import admin router: {e}")
 
 
 if __name__ == "__main__":
