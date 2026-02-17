@@ -174,11 +174,32 @@ def submit_answer(
         # Complete the game
         game.is_completed = True
         game.time_completed = datetime.now(timezone.utc)
-        time_delta = game.time_completed - game.time_started
-        game.time_taken_seconds = int(time_delta.total_seconds())
 
-        # Update leaderboard
-        update_leaderboard(db, user_id, game)
+        # Calculate time taken - handle SQLite datetime string
+        try:
+            time_started = game.time_started
+            if isinstance(time_started, str):
+                from datetime import datetime as dt
+                # Try common SQLite datetime formats
+                for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S"):
+                    try:
+                        time_started = dt.strptime(time_started, fmt).replace(tzinfo=timezone.utc)
+                        break
+                    except ValueError:
+                        continue
+            if isinstance(time_started, datetime):
+                time_completed = game.time_completed
+                # Ensure both are tz-aware or both naive for subtraction
+                if time_started.tzinfo is None:
+                    time_started = time_started.replace(tzinfo=timezone.utc)
+                if time_completed.tzinfo is None:
+                    time_completed = time_completed.replace(tzinfo=timezone.utc)
+                game.time_taken_seconds = int((time_completed - time_started).total_seconds())
+            else:
+                game.time_taken_seconds = 0
+        except Exception as e:
+            print(f"Error calculating time: {e}")
+            game.time_taken_seconds = 0
 
         # Prepare final stats
         accuracy = int((game.correct_answers / game.total_questions) * 100)
@@ -188,8 +209,16 @@ def submit_answer(
             "wrong": game.wrong_answers,
             "total": game.total_questions,
             "accuracy": accuracy,
-            "time_taken": game.time_taken_seconds
+            "time_taken": game.time_taken_seconds or 0
         }
+
+        # Commit game completion first, then update leaderboard
+        db.commit()
+
+        try:
+            update_leaderboard(db, user_id, game)
+        except Exception as e:
+            print(f"Leaderboard update error (non-fatal): {e}")
     else:
         # Get next question (without correct answer)
         next_q = questions[game.current_question_index]
