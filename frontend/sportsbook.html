@@ -920,7 +920,9 @@
                 month: 'short',
                 day: 'numeric',
                 hour: 'numeric',
-                minute: '2-digit'
+                minute: '2-digit',
+                timeZone: 'America/New_York',
+                timeZoneName: 'short'
             });
 
             const moneyline = game.moneyline || {};
@@ -1403,7 +1405,15 @@
                     `;
                 }).join('');
 
-                const placedDate = new Date(bet.placed_at).toLocaleString();
+                const placedDate = new Date(bet.placed_at).toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    timeZone: 'America/New_York',
+                    timeZoneName: 'short'
+                });
                 const payout = bet.status === 'won' ? bet.actual_payout : bet.status === 'push' ? bet.stake : 0;
 
                 return `
