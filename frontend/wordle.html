@@ -418,19 +418,34 @@
 
                     // Distribution
                     const dist = document.getElementById('distribution');
-                    const maxCount = Math.max(...Object.values(stats.guess_distribution));
+                    const maxCount = Math.max(...Object.values(stats.guess_distribution), 1);
 
                     dist.innerHTML = '';
                     for (let i = 1; i <= 6; i++) {
                         const count = stats.guess_distribution[i.toString()] || 0;
-                        const width = maxCount > 0 ? (count / maxCount * 100) : 0;
+                        // Calculate width as percentage of max, with minimum visibility if count > 0
+                        let width = 0;
+                        if (count > 0) {
+                            width = (count / maxCount * 100);
+                            // Ensure bars are visible: minimum 10% width
+                            if (width < 10) width = 10;
+                        }
 
                         const row = document.createElement('div');
                         row.className = 'dist-row';
-                        row.innerHTML = `
-                            <div class="number">${i}</div>
-                            <div class="bar" style="width: ${Math.max(width, 8)}%">${count}</div>
-                        `;
+
+                        if (count > 0) {
+                            row.innerHTML = `
+                                <div class="number">${i}</div>
+                                <div class="bar" style="width: ${width}%;">${count}</div>
+                            `;
+                        } else {
+                            row.innerHTML = `
+                                <div class="number">${i}</div>
+                                <div class="bar" style="width: 10%; opacity: 0.3;">0</div>
+                            `;
+                        }
+
                         dist.appendChild(row);
                     }
                 }
