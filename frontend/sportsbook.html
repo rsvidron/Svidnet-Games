@@ -686,14 +686,28 @@
                 bottom: 0;
                 left: 0;
                 right: 0;
+                min-height: 200px;
                 max-height: 50vh;
                 border-radius: 20px 20px 0 0;
                 z-index: 1000;
                 box-shadow: 0 -4px 20px rgba(0,0,0,0.2);
+                padding: 15px;
             }
 
             .games-section {
-                margin-bottom: 60px; /* Space for fixed bet slip */
+                padding-bottom: 220px !important; /* Space for fixed bet slip */
+                margin-bottom: 0;
+                max-height: none; /* Allow full scrolling on mobile */
+                overflow-y: visible;
+            }
+
+            #betting-view .container {
+                padding-bottom: 220px;
+                min-height: 100vh;
+            }
+
+            body {
+                overflow-x: hidden; /* Prevent horizontal scroll */
             }
         }
 
@@ -799,8 +813,11 @@
             }
 
             .bet-slip {
-                max-height: 60vh;
+                min-height: 250px;
+                max-height: 65vh;
                 overflow-y: auto;
+                -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+                padding: 15px 15px 25px 15px; /* Extra bottom padding for iOS */
             }
 
             .bet-slip h2 {
@@ -815,7 +832,23 @@
             }
 
             .games-section {
-                margin-bottom: 100px; /* More space for fixed bet slip */
+                padding-bottom: 300px !important; /* More space for fixed bet slip */
+                margin-bottom: 0;
+                max-height: none !important;
+                overflow-y: visible !important;
+            }
+
+            #betting-view .container {
+                padding-bottom: 300px;
+            }
+
+            .container {
+                padding-bottom: 300px;
+            }
+
+            /* Ensure filters don't get covered */
+            .filters {
+                margin-bottom: 20px;
             }
 
             /* My Bets mobile optimization */
