@@ -416,9 +416,13 @@ def update_user_stats(user_id: int, is_won: bool, attempts_used: int, challenge_
         stats.max_streak = max(stats.max_streak, stats.current_streak)
 
         # Update guess distribution
-        dist = stats.guess_distribution
+        dist = stats.guess_distribution.copy()  # Create a copy
         dist[str(attempts_used)] = dist.get(str(attempts_used), 0) + 1
-        stats.guess_distribution = dist
+        stats.guess_distribution = dist  # Reassign to trigger SQLAlchemy update
+
+        # Mark the column as modified to ensure SQLAlchemy saves it
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(stats, 'guess_distribution')
     else:
         # Lost today - streak is broken
         stats.current_streak = 0
