@@ -225,16 +225,16 @@
         let gameState = null;
         let keyboardState = {};
 
-        function getToken() { return localStorage.getItem('token'); }
+        function getToken() { return localStorage.getItem('access_token'); }
         function getUser() {
             const s = localStorage.getItem('user');
             return s ? JSON.parse(s) : null;
         }
 
         function logout() {
-            localStorage.removeItem('token');
+            localStorage.removeItem('access_token');
             localStorage.removeItem('user');
-            window.location.href = '/login';
+            window.location.href = '/';
         }
 
         function createBoard() {
