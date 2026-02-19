@@ -233,6 +233,7 @@
             <div class="sidebar-label">Menu</div>
             <a href="/" class="sidebar-item"><span class="icon">⊞</span> Dashboard</a>
             <a href="/profile" class="sidebar-item"><span class="icon">👤</span> Profile</a>
+            <a href="/links" class="sidebar-item"><span class="icon">🔗</span> Links</a>
             <a href="/admin" class="sidebar-item active"><span class="icon">⚙️</span> Admin</a>
         </div>
         <div class="sidebar-section" style="margin-top:12px;">
@@ -266,6 +267,7 @@
                 <button class="tab active" onclick="switchTab('categories', this)">Categories</button>
                 <button class="tab" onclick="switchTab('questions', this)">Questions</button>
                 <button class="tab" onclick="switchTab('wordle', this)">Wordle Words</button>
+                <button class="tab" onclick="switchTab('links', this)">Links</button>
                 <button class="tab" onclick="switchTab('import', this)">Import/Export</button>
             </div>
 
@@ -304,6 +306,17 @@
                         <button class="btn btn-primary" onclick="showCreateWordModal()">+ New Word</button>
                     </div>
                     <div id="wordle-words-list"></div>
+                </div>
+            </div>
+
+            <!-- Links Section -->
+            <div class="content-section" id="links-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Links Dashboard</h2>
+                        <button class="btn btn-primary" onclick="showCreateLinkModal()">+ New Link</button>
+                    </div>
+                    <div id="links-list"></div>
                 </div>
             </div>
 
@@ -466,11 +479,63 @@
         </div>
     </div>
 
+    <!-- Link Modal -->
+    <div class="modal" id="link-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="link-modal-title">New Link</h3>
+                <button class="modal-close" onclick="closeModal('link-modal')">×</button>
+            </div>
+            <div id="link-alert"></div>
+            <form id="link-form" onsubmit="saveLink(event)">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Title *</label>
+                        <input type="text" id="link-title" required>
+                    </div>
+                    <div class="form-group">
+                        <label>URL *</label>
+                        <input type="url" id="link-url" required placeholder="https://...">
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" id="link-description" placeholder="Short description">
+                    </div>
+                    <div class="form-group">
+                        <label>Icon (emoji)</label>
+                        <input type="text" id="link-icon" placeholder="e.g. 🏠" maxlength="4">
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <input type="text" id="link-category" placeholder="e.g. Home Lab, Tools, Media">
+                    </div>
+                    <div class="form-group">
+                        <label>Sort Order</label>
+                        <input type="number" id="link-sort-order" value="0" min="0">
+                    </div>
+                    <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+                        <input type="checkbox" id="link-new-tab" checked style="width:auto;">
+                        <label for="link-new-tab" style="margin-bottom:0;">Open in new tab</label>
+                    </div>
+                    <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+                        <input type="checkbox" id="link-active" checked style="width:auto;">
+                        <label for="link-active" style="margin-bottom:0;">Active (visible on Links page)</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('link-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Link</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         const API_URL = window.location.origin;
         let currentEditingCategory = null;
         let currentEditingQuestion = null;
         let currentEditingWord = null;
+        let currentEditingLink = null;
 
         // Theme
         function getTheme() { return localStorage.getItem('theme') || 'dark'; }
@@ -510,6 +575,9 @@
             } else if (tab === 'wordle') {
                 document.getElementById('wordle-section').classList.add('active');
                 loadWordleWords();
+            } else if (tab === 'links') {
+                document.getElementById('links-section').classList.add('active');
+                loadLinks();
             } else if (tab === 'import') {
                 document.getElementById('import-section').classList.add('active');
             }
@@ -827,6 +895,105 @@
                 resultsDiv.innerHTML = `<div class="alert alert-error"><strong>Error</strong><br>${e.message}</div>`;
             }
             document.getElementById(`${type}-file`).value = '';
+        }
+
+        // ── Links ──
+
+        async function loadLinks() {
+            try {
+                const res = await fetch(`${API_URL}/api/admin/links/all`);
+                const links = await res.json();
+                const list = document.getElementById('links-list');
+
+                if (!links || links.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔗</div><p>No links yet. Add your first link!</p></div>';
+                    return;
+                }
+
+                list.innerHTML = `<table class="table">
+                    <thead><tr>
+                        <th>Icon</th><th>Title</th><th>URL</th><th>Category</th><th>Status</th><th>New Tab</th><th>Order</th><th>Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        ${links.map(l => `<tr>
+                            <td>${l.icon || '🔗'}</td>
+                            <td><strong>${l.title}</strong>${l.description ? `<br><span style="font-size:11px;color:var(--text-muted);">${l.description}</span>` : ''}</td>
+                            <td style="font-size:12px;color:var(--text-secondary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${l.url}</td>
+                            <td>${l.category || '—'}</td>
+                            <td><span class="badge ${l.is_active ? 'active' : 'inactive'}">${l.is_active ? 'Active' : 'Hidden'}</span></td>
+                            <td>${l.open_in_new_tab ? '↗' : '→'}</td>
+                            <td>${l.sort_order}</td>
+                            <td class="actions">
+                                <button class="btn btn-sm btn-secondary" onclick='editLink(${JSON.stringify(l)})'>Edit</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteLink(${l.id}, '${l.title.replace(/'/g, "\\'")}')">Delete</button>
+                            </td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+            } catch (e) {
+                document.getElementById('links-list').innerHTML = `<div class="alert alert-error">Error loading links: ${e.message}</div>`;
+            }
+        }
+
+        function showCreateLinkModal() {
+            currentEditingLink = null;
+            document.getElementById('link-modal-title').textContent = 'New Link';
+            document.getElementById('link-form').reset();
+            document.getElementById('link-new-tab').checked = true;
+            document.getElementById('link-active').checked = true;
+            document.getElementById('link-sort-order').value = 0;
+            document.getElementById('link-alert').innerHTML = '';
+            document.getElementById('link-modal').classList.add('show');
+        }
+
+        function editLink(link) {
+            currentEditingLink = link;
+            document.getElementById('link-modal-title').textContent = 'Edit Link';
+            document.getElementById('link-title').value = link.title;
+            document.getElementById('link-url').value = link.url;
+            document.getElementById('link-description').value = link.description || '';
+            document.getElementById('link-icon').value = link.icon || '';
+            document.getElementById('link-category').value = link.category || '';
+            document.getElementById('link-sort-order').value = link.sort_order;
+            document.getElementById('link-new-tab').checked = link.open_in_new_tab;
+            document.getElementById('link-active').checked = link.is_active;
+            document.getElementById('link-alert').innerHTML = '';
+            document.getElementById('link-modal').classList.add('show');
+        }
+
+        async function saveLink(e) {
+            e.preventDefault();
+            const data = {
+                title: document.getElementById('link-title').value,
+                url: document.getElementById('link-url').value,
+                description: document.getElementById('link-description').value || null,
+                icon: document.getElementById('link-icon').value || null,
+                category: document.getElementById('link-category').value || null,
+                sort_order: parseInt(document.getElementById('link-sort-order').value) || 0,
+                open_in_new_tab: document.getElementById('link-new-tab').checked,
+                is_active: document.getElementById('link-active').checked,
+            };
+            try {
+                const url = currentEditingLink
+                    ? `${API_URL}/api/admin/links/${currentEditingLink.id}`
+                    : `${API_URL}/api/admin/links`;
+                const method = currentEditingLink ? 'PATCH' : 'POST';
+                const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+                if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Failed to save'); }
+                closeModal('link-modal');
+                loadLinks();
+            } catch (e) {
+                document.getElementById('link-alert').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+            }
+        }
+
+        async function deleteLink(id, title) {
+            if (!confirm(`Delete link "${title}"?`)) return;
+            try {
+                const res = await fetch(`${API_URL}/api/admin/links/${id}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error('Failed to delete');
+                loadLinks();
+            } catch (e) { alert(e.message); }
         }
     </script>
 </body>

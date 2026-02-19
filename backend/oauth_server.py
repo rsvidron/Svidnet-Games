@@ -43,6 +43,13 @@ try:
 except ImportError as e:
     print(f"⚠ Admin models not available: {e}")
 
+# Import links model
+try:
+    from models.links import Link
+    print("✓ Links model imported successfully")
+except ImportError as e:
+    print(f"⚠ Links model not available: {e}")
+
 # Import Wordle models
 try:
     from models.wordle import WordleGame, WordleStats, DailyWordleLeaderboard
@@ -204,6 +211,14 @@ def sportsbook():
     if os.path.exists(sportsbook_path):
         return FileResponse(sportsbook_path)
     raise HTTPException(404, "Sportsbook page not found")
+
+@app.get("/links")
+def links_page():
+    """Serve the links dashboard page"""
+    links_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "links.html")
+    if os.path.exists(links_path):
+        return FileResponse(links_path)
+    raise HTTPException(404, "Links page not found")
 
 @app.get("/health")
 def health():

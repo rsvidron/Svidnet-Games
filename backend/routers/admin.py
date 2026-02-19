@@ -14,6 +14,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from models.admin import TriviaCategory, CustomTriviaQuestion, WordleWord
+from models.links import Link
 from models.user import User
 from fastapi.responses import StreamingResponse
 import io
@@ -850,3 +851,125 @@ def delete_wordle_word(
     db.commit()
 
     return {"message": "Word deleted"}
+
+# ── Links ──────────────────────────────────────────────────────────────────
+
+class LinkCreate(BaseModel):
+    title: str
+    url: str
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    category: Optional[str] = None
+    is_active: bool = True
+    open_in_new_tab: bool = True
+    sort_order: int = 0
+
+class LinkUpdate(BaseModel):
+    title: Optional[str] = None
+    url: Optional[str] = None
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    category: Optional[str] = None
+    is_active: Optional[bool] = None
+    open_in_new_tab: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
+@router.get("/links")
+def get_links(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Get all links (public — no admin check so the links page can fetch them)"""
+    links = db.query(Link).filter(Link.is_active == True).order_by(Link.sort_order, Link.id).all()
+    return [
+        {
+            "id": l.id,
+            "title": l.title,
+            "url": l.url,
+            "description": l.description,
+            "icon": l.icon,
+            "category": l.category,
+            "is_active": l.is_active,
+            "open_in_new_tab": l.open_in_new_tab,
+            "sort_order": l.sort_order,
+        }
+        for l in links
+    ]
+
+
+@router.get("/links/all")
+def get_all_links(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Get all links including inactive (admin only)"""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+    links = db.query(Link).order_by(Link.sort_order, Link.id).all()
+    return [
+        {
+            "id": l.id,
+            "title": l.title,
+            "url": l.url,
+            "description": l.description,
+            "icon": l.icon,
+            "category": l.category,
+            "is_active": l.is_active,
+            "open_in_new_tab": l.open_in_new_tab,
+            "sort_order": l.sort_order,
+        }
+        for l in links
+    ]
+
+
+@router.post("/links", status_code=201)
+def create_link(
+    data: LinkCreate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Create a new link (admin only)"""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+    link = Link(**data.dict())
+    db.add(link)
+    db.commit()
+    db.refresh(link)
+    return {"id": link.id, "message": "Link created"}
+
+
+@router.patch("/links/{link_id}")
+def update_link(
+    link_id: int,
+    data: LinkUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Update a link (admin only)"""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+    link = db.query(Link).filter(Link.id == link_id).first()
+    if not link:
+        raise HTTPException(404, "Link not found")
+    for field, value in data.dict(exclude_unset=True).items():
+        setattr(link, field, value)
+    db.commit()
+    return {"message": "Link updated"}
+
+
+@router.delete("/links/{link_id}")
+def delete_link(
+    link_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Delete a link (admin only)"""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+    link = db.query(Link).filter(Link.id == link_id).first()
+    if not link:
+        raise HTTPException(404, "Link not found")
+    db.delete(link)
+    db.commit()
+    return {"message": "Link deleted"}
