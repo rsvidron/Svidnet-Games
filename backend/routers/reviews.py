@@ -10,11 +10,11 @@ from pydantic import BaseModel
 import httpx
 import os
 import sys
+import time
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from models.media_review import MediaReview
-from models.user import User
 
 router = APIRouter(prefix="/api/reviews", tags=["reviews"])
 
@@ -29,6 +29,10 @@ TMDB_HEADERS = {
     "accept": "application/json",
 }
 
+# ── In-memory TTL cache for trending (10 min) ────────────────────────────────
+_trending_cache: dict = {}   # key → {"data": ..., "ts": float}
+TRENDING_TTL = 600           # seconds
+
 
 # ── DB Session ───────────────────────────────────────────────────────────────
 def get_db():
@@ -41,23 +45,23 @@ def get_db():
 
 
 # ── Auth helper ──────────────────────────────────────────────────────────────
-def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)) -> User:
+def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
+    """Decode JWT and return user_id as int. Raises 401 on any failure."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")
     token = authorization.split(" ", 1)[1]
     try:
-        from jose import jwt
+        from jose import jwt, JWTError
         SECRET_KEY = os.getenv("SECRET_KEY", "test-secret-key-for-development")
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        user_id = payload.get("user_id") or payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        user = db.query(User).filter(User.id == int(user_id)).first()
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return user
+        user_id = payload.get("sub") or payload.get("user_id")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token claims")
+        return int(user_id)
+    except HTTPException:
+        raise
     except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
 # ── Pydantic Schemas ─────────────────────────────────────────────────────────
@@ -119,7 +123,12 @@ async def trending_media(
     media_type: str = Query("all", regex="^(all|movie|tv)$"),
     time_window: str = Query("week", regex="^(day|week)$"),
 ):
-    """Fetch TMDB trending content."""
+    """Fetch TMDB trending content with a 10-minute in-memory cache."""
+    cache_key = f"{media_type}:{time_window}"
+    cached = _trending_cache.get(cache_key)
+    if cached and (time.time() - cached["ts"]) < TRENDING_TTL:
+        return cached["data"]
+
     url = f"{TMDB_BASE}/trending/{media_type}/{time_window}"
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(url, headers=TMDB_HEADERS)
@@ -131,7 +140,9 @@ async def trending_media(
         for item in data.get("results", [])
         if item.get("media_type") in ("movie", "tv")
     ]
-    return {"results": results}
+    result = {"results": results, "cached": False}
+    _trending_cache[cache_key] = {"data": {**result, "cached": False}, "ts": time.time()}
+    return result
 
 
 @router.get("/details/{media_type}/{media_id}")
@@ -154,11 +165,11 @@ async def get_media_details(media_type: str, media_id: str):
 def get_my_reviews(
     status: Optional[str] = Query(None),
     media_type: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """Return the current user's reviews / watchlist."""
-    q = db.query(MediaReview).filter(MediaReview.user_id == current_user.id)
+    q = db.query(MediaReview).filter(MediaReview.user_id == user_id)
     if status:
         q = q.filter(MediaReview.status == status)
     if media_type:
@@ -170,18 +181,17 @@ def get_my_reviews(
 @router.post("/my")
 def create_review(
     body: ReviewCreate,
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """Add a movie/TV show to the user's list (or update if already exists)."""
     existing = db.query(MediaReview).filter(
-        MediaReview.user_id == current_user.id,
+        MediaReview.user_id == user_id,
         MediaReview.media_id == body.media_id,
         MediaReview.media_type == body.media_type,
     ).first()
 
     if existing:
-        # Update existing entry
         existing.status = body.status
         if body.rating is not None:
             existing.rating = body.rating
@@ -193,7 +203,7 @@ def create_review(
         return _review_dict(existing)
 
     review = MediaReview(
-        user_id=current_user.id,
+        user_id=user_id,
         media_id=body.media_id,
         media_type=body.media_type,
         title=body.title,
@@ -217,13 +227,13 @@ def create_review(
 def update_review(
     review_id: int,
     body: ReviewUpdate,
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """Update status, rating, or review text."""
     review = db.query(MediaReview).filter(
         MediaReview.id == review_id,
-        MediaReview.user_id == current_user.id,
+        MediaReview.user_id == user_id,
     ).first()
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
@@ -242,13 +252,13 @@ def update_review(
 @router.delete("/my/{review_id}")
 def delete_review(
     review_id: int,
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """Remove an entry from the user's list."""
     review = db.query(MediaReview).filter(
         MediaReview.id == review_id,
-        MediaReview.user_id == current_user.id,
+        MediaReview.user_id == user_id,
     ).first()
     if not review:
         raise HTTPException(status_code=404, detail="Review not found")
@@ -261,12 +271,12 @@ def delete_review(
 def check_in_list(
     media_type: str,
     media_id: str,
-    current_user: User = Depends(get_current_user),
+    user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
     """Check if a specific title is already in the user's list."""
     review = db.query(MediaReview).filter(
-        MediaReview.user_id == current_user.id,
+        MediaReview.user_id == user_id,
         MediaReview.media_id == media_id,
         MediaReview.media_type == media_type,
     ).first()
