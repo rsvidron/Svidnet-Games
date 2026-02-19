@@ -287,6 +287,8 @@
         .lb-spread-fill { height: 100%; background: var(--accent); border-radius: 2px; opacity: 0.6; }
         .lb-empty { padding: 24px 16px; text-align: center; font-size: 13px; color: var(--text-muted); }
         .lb-section-sep { height: 1px; background: var(--divider); margin: 6px 14px; }
+        #edit-order-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+        #collection-official-panel { border: 1px solid var(--card-border); border-radius: 12px; padding: 16px; background: var(--card-bg); margin-bottom: 20px; }
         .lb-row { cursor: pointer; }
         .lb-row.lb-expanded { background: var(--accent-dim); }
         .lb-expand-icon { font-size: 11px; color: var(--text-muted); flex-shrink: 0; transition: transform 0.2s; }
@@ -314,7 +316,6 @@
             .detail-info { padding-top: 0; }
             .lists-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
             .view-tabs { width: 100%; }
-            #collection-split-view { grid-template-columns: 1fr !important; }
             #col-detail-outer { flex-direction: column !important; }
             .lb-sidebar:not(.lb-collapsed) { width: 100% !important; margin-left: 0 !important; margin-top: 16px; position: static; }
         }
@@ -465,6 +466,7 @@
                                 <div style="display:flex;align-items:center;gap:8px;">
                                     <button class="lb-toggle-btn" id="lb-toggle-btn" onclick="toggleLeaderboard()" title="Toggle Leaderboard">📊 Leaderboard</button>
                                     <div class="list-detail-actions" id="collection-admin-actions" style="display:none;">
+                                        <button class="btn btn-secondary btn-sm" id="edit-order-btn" onclick="toggleOfficialOrderPanel()">Edit Order</button>
                                         <button class="btn btn-secondary btn-sm" onclick="showEditCollectionModal()">Edit</button>
                                         <button class="btn btn-danger btn-sm" onclick="deleteCollection()">Delete</button>
                                     </div>
@@ -477,19 +479,13 @@
                                     <div class="search-dropdown" id="collection-search-dropdown" style="display:none;"></div>
                                 </div>
                             </div>
-                            <!-- Split layout: canonical list + user ranking -->
-                            <div id="collection-split-view" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
-                                <!-- Left: canonical collection -->
-                                <div>
-                                    <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Official Order</div>
-                                    <div id="collection-items-container"><div class="loading">Loading...</div></div>
-                                </div>
-                                <!-- Right: user's personal ranking -->
-                                <div>
-                                    <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Your Ranking</div>
-                                    <div id="user-ranking-container"><div class="loading">Loading...</div></div>
-                                </div>
+                            <!-- Official order panel (hidden by default, shown when admin clicks Edit Order) -->
+                            <div id="collection-official-panel" style="display:none;margin-bottom:20px;">
+                                <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Official Order</div>
+                                <div id="collection-items-container"><div class="loading">Loading...</div></div>
                             </div>
+                            <!-- User ranking (always shown) -->
+                            <div id="user-ranking-container"><div class="loading">Loading...</div></div>
                         </div>
                         <!-- Leaderboard sidebar -->
                         <div id="lb-sidebar" class="lb-sidebar lb-collapsed">
@@ -1231,8 +1227,11 @@
             document.getElementById('lb-toggle-btn').classList.remove('lb-open');
             document.getElementById('collections-overview').style.display = 'none';
             document.getElementById('collections-detail').style.display = '';
-            document.getElementById('collection-items-container').innerHTML = '<div class="loading">Loading...</div>';
             document.getElementById('user-ranking-container').innerHTML = '<div class="loading">Loading...</div>';
+            // Hide official order panel on new collection open
+            document.getElementById('collection-official-panel').style.display = 'none';
+            const editBtn = document.getElementById('edit-order-btn');
+            if (editBtn) editBtn.classList.remove('active');
             await loadCollectionDetail();
         }
 
@@ -1253,9 +1252,6 @@
                 document.getElementById('collection-admin-actions').style.display = admin ? '' : 'none';
                 document.getElementById('collection-add-row').style.display = admin ? '' : 'none';
 
-                // Render canonical list (left panel)
-                renderCollectionItems(currentCollectionData.items || [], admin);
-
                 // Find if user already has a ranking that matches this collection (by title)
                 userCollectionRanking = null;
                 if (userRes.ok) {
@@ -1271,9 +1267,28 @@
                 }
 
                 renderUserCollectionRanking();
+                // If official order panel is currently open, re-render it
+                if (document.getElementById('collection-official-panel').style.display !== 'none') {
+                    renderCollectionItems(currentCollectionData.items || [], isAdmin(getUser()));
+                }
             } catch (e) {
-                document.getElementById('collection-items-container').innerHTML = `<div class="empty-state"><p>Failed to load: ${e.message}</p></div>`;
-                document.getElementById('user-ranking-container').innerHTML = '';
+                document.getElementById('user-ranking-container').innerHTML = `<div class="empty-state"><p>Failed to load: ${e.message}</p></div>`;
+            }
+        }
+
+        function toggleOfficialOrderPanel() {
+            const panel = document.getElementById('collection-official-panel');
+            const btn = document.getElementById('edit-order-btn');
+            const isShowing = panel.style.display !== 'none';
+            if (isShowing) {
+                panel.style.display = 'none';
+                btn.classList.remove('active');
+                btn.textContent = 'Edit Order';
+            } else {
+                panel.style.display = '';
+                btn.classList.add('active');
+                btn.textContent = 'Hide Order';
+                renderCollectionItems(currentCollectionData.items || [], true);
             }
         }
 
