@@ -72,6 +72,13 @@ try:
 except ImportError as e:
     print(f"⚠ MediaReview model not available: {e}")
 
+# Import Ranked List models
+try:
+    from models.ranked_list import RankedList, RankedListItem
+    print("✓ RankedList models imported successfully")
+except ImportError as e:
+    print(f"⚠ RankedList models not available: {e}")
+
 # Run Wordle table migration (if needed)
 try:
     from migrate_wordle_tables import migrate_wordle_tables
@@ -234,6 +241,14 @@ def movies_page():
     if os.path.exists(movies_path):
         return FileResponse(movies_path)
     raise HTTPException(404, "Movies page not found")
+
+@app.get("/rankings")
+def rankings_page():
+    """Serve the ranked lists page"""
+    path = os.path.join(os.path.dirname(__file__), "..", "frontend", "rankings.html")
+    if os.path.exists(path):
+        return FileResponse(path)
+    raise HTTPException(404, "Rankings page not found")
 
 @app.get("/health")
 def health():
@@ -529,6 +544,14 @@ try:
     print("✓ Reviews router loaded")
 except Exception as e:
     print(f"⚠ Warning: Could not import reviews router: {type(e).__name__}: {e}")
+
+# Include Rankings router
+try:
+    from routers.rankings import router as rankings_router
+    app.include_router(rankings_router)
+    print("✓ Rankings router loaded")
+except Exception as e:
+    print(f"⚠ Warning: Could not import rankings router: {type(e).__name__}: {e}")
 
 # Start odds sync scheduler on startup
 @app.on_event("startup")

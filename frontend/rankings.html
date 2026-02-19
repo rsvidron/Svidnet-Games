@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rankings - Svidhaus Arena</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root[data-theme="dark"] {
+            --bg: #0f0f0f; --sidebar-bg: #1a1a1a; --card-bg: #1e1e1e;
+            --card-border: #2a2a2a; --text-primary: #ffffff; --text-secondary: #888888;
+            --text-muted: #555555; --accent: #22c55e; --accent-hover: #16a34a;
+            --accent-dim: rgba(34,197,94,0.1); --danger: #ef4444;
+            --hover-bg: #252525; --divider: #2a2a2a;
+            --input-bg: #252525; --input-border: #333333;
+            --poster-bg: #2a2a2a; --modal-bg: #1a1a1a;
+            --rank-bg: #111; --drag-over: rgba(34,197,94,0.15);
+        }
+        :root[data-theme="light"] {
+            --bg: #f4f6f9; --sidebar-bg: #ffffff; --card-bg: #ffffff;
+            --card-border: #e5e7eb; --text-primary: #111827; --text-secondary: #6b7280;
+            --text-muted: #9ca3af; --accent: #16a34a; --accent-hover: #15803d;
+            --accent-dim: rgba(22,163,74,0.08); --danger: #dc2626;
+            --hover-bg: #f3f4f6; --divider: #e5e7eb;
+            --input-bg: #f9fafb; --input-border: #d1d5db;
+            --poster-bg: #e5e7eb; --modal-bg: #ffffff;
+            --rank-bg: #f0f0f0; --drag-over: rgba(22,163,74,0.1);
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text-primary); min-height: 100vh; display: flex; transition: background 0.3s, color 0.3s; }
+
+        /* ── Sidebar ── */
+        .sidebar { width: 240px; background: var(--sidebar-bg); border-right: 1px solid var(--divider); display: flex; flex-direction: column; padding: 24px 0; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; transition: background 0.3s, border-color 0.3s, transform 0.3s; }
+        .sidebar-logo { padding: 0 24px 28px; border-bottom: 1px solid var(--divider); margin-bottom: 16px; }
+        .sidebar-logo h1 { font-size: 18px; font-weight: 700; }
+        .sidebar-logo span { font-size: 12px; color: var(--text-secondary); }
+        .sidebar-section { padding: 0 12px; margin-bottom: 8px; }
+        .sidebar-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; padding: 0 12px; margin-bottom: 4px; }
+        .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-secondary); cursor: pointer; text-decoration: none; transition: background 0.15s, color 0.15s; margin-bottom: 2px; }
+        .sidebar-item:hover { background: var(--hover-bg); color: var(--text-primary); }
+        .sidebar-item.active { background: var(--accent-dim); color: var(--accent); }
+        .sidebar-item .icon { font-size: 16px; width: 20px; text-align: center; }
+        .soon-badge { margin-left: auto; background: var(--card-border); color: var(--text-muted); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
+        .sidebar-bottom { margin-top: auto; padding: 16px 12px; border-top: 1px solid var(--divider); }
+
+        /* ── Main ── */
+        .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+        .topbar { background: var(--sidebar-bg); border-bottom: 1px solid var(--divider); padding: 0 32px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; transition: background 0.3s, border-color 0.3s; }
+        .topbar-left h2 { font-size: 18px; font-weight: 600; }
+        .topbar-right { display: flex; align-items: center; gap: 10px; }
+        .theme-toggle { width: 36px; height: 36px; border-radius: 8px; background: var(--hover-bg); border: 1px solid var(--card-border); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .theme-toggle:hover { background: var(--accent-dim); border-color: var(--accent); }
+        .mobile-menu-btn { display: none; background: none; border: none; color: var(--text-primary); font-size: 22px; cursor: pointer; }
+        .content { padding: 28px 32px; flex: 1; }
+
+        /* ── Buttons ── */
+        .btn { padding: 9px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-secondary { background: var(--hover-bg); color: var(--text-secondary); border: 1px solid var(--card-border); }
+        .btn-secondary:hover { color: var(--text-primary); }
+        .btn-danger { background: rgba(239,68,68,0.1); color: var(--danger); border: 1px solid rgba(239,68,68,0.25); }
+        .btn-danger:hover { background: var(--danger); color: white; }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+        .btn-icon { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 15px; }
+
+        /* ── Page header ── */
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .page-title { font-size: 20px; font-weight: 700; }
+
+        /* ── Lists grid (overview) ── */
+        .lists-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+        .list-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; overflow: hidden; cursor: pointer; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+        .list-card:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .list-cover { height: 130px; background: var(--poster-bg); display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; overflow: hidden; position: relative; }
+        .list-cover img { width: 100%; height: 100%; object-fit: cover; }
+        .list-cover-placeholder { display: flex; align-items: center; justify-content: center; font-size: 36px; grid-column: 1 / -1; grid-row: 1 / -1; }
+        .list-cover-single { grid-column: 1 / -1; grid-row: 1 / -1; }
+        .list-cover-single img { width: 100%; height: 100%; object-fit: cover; }
+        .list-card-body { padding: 12px; }
+        .list-card-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .list-card-meta { font-size: 12px; color: var(--text-muted); }
+
+        /* ── Empty state ── */
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+        .empty-state-icon { font-size: 52px; margin-bottom: 16px; }
+        .empty-state p { font-size: 14px; margin-bottom: 16px; }
+
+        /* ── Back button ── */
+        .back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; margin-bottom: 20px; padding: 6px 10px; border-radius: 8px; transition: background 0.15s, color 0.15s; }
+        .back-btn:hover { background: var(--hover-bg); color: var(--text-primary); }
+
+        /* ── List detail ── */
+        .list-detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 16px; }
+        .list-detail-title { font-size: 22px; font-weight: 700; }
+        .list-detail-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
+        .list-detail-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+        /* ── Add item row ── */
+        .add-row { display: flex; gap: 8px; margin-bottom: 20px; }
+        .add-input { flex: 1; padding: 10px 14px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; font-size: 13px; color: var(--text-primary); outline: none; font-family: inherit; transition: border-color 0.2s; }
+        .add-input:focus { border-color: var(--accent); }
+        .search-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; margin-top: 4px; max-height: 320px; overflow-y: auto; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .search-wrap { position: relative; flex: 1; }
+        .search-result-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; transition: background 0.15s; }
+        .search-result-item:hover { background: var(--hover-bg); }
+        .search-result-item:first-child { border-radius: 9px 9px 0 0; }
+        .search-result-item:last-child { border-radius: 0 0 9px 9px; }
+        .search-thumb { width: 32px; height: 48px; object-fit: cover; border-radius: 4px; background: var(--poster-bg); flex-shrink: 0; }
+        .search-thumb-placeholder { width: 32px; height: 48px; border-radius: 4px; background: var(--poster-bg); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+        .search-result-info { flex: 1; min-width: 0; }
+        .search-result-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .search-result-sub { font-size: 11px; color: var(--text-muted); }
+
+        /* ── Ranked items list ── */
+        .ranked-list { display: flex; flex-direction: column; gap: 6px; }
+        .ranked-item { display: flex; align-items: center; gap: 12px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; transition: border-color 0.15s, box-shadow 0.15s; cursor: grab; user-select: none; }
+        .ranked-item:active { cursor: grabbing; }
+        .ranked-item.dragging { opacity: 0.4; }
+        .ranked-item.drag-over { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); background: var(--drag-over); }
+        .rank-num { min-width: 36px; height: 36px; border-radius: 8px; background: var(--rank-bg); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; color: var(--text-muted); flex-shrink: 0; }
+        .rank-num.top3 { color: var(--accent); }
+        .drag-handle { color: var(--text-muted); font-size: 16px; cursor: grab; flex-shrink: 0; padding: 0 4px; }
+        .item-poster { width: 36px; height: 54px; border-radius: 5px; object-fit: cover; background: var(--poster-bg); flex-shrink: 0; }
+        .item-poster-placeholder { width: 36px; height: 54px; border-radius: 5px; background: var(--poster-bg); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .item-info { flex: 1; min-width: 0; }
+        .item-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-sub { font-size: 11px; color: var(--text-muted); display: flex; gap: 8px; margin-top: 2px; }
+        .item-note { font-size: 11px; color: var(--text-secondary); margin-top: 3px; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-type-badge { font-size: 10px; background: var(--hover-bg); border: 1px solid var(--card-border); color: var(--text-muted); padding: 1px 6px; border-radius: 5px; font-weight: 600; text-transform: uppercase; }
+        .item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+        /* ── Modal ── */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(6px); }
+        .modal.show { display: flex; }
+        .modal-content { background: var(--modal-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 24px; max-width: 460px; width: 94%; box-shadow: 0 25px 60px rgba(0,0,0,0.6); }
+        .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 18px; }
+        .form-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; display: block; }
+        .form-input { width: 100%; padding: 10px 12px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; font-size: 13px; color: var(--text-primary); outline: none; font-family: inherit; transition: border-color 0.2s; margin-bottom: 14px; }
+        .form-input:focus { border-color: var(--accent); }
+        textarea.form-input { resize: vertical; min-height: 70px; }
+        .form-check { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+        .form-check input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+        /* ── Loading ── */
+        .loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
+
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; }
+            .topbar { padding: 0 16px; }
+            .content { padding: 16px; }
+            .mobile-menu-btn { display: block; }
+            .lists-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <h1>Svidhaus Arena</h1>
+            <span>Gaming Hub</span>
+        </div>
+        <div class="sidebar-section">
+            <div class="sidebar-label">Menu</div>
+            <a href="/" class="sidebar-item"><span class="icon">⊞</span> Dashboard</a>
+            <a href="/profile" class="sidebar-item"><span class="icon">👤</span> Profile</a>
+            <a href="/links" class="sidebar-item"><span class="icon">🔗</span> Links</a>
+            <a href="/admin" class="sidebar-item" id="admin-sidebar-link" style="display:none;"><span class="icon">⚙️</span> Admin</a>
+        </div>
+        <div class="sidebar-section" style="margin-top:12px;">
+            <div class="sidebar-label">Games</div>
+            <a href="/trivia" class="sidebar-item"><span class="icon">🤓</span> Trivia</a>
+            <a href="/wordle" class="sidebar-item"><span class="icon">🟩</span> Wordle</a>
+            <a href="/sportsbook" class="sidebar-item"><span class="icon">🏈</span> Sportsbook</a>
+            <a href="/movies" class="sidebar-item"><span class="icon">🎬</span> Movie Reviews</a>
+            <a href="/rankings" class="sidebar-item active"><span class="icon">🏆</span> Rankings</a>
+            <div class="sidebar-item" style="cursor:default;opacity:0.5;"><span class="icon">🤼</span> Wrestling<span class="soon-badge">Soon</span></div>
+        </div>
+        <div class="sidebar-bottom">
+            <button class="sidebar-item" onclick="logout()" style="background:none;border:none;text-align:left;width:100%;color:var(--danger);cursor:pointer;">
+                <span class="icon">↩</span> Logout
+            </button>
+        </div>
+    </aside>
+
+    <div class="main">
+        <div class="topbar">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <button class="mobile-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div class="topbar-left"><h2>🏆 Rankings</h2></div>
+            </div>
+            <div class="topbar-right">
+                <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- ── OVERVIEW VIEW ── -->
+            <div id="overview-view">
+                <div class="page-header">
+                    <div class="page-title">My Ranked Lists</div>
+                    <button class="btn btn-primary" onclick="showCreateModal()">+ New List</button>
+                </div>
+                <div id="lists-container"><div class="loading">Loading...</div></div>
+            </div>
+
+            <!-- ── DETAIL VIEW ── -->
+            <div id="detail-view" style="display:none;">
+                <div class="back-btn" onclick="goBack()">← Back to lists</div>
+                <div class="list-detail-header">
+                    <div>
+                        <div class="list-detail-title" id="detail-title"></div>
+                        <div class="list-detail-desc" id="detail-desc"></div>
+                    </div>
+                    <div class="list-detail-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="showEditModal()">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteList()">Delete</button>
+                    </div>
+                </div>
+
+                <!-- Add item search -->
+                <div class="add-row">
+                    <div class="search-wrap">
+                        <input class="add-input" type="text" id="add-search-input" placeholder="Search to add a movie or TV show..." oninput="onAddSearch()" autocomplete="off">
+                        <div class="search-dropdown" id="search-dropdown" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <div id="ranked-items-container"><div class="loading">Loading...</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Create / Edit List Modal ── -->
+    <div class="modal" id="list-modal">
+        <div class="modal-content">
+            <div class="modal-title" id="list-modal-title">New Ranked List</div>
+            <label class="form-label">Title</label>
+            <input class="form-input" type="text" id="list-title-input" placeholder="e.g. Marvel Cinematic Universe">
+            <label class="form-label">Description (optional)</label>
+            <textarea class="form-input" id="list-desc-input" placeholder="What's this list about?"></textarea>
+            <label class="form-check">
+                <input type="checkbox" id="list-public-input">
+                Make this list public
+            </label>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeListModal()">Cancel</button>
+                <button class="btn btn-primary" id="list-modal-save-btn" onclick="saveList()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = window.location.origin;
+        const POSTER = 'https://image.tmdb.org/t/p/w92';
+        const POSTER_MD = 'https://image.tmdb.org/t/p/w185';
+
+        // ── Theme ──────────────────────────────────────────────────────────────
+        function getTheme() { return localStorage.getItem('theme') || 'dark'; }
+        function applyTheme(t) { document.documentElement.setAttribute('data-theme', t); document.getElementById('theme-btn').textContent = t === 'dark' ? '☀️' : '🌙'; }
+        function toggleTheme() { const n = getTheme() === 'dark' ? 'light' : 'dark'; localStorage.setItem('theme', n); applyTheme(n); }
+        applyTheme(getTheme());
+
+        // ── Auth ───────────────────────────────────────────────────────────────
+        function getToken() { return localStorage.getItem('access_token') || localStorage.getItem('token'); }
+        function getUser() { try { return JSON.parse(localStorage.getItem('user')); } catch { return null; } }
+        function isAdmin(u) { return u && (['svidthekid'].includes(u.username) || ['svidron.robert@gmail.com'].includes(u.email)); }
+        function authHeaders() { return { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' }; }
+        function logout() { ['access_token','token','user'].forEach(k => localStorage.removeItem(k)); window.location.href = '/login'; }
+
+        // ── State ──────────────────────────────────────────────────────────────
+        let currentListId = null;
+        let currentListData = null;
+        let rankedItems = [];      // current order
+        let searchTimeout = null;
+        let editingList = false;
+
+        // ── Init ───────────────────────────────────────────────────────────────
+        async function init() {
+            const user = getUser();
+            if (!user) { window.location.href = '/login'; return; }
+            if (isAdmin(user)) document.getElementById('admin-sidebar-link').style.display = 'flex';
+            await loadLists();
+        }
+
+        // ── Overview ───────────────────────────────────────────────────────────
+        async function loadLists() {
+            const container = document.getElementById('lists-container');
+            try {
+                const res = await fetch(`${API}/api/rankings/my`, { headers: authHeaders() });
+                if (!res.ok) throw new Error(await res.text());
+                const lists = await res.json();
+                if (!lists.length) {
+                    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🏆</div><p>No ranked lists yet.</p><button class="btn btn-primary" onclick="showCreateModal()">Create your first list</button></div>`;
+                    return;
+                }
+                container.innerHTML = `<div class="lists-grid">${lists.map(listCard).join('')}</div>`;
+            } catch (e) {
+                container.innerHTML = `<div class="empty-state"><p>Failed to load lists: ${e.message}</p></div>`;
+            }
+        }
+
+        function listCard(lst) {
+            const posters = lst.cover_posters || [];
+            let coverHtml = '';
+            if (!posters.length) {
+                coverHtml = `<div class="list-cover-placeholder">🏆</div>`;
+            } else if (posters.length === 1) {
+                coverHtml = `<div class="list-cover-single"><img src="${POSTER_MD}${posters[0]}" loading="lazy"></div>`;
+            } else {
+                coverHtml = posters.slice(0, 4).map(p => `<img src="${POSTER}${p}" loading="lazy">`).join('');
+            }
+            return `<div class="list-card" onclick="openList(${lst.id})">
+                <div class="list-cover">${coverHtml}</div>
+                <div class="list-card-body">
+                    <div class="list-card-title">${escHtml(lst.title)}</div>
+                    <div class="list-card-meta">${lst.item_count} title${lst.item_count !== 1 ? 's' : ''} · ${lst.is_public ? '🌐 Public' : '🔒 Private'}</div>
+                </div>
+            </div>`;
+        }
+
+        // ── Detail view ────────────────────────────────────────────────────────
+        async function openList(listId) {
+            currentListId = listId;
+            document.getElementById('overview-view').style.display = 'none';
+            document.getElementById('detail-view').style.display = '';
+            document.getElementById('ranked-items-container').innerHTML = '<div class="loading">Loading...</div>';
+            document.getElementById('add-search-input').value = '';
+            document.getElementById('search-dropdown').style.display = 'none';
+            await loadListDetail();
+        }
+
+        async function loadListDetail() {
+            try {
+                const res = await fetch(`${API}/api/rankings/my/${currentListId}`, { headers: authHeaders() });
+                if (!res.ok) throw new Error(await res.text());
+                currentListData = await res.json();
+                rankedItems = currentListData.items || [];
+                document.getElementById('detail-title').textContent = currentListData.title;
+                document.getElementById('detail-desc').textContent = currentListData.description || '';
+                renderRankedItems();
+            } catch (e) {
+                document.getElementById('ranked-items-container').innerHTML = `<div class="empty-state"><p>Failed to load: ${e.message}</p></div>`;
+            }
+        }
+
+        function renderRankedItems() {
+            const container = document.getElementById('ranked-items-container');
+            if (!rankedItems.length) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎬</div><p>No items yet. Search above to add movies and TV shows.</p></div>`;
+                return;
+            }
+            container.innerHTML = `<div class="ranked-list" id="ranked-list">${rankedItems.map(item => rankRow(item)).join('')}</div>`;
+            initDragAndDrop();
+        }
+
+        function rankRow(item) {
+            const poster = item.poster_path
+                ? `<img class="item-poster" src="${POSTER_MD}${item.poster_path}" loading="lazy" onerror="this.style.display='none';this.nextSibling.style.display='flex';">
+                   <div class="item-poster-placeholder" style="display:none;">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`
+                : `<div class="item-poster-placeholder">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`;
+            const top3 = item.rank <= 3 ? ' top3' : '';
+            const medals = ['🥇','🥈','🥉'];
+            const rankDisplay = item.rank <= 3 ? medals[item.rank - 1] : item.rank;
+            const noteHtml = item.note ? `<div class="item-note">${escHtml(item.note)}</div>` : '';
+            return `<div class="ranked-item" data-id="${item.id}" draggable="true">
+                <div class="rank-num${top3}">${rankDisplay}</div>
+                <span class="drag-handle" title="Drag to reorder">⠿</span>
+                ${poster}
+                <div class="item-info">
+                    <div class="item-title">${escHtml(item.title)}</div>
+                    <div class="item-sub">
+                        <span class="item-type-badge">${item.media_type}</span>
+                        ${item.release_year ? `<span>${item.release_year}</span>` : ''}
+                    </div>
+                    ${noteHtml}
+                </div>
+                <div class="item-actions">
+                    <button class="btn btn-secondary btn-icon btn-sm" title="Add note" onclick="promptNote(${item.id}, event)">📝</button>
+                    <button class="btn btn-danger btn-icon btn-sm" title="Remove" onclick="removeItem(${item.id}, event)">✕</button>
+                </div>
+            </div>`;
+        }
+
+        // ── Drag & Drop ────────────────────────────────────────────────────────
+        let dragSrcId = null;
+
+        function initDragAndDrop() {
+            const list = document.getElementById('ranked-list');
+            if (!list) return;
+            list.querySelectorAll('.ranked-item').forEach(el => {
+                el.addEventListener('dragstart', e => {
+                    dragSrcId = parseInt(el.dataset.id);
+                    el.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                el.addEventListener('dragend', () => {
+                    el.classList.remove('dragging');
+                    list.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
+                });
+                el.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    list.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
+                    el.classList.add('drag-over');
+                });
+                el.addEventListener('drop', async e => {
+                    e.preventDefault();
+                    const dropId = parseInt(el.dataset.id);
+                    if (dragSrcId === dropId) return;
+                    // Reorder in local array
+                    const fromIdx = rankedItems.findIndex(i => i.id === dragSrcId);
+                    const toIdx = rankedItems.findIndex(i => i.id === dropId);
+                    const [moved] = rankedItems.splice(fromIdx, 1);
+                    rankedItems.splice(toIdx, 0, moved);
+                    // Update rank numbers
+                    rankedItems.forEach((item, idx) => { item.rank = idx + 1; });
+                    renderRankedItems();
+                    // Persist to server
+                    await saveReorder();
+                });
+            });
+        }
+
+        async function saveReorder() {
+            try {
+                await fetch(`${API}/api/rankings/my/${currentListId}/reorder`, {
+                    method: 'PUT',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ item_ids: rankedItems.map(i => i.id) }),
+                });
+            } catch (e) { console.error('Reorder save failed:', e); }
+        }
+
+        // ── Add item search ────────────────────────────────────────────────────
+        function onAddSearch() {
+            clearTimeout(searchTimeout);
+            const q = document.getElementById('add-search-input').value.trim();
+            if (!q) { document.getElementById('search-dropdown').style.display = 'none'; return; }
+            searchTimeout = setTimeout(() => doAddSearch(q), 350);
+        }
+
+        async function doAddSearch(q) {
+            const dd = document.getElementById('search-dropdown');
+            dd.innerHTML = '<div style="padding:12px;font-size:13px;color:var(--text-muted);">Searching...</div>';
+            dd.style.display = '';
+            try {
+                const res = await fetch(`${API}/api/rankings/search?q=${encodeURIComponent(q)}&media_type=multi`);
+                const data = await res.json();
+                const results = data.results || [];
+                if (!results.length) {
+                    dd.innerHTML = '<div style="padding:12px;font-size:13px;color:var(--text-muted);">No results found.</div>';
+                    return;
+                }
+                dd.innerHTML = results.map(r => {
+                    const thumb = r.poster_path
+                        ? `<img class="search-thumb" src="${POSTER}${r.poster_path}" loading="lazy">`
+                        : `<div class="search-thumb-placeholder">${r.media_type === 'tv' ? '📺' : '🎬'}</div>`;
+                    const dataAttr = escAttr(JSON.stringify(r));
+                    return `<div class="search-result-item" onclick='addItem(${dataAttr})'>
+                        ${thumb}
+                        <div class="search-result-info">
+                            <div class="search-result-title">${escHtml(r.title || '')}</div>
+                            <div class="search-result-sub">${r.media_type.toUpperCase()}${r.release_year ? ' · ' + r.release_year : ''}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                dd.innerHTML = `<div style="padding:12px;font-size:13px;color:var(--text-muted);">Search failed.</div>`;
+            }
+        }
+
+        async function addItem(result) {
+            document.getElementById('search-dropdown').style.display = 'none';
+            document.getElementById('add-search-input').value = '';
+            try {
+                const res = await fetch(`${API}/api/rankings/my/${currentListId}/items`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        media_id: result.id,
+                        media_type: result.media_type,
+                        title: result.title,
+                        poster_path: result.poster_path || null,
+                        release_year: result.release_year || null,
+                        overview: result.overview || null,
+                    }),
+                });
+                if (res.status === 409) { alert('Already in this list.'); return; }
+                if (!res.ok) throw new Error(await res.text());
+                await loadListDetail();
+            } catch (e) { alert('Failed to add: ' + e.message); }
+        }
+
+        // ── Remove item ────────────────────────────────────────────────────────
+        async function removeItem(itemId, e) {
+            e.stopPropagation();
+            if (!confirm('Remove from list?')) return;
+            try {
+                const res = await fetch(`${API}/api/rankings/my/${currentListId}/items/${itemId}`, {
+                    method: 'DELETE', headers: authHeaders(),
+                });
+                if (!res.ok) throw new Error(await res.text());
+                await loadListDetail();
+            } catch (e) { alert('Failed to remove: ' + e.message); }
+        }
+
+        // ── Note prompt ────────────────────────────────────────────────────────
+        async function promptNote(itemId, e) {
+            e.stopPropagation();
+            const item = rankedItems.find(i => i.id === itemId);
+            const note = prompt('Add a note for this entry (leave blank to clear):', item?.note || '');
+            if (note === null) return; // cancelled
+            try {
+                const res = await fetch(`${API}/api/rankings/my/${currentListId}/items/${itemId}`, {
+                    method: 'PATCH', headers: authHeaders(),
+                    body: JSON.stringify({ note: note.trim() || null }),
+                });
+                if (!res.ok) throw new Error(await res.text());
+                await loadListDetail();
+            } catch (e) { alert('Failed to save note: ' + e.message); }
+        }
+
+        // ── Create / Edit modal ────────────────────────────────────────────────
+        function showCreateModal() {
+            editingList = false;
+            document.getElementById('list-modal-title').textContent = 'New Ranked List';
+            document.getElementById('list-modal-save-btn').textContent = 'Create';
+            document.getElementById('list-title-input').value = '';
+            document.getElementById('list-desc-input').value = '';
+            document.getElementById('list-public-input').checked = false;
+            document.getElementById('list-modal').classList.add('show');
+            setTimeout(() => document.getElementById('list-title-input').focus(), 50);
+        }
+
+        function showEditModal() {
+            if (!currentListData) return;
+            editingList = true;
+            document.getElementById('list-modal-title').textContent = 'Edit List';
+            document.getElementById('list-modal-save-btn').textContent = 'Save';
+            document.getElementById('list-title-input').value = currentListData.title;
+            document.getElementById('list-desc-input').value = currentListData.description || '';
+            document.getElementById('list-public-input').checked = currentListData.is_public;
+            document.getElementById('list-modal').classList.add('show');
+        }
+
+        function closeListModal() { document.getElementById('list-modal').classList.remove('show'); }
+
+        async function saveList() {
+            const title = document.getElementById('list-title-input').value.trim();
+            if (!title) { alert('Title is required'); return; }
+            const body = {
+                title,
+                description: document.getElementById('list-desc-input').value.trim() || null,
+                is_public: document.getElementById('list-public-input').checked,
+            };
+            try {
+                let res;
+                if (editingList) {
+                    res = await fetch(`${API}/api/rankings/my/${currentListId}`, {
+                        method: 'PATCH', headers: authHeaders(), body: JSON.stringify(body),
+                    });
+                } else {
+                    res = await fetch(`${API}/api/rankings/my`, {
+                        method: 'POST', headers: authHeaders(), body: JSON.stringify(body),
+                    });
+                }
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                closeListModal();
+                if (editingList) {
+                    await loadListDetail();
+                } else {
+                    await openList(data.id);
+                }
+                await loadLists();
+            } catch (e) { alert('Failed to save: ' + e.message); }
+        }
+
+        // ── Delete list ────────────────────────────────────────────────────────
+        async function deleteList() {
+            if (!confirm(`Delete "${currentListData?.title}"? This cannot be undone.`)) return;
+            try {
+                const res = await fetch(`${API}/api/rankings/my/${currentListId}`, {
+                    method: 'DELETE', headers: authHeaders(),
+                });
+                if (!res.ok) throw new Error(await res.text());
+                goBack();
+            } catch (e) { alert('Failed to delete: ' + e.message); }
+        }
+
+        // ── Navigation ─────────────────────────────────────────────────────────
+        function goBack() {
+            currentListId = null;
+            currentListData = null;
+            document.getElementById('detail-view').style.display = 'none';
+            document.getElementById('overview-view').style.display = '';
+            loadLists();
+        }
+
+        // ── Close dropdown on outside click ────────────────────────────────────
+        document.addEventListener('click', e => {
+            const wrap = document.querySelector('.search-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                document.getElementById('search-dropdown').style.display = 'none';
+            }
+        });
+        document.getElementById('list-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeListModal();
+        });
+
+        // ── Enter key on modal ─────────────────────────────────────────────────
+        document.getElementById('list-title-input').addEventListener('keydown', e => {
+            if (e.key === 'Enter') saveList();
+        });
+
+        // ── Utilities ──────────────────────────────────────────────────────────
+        function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+        function escAttr(s) { return String(s).replace(/'/g,"&#39;").replace(/"/g,'&quot;'); }
+
+        init();
+    </script>
+</body>
+</html>
