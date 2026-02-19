@@ -256,6 +256,12 @@
         .form-check { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
         .form-check input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
 
+        /* ── User ranking panel ── */
+        .user-ranking-empty { background: var(--card-bg); border: 2px dashed var(--card-border); border-radius: 12px; padding: 32px 20px; text-align: center; color: var(--text-muted); }
+        .user-ranking-empty .start-btn { margin-top: 14px; }
+        .col-panel-label { font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+        .col-panel-label .ranking-badge { font-size: 10px; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent); border-radius: 10px; padding: 2px 8px; text-transform: none; letter-spacing: 0; font-weight: 600; }
+
         /* ── Mobile ── */
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
@@ -270,6 +276,7 @@
             .detail-info { padding-top: 0; }
             .lists-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
             .view-tabs { width: 100%; }
+            #collection-split-view { grid-template-columns: 1fr !important; }
         }
     </style>
 </head>
@@ -423,11 +430,19 @@
                             <div class="search-dropdown" id="collection-search-dropdown" style="display:none;"></div>
                         </div>
                     </div>
-                    <!-- Start ranking button (non-admin) -->
-                    <div id="collection-rank-btn-row" style="margin-bottom:16px;display:none;">
-                        <button class="btn btn-primary" onclick="startRankingFromCollection()">🏆 Start Ranking This Collection</button>
+                    <!-- Split layout: canonical list + user ranking -->
+                    <div id="collection-split-view" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+                        <!-- Left: canonical collection -->
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Official Order</div>
+                            <div id="collection-items-container"><div class="loading">Loading...</div></div>
+                        </div>
+                        <!-- Right: user's personal ranking -->
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Your Ranking</div>
+                            <div id="user-ranking-container"><div class="loading">Loading...</div></div>
+                        </div>
                     </div>
-                    <div id="collection-items-container"><div class="loading">Loading...</div></div>
                 </div>
             </div>
 
@@ -1104,21 +1119,28 @@
             const container = document.getElementById('collections-container');
             container.innerHTML = '<div class="loading">Loading...</div>';
             try {
-                const res = await fetch(`${API}/api/rankings/collections`);
-                if (!res.ok) throw new Error(await res.text());
-                const cols = await res.json();
+                // Load collections and user's ranked list titles in parallel
+                const [colRes, myRes] = await Promise.all([
+                    fetch(`${API}/api/rankings/collections`),
+                    fetch(`${API}/api/rankings/my`, { headers: authHeaders() }),
+                ]);
+                if (!colRes.ok) throw new Error(await colRes.text());
+                const cols = await colRes.json();
+                const myTitles = myRes.ok ? (await myRes.json()).map(l => l.title) : [];
+
                 if (!cols.length) {
                     container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎬</div><p>No collections yet.${isAdmin(getUser()) ? ' Create the first one!' : ''}</p></div>`;
                     return;
                 }
-                container.innerHTML = `<div class="lists-grid">${cols.map(collectionCard).join('')}</div>`;
+                container.innerHTML = `<div class="lists-grid">${cols.map(col => collectionCard(col, myTitles)).join('')}</div>`;
             } catch (e) {
                 container.innerHTML = `<div class="empty-state"><p>Failed to load collections: ${e.message}</p></div>`;
             }
         }
 
-        function collectionCard(col) {
+        function collectionCard(col, myTitles = []) {
             const posters = col.cover_posters || [];
+            const alreadyRanked = myTitles.includes(col.title);
             let coverHtml = '';
             if (!posters.length) {
                 coverHtml = `<div class="list-cover-placeholder">🎬</div>`;
@@ -1131,49 +1153,77 @@
                 <div class="list-cover">${coverHtml}</div>
                 <div class="list-card-body">
                     <div class="list-card-title">${escHtml(col.title)}</div>
-                    <div class="list-card-meta">${col.item_count} title${col.item_count !== 1 ? 's' : ''}</div>
+                    <div class="list-card-meta" style="display:flex;align-items:center;gap:8px;">
+                        <span>${col.item_count} title${col.item_count !== 1 ? 's' : ''}</span>
+                        ${alreadyRanked ? `<span style="font-size:10px;background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:1px 7px;font-weight:700;">Ranked ✓</span>` : ''}
+                    </div>
                 </div>
             </div>`;
         }
+
+        // current user ranking for the open collection
+        let userCollectionRanking = null; // { id, items[] } or null
 
         async function openCollection(collectionId) {
             currentCollectionId = collectionId;
             document.getElementById('collections-overview').style.display = 'none';
             document.getElementById('collections-detail').style.display = '';
             document.getElementById('collection-items-container').innerHTML = '<div class="loading">Loading...</div>';
+            document.getElementById('user-ranking-container').innerHTML = '<div class="loading">Loading...</div>';
             await loadCollectionDetail();
         }
 
         async function loadCollectionDetail() {
             try {
-                const res = await fetch(`${API}/api/rankings/collections/${currentCollectionId}`);
-                if (!res.ok) throw new Error(await res.text());
-                currentCollectionData = await res.json();
+                // Load canonical collection and user's ranking in parallel
+                const [colRes, userRes] = await Promise.all([
+                    fetch(`${API}/api/rankings/collections/${currentCollectionId}`),
+                    fetch(`${API}/api/rankings/my`, { headers: authHeaders() }),
+                ]);
+                if (!colRes.ok) throw new Error(await colRes.text());
+                currentCollectionData = await colRes.json();
+
                 document.getElementById('collection-detail-title').textContent = currentCollectionData.title;
                 document.getElementById('collection-detail-desc').textContent = currentCollectionData.description || '';
 
-                const user = getUser();
-                const admin = isAdmin(user);
+                const admin = isAdmin(getUser());
                 document.getElementById('collection-admin-actions').style.display = admin ? '' : 'none';
                 document.getElementById('collection-add-row').style.display = admin ? '' : 'none';
-                document.getElementById('collection-rank-btn-row').style.display = admin ? 'none' : '';
 
-                renderCollectionItems(currentCollectionData.items || []);
+                // Render canonical list (left panel)
+                renderCollectionItems(currentCollectionData.items || [], admin);
+
+                // Find if user already has a ranking that matches this collection (by title)
+                userCollectionRanking = null;
+                if (userRes.ok) {
+                    const allLists = await userRes.json();
+                    const match = allLists.find(l => l.title === currentCollectionData.title);
+                    if (match) {
+                        // Fetch full detail with items
+                        const detailRes = await fetch(`${API}/api/rankings/my/${match.id}`, { headers: authHeaders() });
+                        if (detailRes.ok) {
+                            userCollectionRanking = await detailRes.json();
+                        }
+                    }
+                }
+
+                renderUserCollectionRanking();
             } catch (e) {
                 document.getElementById('collection-items-container').innerHTML = `<div class="empty-state"><p>Failed to load: ${e.message}</p></div>`;
+                document.getElementById('user-ranking-container').innerHTML = '';
             }
         }
 
-        function renderCollectionItems(items) {
+        function renderCollectionItems(items, admin) {
             const container = document.getElementById('collection-items-container');
             if (!items.length) {
-                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎬</div><p>No items in this collection yet.</p></div>`;
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎬</div><p>No items yet.</p></div>`;
                 return;
             }
-            const admin = isAdmin(getUser());
+            const medals = ['🥇','🥈','🥉'];
             container.innerHTML = `<div class="ranked-list">${items.map((item, idx) => `
-                <div class="ranked-item" data-id="${item.id}">
-                    <div class="rank-num${idx < 3 ? ' top3' : ''}">${idx + 1}</div>
+                <div class="ranked-item" data-id="${item.id}" style="cursor:default;">
+                    <div class="rank-num${idx < 3 ? ' top3' : ''}">${idx < 3 ? medals[idx] : idx + 1}</div>
                     ${item.poster_path ? `<img class="item-poster" src="${POSTER_MD}${item.poster_path}" loading="lazy">` : `<div class="item-poster-placeholder">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`}
                     <div class="item-info">
                         <div class="item-title">${escHtml(item.title)}</div>
@@ -1186,23 +1236,156 @@
                 </div>`).join('')}</div>`;
         }
 
+        function renderUserCollectionRanking() {
+            const container = document.getElementById('user-ranking-container');
+
+            if (!userCollectionRanking) {
+                // Not started yet
+                const itemCount = (currentCollectionData?.items || []).length;
+                container.innerHTML = `
+                    <div class="user-ranking-empty">
+                        <div style="font-size:36px;margin-bottom:10px;">🏆</div>
+                        <div style="font-size:14px;font-weight:600;margin-bottom:6px;">You haven't ranked this yet</div>
+                        <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">${itemCount} item${itemCount !== 1 ? 's' : ''} ready to rank</div>
+                        <button class="btn btn-primary start-btn" onclick="startRankingFromCollection()">🏆 Start Ranking</button>
+                    </div>`;
+                return;
+            }
+
+            // User already has a ranking — show drag-and-drop editable list
+            const items = userCollectionRanking.items || [];
+            const listId = userCollectionRanking.id;
+            const medals = ['🥇','🥈','🥉'];
+
+            container.innerHTML = `
+                <div class="col-panel-label">
+                    <span></span>
+                    <span class="ranking-badge">Drag to reorder</span>
+                </div>
+                <div class="ranked-list" id="col-user-ranked-list">
+                    ${items.map(item => `
+                    <div class="ranked-item" data-id="${item.id}" draggable="true">
+                        <div class="rank-num${item.rank <= 3 ? ' top3' : ''}">${item.rank <= 3 ? medals[item.rank - 1] : item.rank}</div>
+                        <span class="drag-handle" title="Drag to reorder">⠿</span>
+                        ${item.poster_path ? `<img class="item-poster" src="${POSTER_MD}${item.poster_path}" loading="lazy">` : `<div class="item-poster-placeholder">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`}
+                        <div class="item-info">
+                            <div class="item-title">${escHtml(item.title)}</div>
+                            <div class="item-sub">
+                                <span class="item-type-badge">${item.media_type}</span>
+                                ${item.release_year ? `<span>${item.release_year}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>`).join('')}
+                </div>
+                <div style="margin-top:12px;display:flex;gap:8px;">
+                    <button class="btn btn-secondary btn-sm" onclick="resetCollectionRanking()">Reset to Default Order</button>
+                    <button class="btn btn-secondary btn-sm" onclick="openFullRankingEditor()">Open Full Editor →</button>
+                </div>`;
+
+            initColUserDragAndDrop(listId, items);
+        }
+
+        // Drag-and-drop for user ranking in collection detail
+        let colDragSrcId = null;
+        let colRankedItems = [];
+
+        function initColUserDragAndDrop(listId, items) {
+            colRankedItems = [...items];
+            const list = document.getElementById('col-user-ranked-list');
+            if (!list) return;
+
+            list.querySelectorAll('.ranked-item').forEach(el => {
+                el.addEventListener('dragstart', e => {
+                    colDragSrcId = parseInt(el.dataset.id);
+                    el.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                el.addEventListener('dragend', () => {
+                    el.classList.remove('dragging');
+                    list.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
+                });
+                el.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    list.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
+                    el.classList.add('drag-over');
+                });
+                el.addEventListener('drop', async e => {
+                    e.preventDefault();
+                    const dropId = parseInt(el.dataset.id);
+                    if (colDragSrcId === dropId) return;
+
+                    const fromIdx = colRankedItems.findIndex(i => i.id === colDragSrcId);
+                    const toIdx = colRankedItems.findIndex(i => i.id === dropId);
+                    const [moved] = colRankedItems.splice(fromIdx, 1);
+                    colRankedItems.splice(toIdx, 0, moved);
+                    colRankedItems.forEach((item, idx) => { item.rank = idx + 1; });
+
+                    // Update userCollectionRanking items in memory and re-render
+                    userCollectionRanking.items = colRankedItems;
+                    renderUserCollectionRanking();
+
+                    // Persist
+                    try {
+                        await fetch(`${API}/api/rankings/my/${listId}/reorder`, {
+                            method: 'PUT', headers: authHeaders(),
+                            body: JSON.stringify({ item_ids: colRankedItems.map(i => i.id) }),
+                        });
+                    } catch (err) { console.error('Reorder save failed:', err); }
+                });
+            });
+        }
+
         async function startRankingFromCollection() {
+            const btn = document.querySelector('#user-ranking-container .start-btn');
+            if (btn) { btn.textContent = 'Creating…'; btn.disabled = true; }
             try {
                 const res = await fetch(`${API}/api/rankings/my/from-collection/${currentCollectionId}`, { method: 'POST', headers: authHeaders() });
                 if (!res.ok) throw new Error(await res.text());
-                const data = await res.json();
-                // Switch to rankings tab and open the new list
-                document.querySelectorAll('.view-tab').forEach((t, i) => t.classList.toggle('active', i === 2));
-                ['discover','mylist','rankings','collections','friends'].forEach(t => {
-                    document.getElementById('tab-' + t).style.display = t === 'rankings' ? '' : 'none';
+                userCollectionRanking = await res.json();
+                renderUserCollectionRanking();
+            } catch (e) {
+                alert('Failed: ' + e.message);
+                if (btn) { btn.textContent = '🏆 Start Ranking'; btn.disabled = false; }
+            }
+        }
+
+        async function resetCollectionRanking() {
+            if (!userCollectionRanking) return;
+            if (!confirm('Reset your ranking back to the collection\'s default order?')) return;
+            try {
+                // Re-order items by canonical collection order
+                const canonicalOrder = (currentCollectionData?.items || []).map(ci => ci.title);
+                const myItems = [...(userCollectionRanking.items || [])];
+                myItems.sort((a, b) => {
+                    const ai = canonicalOrder.indexOf(a.title);
+                    const bi = canonicalOrder.indexOf(b.title);
+                    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
                 });
-                currentTab = 'rankings';
-                await openRankedList(data.id);
+                const res = await fetch(`${API}/api/rankings/my/${userCollectionRanking.id}/reorder`, {
+                    method: 'PUT', headers: authHeaders(),
+                    body: JSON.stringify({ item_ids: myItems.map(i => i.id) }),
+                });
+                if (!res.ok) throw new Error(await res.text());
+                // Reload
+                const detailRes = await fetch(`${API}/api/rankings/my/${userCollectionRanking.id}`, { headers: authHeaders() });
+                if (detailRes.ok) userCollectionRanking = await detailRes.json();
+                renderUserCollectionRanking();
             } catch (e) { alert('Failed: ' + e.message); }
         }
 
+        function openFullRankingEditor() {
+            if (!userCollectionRanking) return;
+            // Switch to My Rankings tab and open this list
+            document.querySelectorAll('.view-tab').forEach((t, i) => t.classList.toggle('active', i === 2));
+            ['discover','mylist','rankings','collections','friends'].forEach(t => {
+                document.getElementById('tab-' + t).style.display = t === 'rankings' ? '' : 'none';
+            });
+            currentTab = 'rankings';
+            openRankedList(userCollectionRanking.id);
+        }
+
         function goBackToCollections() {
-            currentCollectionId = null; currentCollectionData = null;
+            currentCollectionId = null; currentCollectionData = null; userCollectionRanking = null;
             document.getElementById('collections-detail').style.display = 'none';
             document.getElementById('collections-overview').style.display = '';
             loadCollections();
