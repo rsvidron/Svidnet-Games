@@ -7,6 +7,7 @@ from sqlalchemy import desc
 from datetime import datetime, timezone
 from typing import Optional, List
 from pydantic import BaseModel
+from jose import jwt, JWTError
 import httpx
 import os
 import sys
@@ -44,23 +45,32 @@ def get_db():
         db.close()
 
 
+SECRET_KEY = os.getenv("SECRET_KEY", "test-secret-key-for-development")
+
+
 # ── Auth helper ──────────────────────────────────────────────────────────────
 def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
     """Decode JWT and return user_id as int. Raises 401 on any failure."""
-    if not authorization or not authorization.startswith("Bearer "):
+    if not authorization:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    token = authorization.split(" ", 1)[1]
+    token = authorization.removeprefix("Bearer ").strip()
     try:
-        from jose import jwt, JWTError
-        SECRET_KEY = os.getenv("SECRET_KEY", "test-secret-key-for-development")
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        user_id = payload.get("sub") or payload.get("user_id")
+        # sub is stored as int by create_token — use is None check, not falsy,
+        # so that user_id=0 (unlikely but possible) doesn't incorrectly fail.
+        user_id = payload.get("sub")
+        if user_id is None:
+            user_id = payload.get("user_id")
         if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid token claims")
         return int(user_id)
     except HTTPException:
         raise
-    except Exception:
+    except JWTError as e:
+        print(f"[reviews] JWT error: {e}")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    except Exception as e:
+        print(f"[reviews] Auth error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
@@ -84,6 +94,28 @@ class ReviewUpdate(BaseModel):
     status: Optional[str] = None
     rating: Optional[int] = None
     review_text: Optional[str] = None
+
+
+# ── Debug endpoint (remove after verifying auth works) ───────────────────────
+@router.get("/debug-token")
+def debug_token(authorization: Optional[str] = Header(None)):
+    """Decode whatever token the browser sends and show its raw payload."""
+    if not authorization:
+        return {"error": "No Authorization header"}
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return {"ok": True, "payload": payload}
+    except JWTError as e:
+        # Try decode without verification to see the raw claims
+        try:
+            import base64, json
+            parts = token.split(".")
+            padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
+            raw = json.loads(base64.urlsafe_b64decode(padded))
+            return {"ok": False, "jose_error": str(e), "raw_claims": raw}
+        except Exception as e2:
+            return {"ok": False, "jose_error": str(e), "decode_error": str(e2)}
 
 
 # ── TMDB Search ──────────────────────────────────────────────────────────────
