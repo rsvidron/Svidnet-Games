@@ -74,6 +74,52 @@
         /* ── Content ── */
         .content { padding: 28px 32px; flex: 1; }
 
+        /* ── Search Bar ── */
+        .search-bar {
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .search-input {
+            flex: 1;
+            padding: 12px 16px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            font-size: 14px;
+            color: var(--text-primary);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .search-input:focus {
+            border-color: var(--accent);
+        }
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+        .search-clear {
+            padding: 10px 18px;
+            background: var(--hover-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .search-clear:hover {
+            background: var(--card-bg);
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+        .search-results {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
         /* ── Category Group ── */
         .category-group { margin-bottom: 32px; }
         .category-title {
@@ -179,6 +225,17 @@
         </div>
 
         <div class="content">
+            <div class="search-bar">
+                <input
+                    type="text"
+                    id="search-input"
+                    class="search-input"
+                    placeholder="Search links by title, description, URL, or category..."
+                    oninput="filterLinks()"
+                />
+                <button class="search-clear" onclick="clearSearch()">Clear</button>
+            </div>
+            <div id="search-results" class="search-results" style="display:none;"></div>
             <div id="links-container">
                 <div class="loading">Loading links...</div>
             </div>
@@ -187,6 +244,7 @@
 
     <script>
         const API_URL = window.location.origin;
+        let allLinks = [];
 
         function getTheme() { return localStorage.getItem('theme') || 'dark'; }
         function applyTheme(t) {
@@ -228,8 +286,8 @@
             try {
                 const res = await fetch(`${API_URL}/api/admin/links`);
                 if (!res.ok) throw new Error('Failed to load');
-                const links = await res.json();
-                renderLinks(links);
+                allLinks = await res.json();
+                renderLinks(allLinks);
             } catch (e) {
                 document.getElementById('links-container').innerHTML = `
                     <div class="empty-state">
@@ -286,6 +344,35 @@
                     </div>
                 </div>
             `).join('');
+        }
+
+        function filterLinks() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const resultsDiv = document.getElementById('search-results');
+
+            if (!query) {
+                renderLinks(allLinks);
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            const filtered = allLinks.filter(link => {
+                const title = (link.title || '').toLowerCase();
+                const desc = (link.description || '').toLowerCase();
+                const url = (link.url || '').toLowerCase();
+                const cat = (link.category || '').toLowerCase();
+                return title.includes(query) || desc.includes(query) || url.includes(query) || cat.includes(query);
+            });
+
+            resultsDiv.textContent = `Found ${filtered.length} result${filtered.length !== 1 ? 's' : ''} for "${document.getElementById('search-input').value}"`;
+            resultsDiv.style.display = 'block';
+            renderLinks(filtered);
+        }
+
+        function clearSearch() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('search-results').style.display = 'none';
+            renderLinks(allLinks);
         }
 
         loadLinks();
