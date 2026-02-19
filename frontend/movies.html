@@ -307,17 +307,58 @@
             .sidebar { transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
             .main { margin-left: 0; }
-            .topbar { padding: 0 16px; }
-            .content { padding: 16px; }
+            .topbar { padding: 0 16px; height: 56px; }
+            .content { padding: 12px; }
             .mobile-menu-btn { display: block; }
-            .media-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
-            .search-row { flex-wrap: wrap; }
+
+            /* Tighter view tabs on mobile */
+            .view-tabs { width: 100%; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+            .view-tabs::-webkit-scrollbar { display: none; }
+            .view-tab { padding: 7px 12px; font-size: 12px; flex-shrink: 0; }
+
+            /* Discover grid */
+            .media-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+            .card-title { font-size: 12px; }
+            .search-row { flex-wrap: wrap; gap: 8px; }
+            .filter-select { width: 100%; }
+
+            /* Detail modal */
             .detail-row { flex-direction: column; gap: 12px; }
             .detail-info { padding-top: 0; }
-            .lists-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-            .view-tabs { width: 100%; }
+            .detail-poster, .detail-poster-placeholder { width: 90px; }
+            .detail-title { font-size: 17px; }
+            .modal-content { border-radius: 12px 12px 0 0; max-height: 95vh; position: fixed; bottom: 0; width: 100%; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+
+            /* Lists grid */
+            .lists-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+            .page-header { flex-wrap: wrap; gap: 10px; }
+            .page-header .btn { width: 100%; }
+
+            /* Ranked items - more compact */
+            .ranked-item { padding: 8px 10px; gap: 9px; }
+            .rank-num { min-width: 30px; height: 30px; font-size: 13px; }
+            .item-poster { width: 30px; height: 45px; }
+            .item-poster-placeholder { width: 30px; height: 45px; }
+            .item-title { font-size: 13px; }
+            .drag-handle { font-size: 20px; padding: 4px 6px; color: var(--text-secondary); }
+
+            /* List detail header stacks on mobile */
+            .list-detail-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .list-detail-actions { flex-wrap: wrap; }
+            .list-detail-title { font-size: 18px; }
+
+            /* Collections */
+            .collection-card-actions { flex-wrap: wrap; }
+            .lb-toggle-btn { font-size: 11px; padding: 6px 10px; }
+
+            /* Leaderboard goes full-width below on mobile */
             #col-detail-outer { flex-direction: column !important; }
-            .lb-sidebar:not(.lb-collapsed) { width: 100% !important; margin-left: 0 !important; margin-top: 16px; position: static; }
+            .lb-sidebar:not(.lb-collapsed) { width: 100% !important; margin-left: 0 !important; margin-top: 16px; position: static; max-height: 60vh; overflow-y: auto; }
+            #lb-content { max-height: none; }
+
+            /* Bigger touch targets for buttons */
+            .btn-icon { width: 36px; height: 36px; font-size: 16px; }
+            .status-pill { padding: 6px 14px; }
         }
     </style>
 </head>
@@ -995,36 +1036,136 @@
         // ── Drag & Drop ────────────────────────────────────────────────────────────
         let dragSrcId = null;
 
-        function initDragAndDrop() {
-            const list = document.getElementById('ranked-list');
-            if (!list) return;
-            list.querySelectorAll('.ranked-item').forEach(el => {
+        // ── Shared touch-aware drag-and-drop ──────────────────────────────────────
+        // Works on both desktop (HTML5 drag) and mobile (touch events).
+        // listEl     : the container holding .ranked-item elements
+        // itemsArr   : the live array to reorder (mutated in place)
+        // onDrop     : async callback called after each successful reorder
+        function initSortable(listEl, itemsArr, onDrop) {
+            if (!listEl) return;
+
+            let dragSrc = null;  // element being dragged
+
+            // ── Desktop: HTML5 drag events ─────────────────────────────────────
+            function bindDesktop(el) {
+                el.setAttribute('draggable', 'true');
                 el.addEventListener('dragstart', e => {
-                    dragSrcId = parseInt(el.dataset.id);
+                    dragSrc = el;
                     el.classList.add('dragging');
                     e.dataTransfer.effectAllowed = 'move';
                 });
                 el.addEventListener('dragend', () => {
                     el.classList.remove('dragging');
-                    list.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
+                    listEl.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
+                    dragSrc = null;
                 });
                 el.addEventListener('dragover', e => {
                     e.preventDefault();
-                    list.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
+                    if (!dragSrc || dragSrc === el) return;
+                    listEl.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
                     el.classList.add('drag-over');
                 });
                 el.addEventListener('drop', async e => {
                     e.preventDefault();
-                    const dropId = parseInt(el.dataset.id);
-                    if (dragSrcId === dropId) return;
-                    const fromIdx = rankedItems.findIndex(i => i.id === dragSrcId);
-                    const toIdx = rankedItems.findIndex(i => i.id === dropId);
-                    const [moved] = rankedItems.splice(fromIdx, 1);
-                    rankedItems.splice(toIdx, 0, moved);
-                    rankedItems.forEach((item, idx) => { item.rank = idx + 1; });
-                    renderRankedItems();
-                    await saveReorder();
+                    if (!dragSrc || dragSrc === el) return;
+                    const fromId = parseInt(dragSrc.dataset.id);
+                    const toId   = parseInt(el.dataset.id);
+                    const fromIdx = itemsArr.findIndex(i => i.id === fromId);
+                    const toIdx   = itemsArr.findIndex(i => i.id === toId);
+                    const [moved] = itemsArr.splice(fromIdx, 1);
+                    itemsArr.splice(toIdx, 0, moved);
+                    itemsArr.forEach((item, idx) => { item.rank = idx + 1; });
+                    await onDrop();
                 });
+            }
+
+            // ── Mobile: touch events ───────────────────────────────────────────
+            let touchSrcId = null;
+            let touchClone  = null;
+            let touchOffX   = 0, touchOffY = 0;
+
+            function getItemAt(x, y) {
+                // Temporarily hide the clone so elementFromPoint can reach real items
+                if (touchClone) touchClone.style.display = 'none';
+                const el = document.elementFromPoint(x, y);
+                if (touchClone) touchClone.style.display = '';
+                if (!el) return null;
+                return el.closest('.ranked-item[data-id]');
+            }
+
+            function bindTouch(el) {
+                el.addEventListener('touchstart', e => {
+                    if (e.touches.length !== 1) return;
+                    const t = e.touches[0];
+                    touchSrcId = parseInt(el.dataset.id);
+                    const rect = el.getBoundingClientRect();
+                    touchOffX = t.clientX - rect.left;
+                    touchOffY = t.clientY - rect.top;
+
+                    // Create floating clone
+                    touchClone = el.cloneNode(true);
+                    touchClone.style.cssText = `
+                        position:fixed; left:${rect.left}px; top:${rect.top}px;
+                        width:${rect.width}px; pointer-events:none; z-index:9999;
+                        opacity:0.85; box-shadow:0 8px 24px rgba(0,0,0,0.5);
+                        border-radius:10px; background:var(--card-bg);
+                        border:1px solid var(--accent); transition:none;
+                    `;
+                    document.body.appendChild(touchClone);
+                    el.classList.add('dragging');
+                }, { passive: true });
+
+                el.addEventListener('touchmove', e => {
+                    if (!touchClone || touchSrcId === null) return;
+                    e.preventDefault();
+                    const t = e.touches[0];
+                    touchClone.style.left = (t.clientX - touchOffX) + 'px';
+                    touchClone.style.top  = (t.clientY - touchOffY) + 'px';
+
+                    // Highlight target
+                    listEl.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
+                    const over = getItemAt(t.clientX, t.clientY);
+                    if (over && parseInt(over.dataset.id) !== touchSrcId) {
+                        over.classList.add('drag-over');
+                    }
+                }, { passive: false });
+
+                el.addEventListener('touchend', async e => {
+                    if (!touchClone || touchSrcId === null) return;
+                    const t = e.changedTouches[0];
+                    touchClone.remove(); touchClone = null;
+                    listEl.querySelectorAll('.ranked-item').forEach(r => {
+                        r.classList.remove('dragging', 'drag-over');
+                    });
+
+                    const over = getItemAt(t.clientX, t.clientY);
+                    const toId = over ? parseInt(over.dataset.id) : null;
+                    const fromId = touchSrcId;
+                    touchSrcId = null;
+
+                    if (!toId || toId === fromId) return;
+                    const fromIdx = itemsArr.findIndex(i => i.id === fromId);
+                    const toIdx   = itemsArr.findIndex(i => i.id === toId);
+                    if (fromIdx === -1 || toIdx === -1) return;
+                    const [moved] = itemsArr.splice(fromIdx, 1);
+                    itemsArr.splice(toIdx, 0, moved);
+                    itemsArr.forEach((item, idx) => { item.rank = idx + 1; });
+                    await onDrop();
+                }, { passive: true });
+            }
+
+            listEl.querySelectorAll('.ranked-item').forEach(el => {
+                bindDesktop(el);
+                bindTouch(el);
+            });
+        }
+
+        function initDragAndDrop() {
+            const list = document.getElementById('ranked-list');
+            if (!list) return;
+            initSortable(list, rankedItems, async () => {
+                renderRankedItems();
+                await saveReorder();
             });
         }
 
@@ -1371,45 +1512,15 @@
             colRankedItems = [...items];
             const list = document.getElementById('col-user-ranked-list');
             if (!list) return;
-
-            list.querySelectorAll('.ranked-item').forEach(el => {
-                el.addEventListener('dragstart', e => {
-                    colDragSrcId = parseInt(el.dataset.id);
-                    el.classList.add('dragging');
-                    e.dataTransfer.effectAllowed = 'move';
-                });
-                el.addEventListener('dragend', () => {
-                    el.classList.remove('dragging');
-                    list.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
-                });
-                el.addEventListener('dragover', e => {
-                    e.preventDefault();
-                    list.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
-                    el.classList.add('drag-over');
-                });
-                el.addEventListener('drop', async e => {
-                    e.preventDefault();
-                    const dropId = parseInt(el.dataset.id);
-                    if (colDragSrcId === dropId) return;
-
-                    const fromIdx = colRankedItems.findIndex(i => i.id === colDragSrcId);
-                    const toIdx = colRankedItems.findIndex(i => i.id === dropId);
-                    const [moved] = colRankedItems.splice(fromIdx, 1);
-                    colRankedItems.splice(toIdx, 0, moved);
-                    colRankedItems.forEach((item, idx) => { item.rank = idx + 1; });
-
-                    // Update userCollectionRanking items in memory and re-render
-                    userCollectionRanking.items = colRankedItems;
-                    renderUserCollectionRanking();
-
-                    // Persist
-                    try {
-                        await fetch(`${API}/api/rankings/my/${listId}/reorder`, {
-                            method: 'PUT', headers: authHeaders(),
-                            body: JSON.stringify({ item_ids: colRankedItems.map(i => i.id) }),
-                        });
-                    } catch (err) { console.error('Reorder save failed:', err); }
-                });
+            initSortable(list, colRankedItems, async () => {
+                userCollectionRanking.items = colRankedItems;
+                renderUserCollectionRanking();
+                try {
+                    await fetch(`${API}/api/rankings/my/${listId}/reorder`, {
+                        method: 'PUT', headers: authHeaders(),
+                        body: JSON.stringify({ item_ids: colRankedItems.map(i => i.id) }),
+                    });
+                } catch (err) { console.error('Reorder save failed:', err); }
             });
         }
 
