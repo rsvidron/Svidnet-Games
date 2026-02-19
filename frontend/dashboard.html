@@ -1,226 +1,956 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Svidhaus Arena - Dashboard</title>
+    <title>Svidhaus Arena</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root[data-theme="dark"] {
+            --bg: #0f0f0f;
+            --sidebar-bg: #1a1a1a;
+            --card-bg: #1e1e1e;
+            --card-border: #2a2a2a;
+            --text-primary: #ffffff;
+            --text-secondary: #888888;
+            --text-muted: #555555;
+            --accent: #22c55e;
+            --accent-hover: #16a34a;
+            --accent-dim: rgba(34,197,94,0.1);
+            --danger: #ef4444;
+            --input-bg: #2a2a2a;
+            --input-border: #333333;
+            --hover-bg: #252525;
+            --divider: #2a2a2a;
+            --modal-bg: #1e1e1e;
+            --scrollbar: #2a2a2a;
+        }
+
+        :root[data-theme="light"] {
+            --bg: #f4f6f9;
+            --sidebar-bg: #ffffff;
+            --card-bg: #ffffff;
+            --card-border: #e5e7eb;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --text-muted: #9ca3af;
+            --accent: #16a34a;
+            --accent-hover: #15803d;
+            --accent-dim: rgba(22,163,74,0.08);
+            --danger: #dc2626;
+            --input-bg: #f9fafb;
+            --input-border: #d1d5db;
+            --hover-bg: #f3f4f6;
+            --divider: #e5e7eb;
+            --modal-bg: #ffffff;
+            --scrollbar: #e5e7eb;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh; padding: 20px;
+            background: var(--bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            transition: background 0.3s, color 0.3s;
         }
-        .container { max-width: 900px; margin: 0 auto; }
-        .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .nav-left { display: flex; gap: 10px; }
-        .nav-btn {
-            background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.4);
-            padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
-            cursor: pointer; text-decoration: none; transition: all 0.2s;
+
+        /* ─── Sidebar ─────────────────────────────── */
+        .sidebar {
+            width: 240px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--divider);
+            display: flex;
+            flex-direction: column;
+            padding: 24px 0;
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            z-index: 100;
+            transition: background 0.3s, border-color 0.3s;
         }
-        .nav-btn:hover { background: rgba(255,255,255,0.3); }
-        .nav-btn.active { background: rgba(255,255,255,0.35); border-color: white; }
-        .header { text-align: center; color: white; margin-bottom: 30px; }
-        .header h1 { font-size: 42px; margin-bottom: 6px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
-        .header p { font-size: 16px; opacity: 0.9; }
-        .welcome-card {
-            background: white; border-radius: 20px; padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3); margin-bottom: 20px;
-            display: flex; align-items: center; gap: 20px;
+
+        .sidebar-logo {
+            padding: 0 24px 28px;
+            border-bottom: 1px solid var(--divider);
+            margin-bottom: 16px;
         }
-        .avatar {
-            width: 70px; height: 70px; border-radius: 50%;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+
+        .sidebar-logo h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.3px;
+        }
+
+        .sidebar-logo span {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .sidebar-section {
+            padding: 0 12px;
+            margin-bottom: 8px;
+        }
+
+        .sidebar-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 0 12px;
+            margin-bottom: 4px;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s, color 0.15s;
+            margin-bottom: 2px;
+        }
+
+        .sidebar-item:hover {
+            background: var(--hover-bg);
+            color: var(--text-primary);
+        }
+
+        .sidebar-item.active {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .sidebar-item .icon {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-item .badge {
+            margin-left: auto;
+            background: var(--accent);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+
+        .sidebar-item .soon-badge {
+            margin-left: auto;
+            background: var(--card-border);
+            color: var(--text-muted);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 10px;
+        }
+
+        .sidebar-bottom {
+            margin-top: auto;
+            padding: 16px 12px;
+            border-top: 1px solid var(--divider);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        /* ─── Main Content ─────────────────────────── */
+        .main {
+            margin-left: 240px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* ─── Top Bar ──────────────────────────────── */
+        .topbar {
+            background: var(--sidebar-bg);
+            border-bottom: 1px solid var(--divider);
+            padding: 0 32px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .topbar-left h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .topbar-left p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .theme-toggle {
+            width: 36px; height: 36px;
+            border-radius: 8px;
+            background: var(--hover-bg);
+            border: 1px solid var(--card-border);
+            color: var(--text-secondary);
+            font-size: 16px;
+            cursor: pointer;
             display: flex; align-items: center; justify-content: center;
-            color: white; font-size: 28px; font-weight: 700; flex-shrink: 0;
+            transition: all 0.2s;
         }
-        .avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-        .welcome-info { flex: 1; }
-        .welcome-info h2 { font-size: 24px; color: #333; margin-bottom: 4px; }
-        .welcome-info p { color: #888; font-size: 14px; }
-        .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; margin-bottom: 25px; }
-        .stat-card {
-            background: white; border-radius: 15px; padding: 20px; text-align: center;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+
+        .theme-toggle:hover {
+            background: var(--accent-dim);
+            color: var(--accent);
+            border-color: var(--accent);
         }
-        .stat-card .stat-icon { font-size: 28px; margin-bottom: 8px; }
-        .stat-card .stat-value { font-size: 28px; font-weight: 700; color: #667eea; }
-        .stat-card .stat-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
-        .section-title { color: white; font-size: 22px; font-weight: 600; margin-bottom: 15px; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); }
-        .games-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 18px; margin-bottom: 30px; }
-        .game-card {
-            background: white; border-radius: 20px; padding: 28px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.15); cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s; text-decoration: none; display: block;
-        }
-        .game-card:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.25); }
-        .game-card .game-icon { font-size: 40px; margin-bottom: 12px; }
-        .game-card h3 { font-size: 20px; color: #333; margin-bottom: 6px; }
-        .game-card p { color: #888; font-size: 14px; line-height: 1.4; }
-        .game-card .play-btn {
-            display: inline-block; margin-top: 15px; background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white; padding: 10px 22px; border-radius: 10px; font-size: 14px; font-weight: 600;
-        }
-        .game-card.coming-soon { opacity: 0.6; cursor: default; }
-        .game-card.coming-soon:hover { transform: none; box-shadow: 0 8px 30px rgba(0,0,0,0.15); }
-        .game-card.coming-soon .play-btn { background: #ccc; }
-        .recent-games {
-            background: white; border-radius: 20px; padding: 28px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.15); margin-bottom: 25px;
-        }
-        .recent-games h3 { font-size: 18px; color: #333; margin-bottom: 15px; }
-        .game-row {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 12px 0; border-bottom: 1px solid #f0f0f0;
-        }
-        .game-row:last-child { border-bottom: none; }
-        .game-row-left { display: flex; align-items: center; gap: 12px; }
-        .game-row-icon { font-size: 20px; }
-        .game-row-info h4 { font-size: 14px; color: #333; }
-        .game-row-info p { font-size: 12px; color: #999; }
-        .game-row-score { text-align: right; }
-        .game-row-score .score { font-size: 18px; font-weight: 700; color: #667eea; }
-        .game-row-score .accuracy { font-size: 12px; color: #888; }
-        .empty-state { text-align: center; padding: 30px; color: #999; }
-        .empty-state p { margin-bottom: 15px; }
-        .friends-section {
-            background: white; border-radius: 20px; padding: 28px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.15); margin-bottom: 25px;
-        }
-        .friends-section h3 { font-size: 18px; color: #333; margin-bottom: 15px; }
-        .friends-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .add-friend-btn {
-            background: linear-gradient(135deg, #667eea, #764ba2); color: white;
-            border: none; padding: 8px 18px; border-radius: 8px; font-size: 13px;
-            font-weight: 600; cursor: pointer; transition: transform 0.2s;
-        }
-        .add-friend-btn:hover { transform: translateY(-1px); }
-        .friend-row {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 0; border-bottom: 1px solid #f0f0f0;
-        }
-        .friend-row:last-child { border-bottom: none; }
-        .friend-left { display: flex; align-items: center; gap: 10px; }
-        .friend-avatar {
-            width: 36px; height: 36px; border-radius: 50%;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+
+        .avatar-btn {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
             display: flex; align-items: center; justify-content: center;
             color: white; font-size: 14px; font-weight: 700;
+            cursor: pointer; border: 2px solid var(--card-border);
+            overflow: hidden;
         }
-        .friend-name { font-size: 14px; color: #333; font-weight: 500; }
-        .friend-status { font-size: 12px; color: #888; }
+
+        .avatar-btn img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* ─── Content Area ─────────────────────────── */
+        .content {
+            padding: 28px 32px;
+            flex: 1;
+        }
+
+        /* ─── Stats Row ────────────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .stat-card .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .stat-card .stat-value {
+            font-size: 30px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -1px;
+        }
+
+        .stat-card .stat-change {
+            font-size: 12px;
+            color: var(--accent);
+            margin-top: 4px;
+        }
+
+        /* ─── Section Header ───────────────────────── */
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .section-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* ─── Games Grid ───────────────────────────── */
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .game-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 22px;
+            text-decoration: none;
+            display: block;
+            cursor: pointer;
+            transition: border-color 0.2s, transform 0.2s, background 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .game-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), #3b82f6);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .game-card:hover::before { opacity: 1; }
+
+        .game-card.coming-soon {
+            cursor: default;
+            opacity: 0.65;
+        }
+
+        .game-card.coming-soon:hover {
+            border-color: var(--card-border);
+            transform: none;
+        }
+
+        .game-card.coming-soon:hover::before { opacity: 0; }
+
+        .card-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .game-icon-wrap {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            background: var(--accent-dim);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+        }
+
+        .live-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 20px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .soon-pill {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 20px;
+            background: var(--hover-bg);
+            color: var(--text-muted);
+            border: 1px solid var(--card-border);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .game-card h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+        }
+
+        .game-card p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 18px;
+        }
+
+        .play-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--accent);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .play-btn:hover { background: var(--accent-hover); }
+
+        .coming-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--hover-bg);
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid var(--card-border);
+        }
+
+        /* ─── Two-column layout ─────────────────────── */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 16px;
+        }
+
+        /* ─── Recent Games ──────────────────────────── */
+        .panel {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 22px;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .panel h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .game-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--divider);
+        }
+
+        .game-row:last-child { border-bottom: none; }
+
+        .game-row-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .row-icon {
+            width: 36px; height: 36px;
+            border-radius: 8px;
+            background: var(--accent-dim);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+        }
+
+        .game-row-info h4 {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .game-row-info p {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+
+        .row-score {
+            text-align: right;
+        }
+
+        .row-score .score {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .row-score .accuracy {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 28px 0;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        /* ─── Friends Panel ─────────────────────────── */
+        .friends-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .friends-header h3 {
+            margin-bottom: 0;
+        }
+
+        .add-friend-btn {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent);
+            background: var(--accent-dim);
+            border: 1px solid var(--accent);
+            padding: 5px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .add-friend-btn:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .friend-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--divider);
+        }
+
+        .friend-row:last-child { border-bottom: none; }
+
+        .friend-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .friend-avatar {
+            width: 34px; height: 34px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #22c55e, #3b82f6);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 13px; font-weight: 700;
+        }
+
+        .friend-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .friend-status {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+
+        /* ─── Modal ─────────────────────────────────── */
         .modal-overlay {
-            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
         }
+
         .modal-overlay.show { display: flex; }
+
         .modal {
-            background: white; border-radius: 20px; padding: 30px; width: 90%; max-width: 420px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            background: var(--modal-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 28px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
         }
-        .modal h3 { font-size: 20px; color: #333; margin-bottom: 15px; }
+
+        .modal h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
         .modal input {
-            width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 10px;
-            font-size: 16px; margin-bottom: 15px;
+            width: 100%;
+            padding: 11px 14px;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            font-size: 14px;
+            color: var(--text-primary);
+            margin-bottom: 14px;
+            outline: none;
+            transition: border-color 0.2s;
         }
-        .modal input:focus { outline: none; border-color: #667eea; }
-        .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
-        .modal-btns button {
-            padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none;
+
+        .modal input:focus { border-color: var(--accent); }
+        .modal input::placeholder { color: var(--text-muted); }
+
+        .modal-btns {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
         }
-        .modal-btns .cancel-btn { background: #f0f0f0; color: #666; }
-        .modal-btns .confirm-btn { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+
+        .cancel-btn {
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            background: var(--hover-bg);
+            color: var(--text-secondary);
+            border: 1px solid var(--card-border);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .confirm-btn {
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            background: var(--accent);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .confirm-btn:hover { background: var(--accent-hover); }
+
+        /* ─── Toast ─────────────────────────────────── */
         .toast {
-            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-            background: #333; color: white; padding: 12px 24px; border-radius: 10px;
-            font-size: 14px; display: none; z-index: 2000;
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            color: var(--text-primary);
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            display: none;
+            z-index: 2000;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
         }
-        .toast.show { display: block; animation: fadeIn 0.3s; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-        .logout-btn {
-            background: rgba(255,80,80,0.2); color: #ff6b6b; border: 2px solid rgba(255,80,80,0.4);
-            padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
-            cursor: pointer; transition: all 0.2s;
+
+        .toast.show {
+            display: block;
+            animation: toastIn 0.3s ease forwards;
         }
-        .logout-btn:hover { background: rgba(255,80,80,0.3); }
+
+        @keyframes toastIn {
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+
+        /* ─── Welcome Bar ───────────────────────────── */
+        .welcome-bar {
+            background: linear-gradient(135deg, #1a2e1a 0%, #0f1f1f 100%);
+            border: 1px solid rgba(34,197,94,0.2);
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        [data-theme="light"] .welcome-bar {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            border-color: rgba(22,163,74,0.2);
+        }
+
+        .welcome-bar-left h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .welcome-bar-left p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .welcome-bar .accent-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            display: inline-block;
+            margin-right: 6px;
+            box-shadow: 0 0 6px var(--accent);
+        }
+
+        /* ─── Mobile ────────────────────────────────── */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 22px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 1024px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .two-col { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s;
+            }
+
+            .sidebar.open { transform: translateX(0); }
+
+            .main { margin-left: 0; }
+
+            .topbar { padding: 0 16px; }
+
+            .content { padding: 16px; }
+
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+            .mobile-menu-btn { display: block; }
+
+            .games-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .welcome-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="nav-bar">
-            <div class="nav-left">
-                <a href="/" class="nav-btn active">Home</a>
-                <a href="/profile" class="nav-btn">Profile</a>
-                <a href="/admin" class="nav-btn" id="admin-nav-btn" style="display: none;">Admin</a>
-            </div>
-            <button class="logout-btn" onclick="logout()">Logout</button>
-        </div>
 
-        <div class="header">
+    <!-- ─── Sidebar ─── -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
             <h1>Svidhaus Arena</h1>
-            <p>Your gaming hub - compete, learn, and have fun!</p>
+            <span>Gaming Hub</span>
         </div>
 
-        <div class="welcome-card">
-            <div class="avatar" id="user-avatar"></div>
-            <div class="welcome-info">
-                <h2 id="welcome-text">Welcome back!</h2>
-                <p id="welcome-sub">Loading your stats...</p>
-            </div>
-        </div>
-
-        <div class="stats-row" id="stats-row">
-            <div class="stat-card"><div class="stat-icon">&#127942;</div><div class="stat-value" id="stat-games">-</div><div class="stat-label">Games Played</div></div>
-            <div class="stat-card"><div class="stat-icon">&#9989;</div><div class="stat-value" id="stat-accuracy">-</div><div class="stat-label">Avg Accuracy</div></div>
-            <div class="stat-card"><div class="stat-icon">&#11088;</div><div class="stat-value" id="stat-score">-</div><div class="stat-label">Total Score</div></div>
-            <div class="stat-card"><div class="stat-icon">&#128101;</div><div class="stat-value" id="stat-friends">-</div><div class="stat-label">Friends</div></div>
-        </div>
-
-        <div class="section-title">Games</div>
-        <div class="games-grid">
-            <a href="/trivia" class="game-card">
-                <div class="game-icon">&#129504;</div>
-                <h3>5th Grade Trivia</h3>
-                <p>Test your knowledge with AI-generated trivia questions across multiple categories.</p>
-                <div class="play-btn">Play Now</div>
+        <div class="sidebar-section">
+            <div class="sidebar-label">Menu</div>
+            <a href="/" class="sidebar-item active">
+                <span class="icon">⊞</span> Dashboard
             </a>
-            <a href="/wordle" class="game-card">
-                <div class="game-icon">🟩</div>
-                <h3>Wordle</h3>
-                <p>Guess the 5-letter word in 6 tries. Color-coded tiles show how close you are!</p>
-                <div class="play-btn">Play Now</div>
+            <a href="/profile" class="sidebar-item">
+                <span class="icon">👤</span> Profile
             </a>
-            <a href="/sportsbook.html" class="game-card">
-                <div class="game-icon">🏈</div>
-                <h3>Sportsbook</h3>
-                <p>Bet on live sports! Moneylines, spreads, totals. Build parlays and track your record.</p>
-                <div class="play-btn">Place Bets</div>
+            <a href="/admin" class="sidebar-item" id="admin-nav-btn" style="display:none;">
+                <span class="icon">⚙️</span> Admin
             </a>
         </div>
 
-        <div class="section-title">Recent Games</div>
-        <div class="recent-games" id="recent-games">
-            <div class="empty-state"><p>No games played yet. Start your first game above!</p></div>
+        <div class="sidebar-section" style="margin-top: 12px;">
+            <div class="sidebar-label">Games</div>
+            <a href="/trivia" class="sidebar-item">
+                <span class="icon">🤓</span> Trivia
+            </a>
+            <a href="/wordle" class="sidebar-item">
+                <span class="icon">🟩</span> Wordle
+            </a>
+            <a href="/sportsbook.html" class="sidebar-item">
+                <span class="icon">🏈</span> Sportsbook
+            </a>
+            <div class="sidebar-item" style="cursor:default; opacity:0.5;">
+                <span class="icon">🎬</span> Movie Reviews
+                <span class="soon-badge">Soon</span>
+            </div>
+            <div class="sidebar-item" style="cursor:default; opacity:0.5;">
+                <span class="icon">🤼</span> Wrestling
+                <span class="soon-badge">Soon</span>
+            </div>
         </div>
 
-        <div class="section-title">Friends</div>
-        <div class="friends-section" id="friends-section">
-            <div class="friends-header">
-                <h3>Your Friends</h3>
-                <button class="add-friend-btn" onclick="showAddFriend()">+ Add Friend</button>
+        <div class="sidebar-bottom">
+            <button class="sidebar-item" onclick="logout()" style="background:none; border:none; text-align:left; width:100%; color: var(--danger); cursor:pointer;">
+                <span class="icon">↩</span> Logout
+            </button>
+        </div>
+    </aside>
+
+    <!-- ─── Main ─── -->
+    <div class="main">
+
+        <!-- Topbar -->
+        <div class="topbar">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+                <div class="topbar-left">
+                    <h2>Dashboard</h2>
+                </div>
             </div>
-            <div id="friends-list">
-                <div class="empty-state"><p>No friends yet. Add friends by username!</p></div>
+            <div class="topbar-right">
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode" id="theme-btn">☀️</button>
+                <div class="avatar-btn" id="user-avatar"></div>
             </div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+
+            <!-- Welcome Bar -->
+            <div class="welcome-bar">
+                <div class="welcome-bar-left">
+                    <h2 id="welcome-text"><span class="accent-dot"></span>Welcome back!</h2>
+                    <p id="welcome-sub">Loading your stats...</p>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">🏆 Games Played</div>
+                    <div class="stat-value" id="stat-games">—</div>
+                    <div class="stat-change">All time</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">✅ Avg Accuracy</div>
+                    <div class="stat-value" id="stat-accuracy">—</div>
+                    <div class="stat-change">Trivia</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">⭐ Total Score</div>
+                    <div class="stat-value" id="stat-score">—</div>
+                    <div class="stat-change">Points earned</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">👥 Friends</div>
+                    <div class="stat-value" id="stat-friends">—</div>
+                    <div class="stat-change">Connected</div>
+                </div>
+            </div>
+
+            <!-- Games -->
+            <div class="section-header">
+                <h3>Games</h3>
+            </div>
+
+            <div class="games-grid">
+                <!-- Trivia -->
+                <a href="/trivia" class="game-card">
+                    <div class="card-top">
+                        <div class="game-icon-wrap">🤓</div>
+                        <span class="live-badge">Live</span>
+                    </div>
+                    <h3>5th Grade Trivia</h3>
+                    <p>Test your knowledge with trivia questions across multiple categories. Compete for the top score!</p>
+                    <span class="play-btn">Play Now →</span>
+                </a>
+
+                <!-- Wordle -->
+                <a href="/wordle" class="game-card">
+                    <div class="card-top">
+                        <div class="game-icon-wrap">🟩</div>
+                        <span class="live-badge">Live</span>
+                    </div>
+                    <h3>Wordle</h3>
+                    <p>Guess the 5-letter word in 6 tries. New challenge every day — track your streak!</p>
+                    <span class="play-btn">Play Now →</span>
+                </a>
+
+                <!-- Sportsbook -->
+                <a href="/sportsbook.html" class="game-card">
+                    <div class="card-top">
+                        <div class="game-icon-wrap">🏈</div>
+                        <span class="live-badge">Live</span>
+                    </div>
+                    <h3>Sportsbook</h3>
+                    <p>Bet on live sports with real odds. Moneylines, spreads, totals, and parlays.</p>
+                    <span class="play-btn">Place Bets →</span>
+                </a>
+
+                <!-- Movie Reviews (Coming Soon) -->
+                <div class="game-card coming-soon">
+                    <div class="card-top">
+                        <div class="game-icon-wrap">🎬</div>
+                        <span class="soon-pill">Coming Soon</span>
+                    </div>
+                    <h3>Movie Reviews</h3>
+                    <p>Rate and review movies, track what you've watched, and see what your friends think.</p>
+                    <span class="coming-btn">Coming Soon</span>
+                </div>
+
+                <!-- Wrestling Predictions (Coming Soon) -->
+                <div class="game-card coming-soon">
+                    <div class="card-top">
+                        <div class="game-icon-wrap">🤼</div>
+                        <span class="soon-pill">Coming Soon</span>
+                    </div>
+                    <h3>Wrestling Predictions</h3>
+                    <p>Pick match winners, predict outcomes, and earn points for correct wrestling predictions.</p>
+                    <span class="coming-btn">Coming Soon</span>
+                </div>
+            </div>
+
+            <!-- Recent Games + Friends -->
+            <div class="two-col">
+                <!-- Recent Games -->
+                <div class="panel">
+                    <h3>Recent Games</h3>
+                    <div id="recent-games">
+                        <div class="empty-state">No games played yet. Start your first game above!</div>
+                    </div>
+                </div>
+
+                <!-- Friends -->
+                <div class="panel">
+                    <div class="friends-header">
+                        <h3>Friends</h3>
+                        <button class="add-friend-btn" onclick="showAddFriend()">+ Add</button>
+                    </div>
+                    <div id="friends-list">
+                        <div class="empty-state">No friends yet. Add friends by username!</div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
+    <!-- Add Friend Modal -->
     <div class="modal-overlay" id="add-friend-modal">
         <div class="modal">
             <h3>Add Friend</h3>
             <input type="text" id="friend-username" placeholder="Enter username..." />
-            <div id="add-friend-error" style="color:#f44336; font-size:13px; margin-bottom:10px; display:none;"></div>
+            <div id="add-friend-error" style="color:#ef4444; font-size:13px; margin-bottom:12px; display:none;"></div>
             <div class="modal-btns">
                 <button class="cancel-btn" onclick="hideAddFriend()">Cancel</button>
                 <button class="confirm-btn" onclick="addFriend()">Add Friend</button>
@@ -234,17 +964,37 @@
         const API_URL = window.location.origin;
         let currentUser = null;
 
-        function getToken() {
-            return localStorage.getItem('token');
+        // ─── Theme ───────────────────────────────────
+        function getTheme() { return localStorage.getItem('theme') || 'dark'; }
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            document.getElementById('theme-btn').textContent = theme === 'dark' ? '☀️' : '🌙';
         }
+
+        function toggleTheme() {
+            const next = getTheme() === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('theme', next);
+            applyTheme(next);
+        }
+
+        // Apply saved theme on load
+        applyTheme(getTheme());
+
+        // ─── Sidebar mobile toggle ───────────────────
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        // ─── Auth ────────────────────────────────────
+        function getToken() { return localStorage.getItem('access_token') || localStorage.getItem('token'); }
 
         function getUser() {
             const stored = localStorage.getItem('user');
             if (stored) return JSON.parse(stored);
-            // Check URL params (from OAuth redirect)
             const params = new URLSearchParams(window.location.search);
             if (params.get('token')) {
-                localStorage.setItem('token', params.get('token'));
+                localStorage.setItem('access_token', params.get('token'));
                 const user = {
                     id: parseInt(params.get('user_id')),
                     username: params.get('username'),
@@ -259,25 +1009,26 @@
 
         function isAdmin(user) {
             if (!user) return false;
-            // Check if user is in admin list
-            const adminUsernames = ['svidthekid'];
-            const adminEmails = ['svidron.robert@gmail.com'];
-            return adminUsernames.includes(user.username) ||
-                   adminEmails.includes(user.email);
+            return ['svidthekid'].includes(user.username) ||
+                   ['svidron.robert@gmail.com'].includes(user.email);
         }
 
         function logout() {
+            localStorage.removeItem('access_token');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';
         }
 
+        // ─── Toast ───────────────────────────────────
         function showToast(msg) {
             const el = document.getElementById('toast');
-            el.textContent = msg; el.classList.add('show');
+            el.textContent = msg;
+            el.classList.add('show');
             setTimeout(() => el.classList.remove('show'), 3000);
         }
 
+        // ─── Friend modal ────────────────────────────
         function showAddFriend() {
             document.getElementById('add-friend-modal').classList.add('show');
             document.getElementById('friend-username').value = '';
@@ -291,7 +1042,6 @@
         async function addFriend() {
             const username = document.getElementById('friend-username').value.trim();
             if (!username) return;
-
             try {
                 const res = await fetch(`${API_URL}/api/friends/add`, {
                     method: 'POST',
@@ -305,7 +1055,7 @@
                     return;
                 }
                 hideAddFriend();
-                showToast('Friend added successfully!');
+                showToast('Friend added!');
                 loadFriends();
             } catch (e) {
                 document.getElementById('add-friend-error').textContent = 'Network error';
@@ -320,34 +1070,20 @@
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${getToken()}` }
                 });
-                if (res.ok) {
-                    showToast('Friend removed');
-                    loadFriends();
-                }
+                if (res.ok) { showToast('Friend removed'); loadFriends(); }
             } catch (e) { showToast('Error removing friend'); }
         }
 
+        // ─── Dashboard load ──────────────────────────
         async function loadDashboard() {
             currentUser = getUser();
-            if (!currentUser) {
-                window.location.href = '/login';
-                return;
-            }
+            if (!currentUser) { window.location.href = '/login'; return; }
 
-            // Debug admin check
-            console.log('Current user:', currentUser);
-            console.log('Username:', currentUser.username);
-            console.log('Email:', currentUser.email);
-            console.log('Is admin?', isAdmin(currentUser));
-
-            // Show admin button if user is admin
             if (isAdmin(currentUser)) {
-                document.getElementById('admin-nav-btn').style.display = 'block';
-                console.log('Admin button should now be visible');
+                document.getElementById('admin-nav-btn').style.display = 'flex';
             }
 
-            // Set welcome text
-            document.getElementById('welcome-text').textContent = `Welcome back, ${currentUser.username}!`;
+            // Avatar
             const avatarEl = document.getElementById('user-avatar');
             if (currentUser.avatar_url) {
                 avatarEl.innerHTML = `<img src="${currentUser.avatar_url}" alt="avatar">`;
@@ -355,7 +1091,9 @@
                 avatarEl.textContent = currentUser.username.charAt(0).toUpperCase();
             }
 
-            // Load stats
+            document.getElementById('welcome-text').innerHTML =
+                `<span class="accent-dot"></span>Welcome back, ${currentUser.username}!`;
+
             try {
                 const res = await fetch(`${API_URL}/api/user/dashboard`, {
                     headers: { 'Authorization': `Bearer ${getToken()}` }
@@ -368,14 +1106,12 @@
                     document.getElementById('stat-friends').textContent = data.friend_count;
                     document.getElementById('welcome-sub').textContent =
                         data.total_games > 0
-                            ? `You've played ${data.total_games} game${data.total_games > 1 ? 's' : ''}. Keep it up!`
-                            : 'Start your first game below!';
-
-                    // Render recent games
+                            ? `${data.total_games} game${data.total_games > 1 ? 's' : ''} played — keep it up!`
+                            : 'Ready to play? Pick a game below!';
                     renderRecentGames(data.recent_games);
                 }
             } catch (e) {
-                document.getElementById('welcome-sub').textContent = 'Start a game below!';
+                document.getElementById('welcome-sub').textContent = 'Ready to play?';
             }
 
             loadFriends();
@@ -384,21 +1120,21 @@
         function renderRecentGames(games) {
             const container = document.getElementById('recent-games');
             if (!games || games.length === 0) {
-                container.innerHTML = '<div class="empty-state"><p>No games played yet. Start your first game above!</p></div>';
+                container.innerHTML = '<div class="empty-state">No games played yet. Start your first game above!</div>';
                 return;
             }
             container.innerHTML = games.map(g => `
                 <div class="game-row">
                     <div class="game-row-left">
-                        <div class="game-row-icon">&#129504;</div>
+                        <div class="row-icon">🤓</div>
                         <div class="game-row-info">
                             <h4>${capitalize(g.category)} Trivia</h4>
-                            <p>${g.total_questions} questions &middot; ${timeAgo(g.played_at)}</p>
+                            <p>${g.total_questions} questions · ${timeAgo(g.played_at)}</p>
                         </div>
                     </div>
-                    <div class="game-row-score">
+                    <div class="row-score">
                         <div class="score">${g.score}</div>
-                        <div class="accuracy">${g.accuracy}% accuracy</div>
+                        <div class="accuracy">${g.accuracy}%</div>
                     </div>
                 </div>
             `).join('');
@@ -411,10 +1147,10 @@
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    const container = document.getElementById('friends-list');
                     document.getElementById('stat-friends').textContent = data.friends.length;
+                    const container = document.getElementById('friends-list');
                     if (data.friends.length === 0) {
-                        container.innerHTML = '<div class="empty-state"><p>No friends yet. Add friends by username!</p></div>';
+                        container.innerHTML = '<div class="empty-state">No friends yet. Add by username!</div>';
                         return;
                     }
                     container.innerHTML = data.friends.map(f => `
@@ -426,7 +1162,9 @@
                                     <div class="friend-status">${f.total_games} games played</div>
                                 </div>
                             </div>
-                            <button onclick="removeFriend(${f.friend_id})" style="background:none;border:none;color:#999;cursor:pointer;font-size:18px;" title="Remove friend">&times;</button>
+                            <button onclick="removeFriend(${f.friend_id})"
+                                style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;padding:4px 8px;"
+                                title="Remove">×</button>
                         </div>
                     `).join('');
                 }
@@ -438,12 +1176,11 @@
         function timeAgo(dateStr) {
             if (!dateStr) return '';
             const d = new Date(dateStr);
-            const now = new Date();
-            const diff = Math.floor((now - d) / 1000);
+            const diff = Math.floor((new Date() - d) / 1000);
             if (diff < 60) return 'just now';
-            if (diff < 3600) return Math.floor(diff/60) + 'm ago';
-            if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
-            if (diff < 604800) return Math.floor(diff/86400) + 'd ago';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
             return d.toLocaleDateString();
         }
 
