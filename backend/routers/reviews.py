@@ -45,19 +45,17 @@ def get_db():
         db.close()
 
 
-SECRET_KEY = os.getenv("SECRET_KEY", "test-secret-key-for-development")
-
-
 # ── Auth helper ──────────────────────────────────────────────────────────────
 def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
     """Decode JWT and return user_id as int. Raises 401 on any failure."""
     if not authorization:
         raise HTTPException(status_code=401, detail="Not authenticated")
     token = authorization.removeprefix("Bearer ").strip()
+    # Read at call time so Railway env var is always current
+    secret = os.getenv("SECRET_KEY", "test-secret-key-for-development")
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        # sub is stored as int by create_token — use is None check, not falsy,
-        # so that user_id=0 (unlikely but possible) doesn't incorrectly fail.
+        payload = jwt.decode(token, secret, algorithms=["HS256"])
+        # sub is stored as int by create_token — use is None check (not falsy)
         user_id = payload.get("sub")
         if user_id is None:
             user_id = payload.get("user_id")
@@ -103,9 +101,10 @@ def debug_token(authorization: Optional[str] = Header(None)):
     if not authorization:
         return {"error": "No Authorization header"}
     token = authorization.removeprefix("Bearer ").strip()
+    secret = os.getenv("SECRET_KEY", "test-secret-key-for-development")
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        return {"ok": True, "payload": payload}
+        payload = jwt.decode(token, secret, algorithms=["HS256"])
+        return {"ok": True, "payload": payload, "secret_key_env_set": bool(os.getenv("SECRET_KEY"))}
     except JWTError as e:
         # Try decode without verification to see the raw claims
         try:
