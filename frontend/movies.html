@@ -287,6 +287,18 @@
         .lb-spread-fill { height: 100%; background: var(--accent); border-radius: 2px; opacity: 0.6; }
         .lb-empty { padding: 24px 16px; text-align: center; font-size: 13px; color: var(--text-muted); }
         .lb-section-sep { height: 1px; background: var(--divider); margin: 6px 14px; }
+        .lb-row { cursor: pointer; }
+        .lb-row.lb-expanded { background: var(--accent-dim); }
+        .lb-expand-icon { font-size: 11px; color: var(--text-muted); flex-shrink: 0; transition: transform 0.2s; }
+        .lb-row.lb-expanded .lb-expand-icon { transform: rotate(180deg); }
+        .lb-user-breakdown { display: none; border-top: 1px solid var(--divider); padding: 8px 14px 10px; background: var(--hover-bg); }
+        .lb-user-breakdown.show { display: block; }
+        .lb-user-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--divider); }
+        .lb-user-row:last-child { border-bottom: none; }
+        .lb-user-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--accent-dim); border: 1px solid var(--accent); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--accent); flex-shrink: 0; overflow: hidden; }
+        .lb-user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .lb-user-name { font-size: 12px; color: var(--text-secondary); flex: 1; }
+        .lb-user-rank { font-size: 12px; font-weight: 700; color: var(--text-primary); flex-shrink: 0; }
 
         /* ── Mobile ── */
         @media (max-width: 768px) {
@@ -1502,19 +1514,53 @@
                 const rankerNote = item.rank_count < n
                     ? `<span title="${n - item.rank_count} ranker(s) didn't include this">·${item.rank_count}/${n}</span>`
                     : '';
-                return `<div class="lb-row">
-                    <div class="lb-rank${isTop ? ' lb-top' : ''}">${rankDisplay}</div>
-                    ${poster}
-                    <div class="lb-info">
-                        <div class="lb-item-title" title="${escHtml(item.title)}">${escHtml(item.title)}</div>
-                        <div class="lb-avg">
-                            <span class="lb-avg-num">avg #${item.avg_rank % 1 === 0 ? item.avg_rank : item.avg_rank.toFixed(1)}</span>
-                            ${rankerNote}
-                            <div class="lb-spread-bar"><div class="lb-spread-fill" style="width:${spreadPct}%"></div></div>
+                const userRows = (item.user_rankings || []).map(ur => {
+                    const medals2 = ['🥇','🥈','🥉'];
+                    const urRankDisplay = ur.rank <= 3 ? medals2[ur.rank - 1] : `#${ur.rank}`;
+                    const avatarContent = ur.avatar_url
+                        ? `<img src="${escHtml(ur.avatar_url)}" alt="${escHtml(ur.username)}">`
+                        : escHtml(ur.username.charAt(0).toUpperCase());
+                    return `<div class="lb-user-row">
+                        <div class="lb-user-avatar">${avatarContent}</div>
+                        <div class="lb-user-name">${escHtml(ur.username)}</div>
+                        <div class="lb-user-rank">${urRankDisplay}</div>
+                    </div>`;
+                }).join('');
+                const rowId = `lb-row-${idx}`;
+                const breakdownId = `lb-bd-${idx}`;
+                return `<div>
+                    <div class="lb-row" id="${rowId}" onclick="toggleLbRow('${rowId}','${breakdownId}')">
+                        <div class="lb-rank${isTop ? ' lb-top' : ''}">${rankDisplay}</div>
+                        ${poster}
+                        <div class="lb-info">
+                            <div class="lb-item-title" title="${escHtml(item.title)}">${escHtml(item.title)}</div>
+                            <div class="lb-avg">
+                                <span class="lb-avg-num">avg #${item.avg_rank % 1 === 0 ? item.avg_rank : item.avg_rank.toFixed(1)}</span>
+                                ${rankerNote}
+                                <div class="lb-spread-bar"><div class="lb-spread-fill" style="width:${spreadPct}%"></div></div>
+                            </div>
                         </div>
+                        <span class="lb-expand-icon">▾</span>
+                    </div>
+                    <div class="lb-user-breakdown" id="${breakdownId}">
+                        ${userRows || '<div style="font-size:12px;color:var(--text-muted);padding:4px 0;">No rankings yet</div>'}
                     </div>
                 </div>`;
             }).join('');
+        }
+
+        function toggleLbRow(rowId, breakdownId) {
+            const row = document.getElementById(rowId);
+            const bd = document.getElementById(breakdownId);
+            if (!row || !bd) return;
+            const isOpen = bd.classList.contains('show');
+            // Close all others
+            document.querySelectorAll('.lb-user-breakdown.show').forEach(el => el.classList.remove('show'));
+            document.querySelectorAll('.lb-row.lb-expanded').forEach(el => el.classList.remove('lb-expanded'));
+            if (!isOpen) {
+                bd.classList.add('show');
+                row.classList.add('lb-expanded');
+            }
         }
 
         // ── Collection admin: add item search ──────────────────────────────────────

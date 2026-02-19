@@ -472,34 +472,45 @@ def get_collection_leaderboard(
     # Build a lookup: title -> canonical info
     canonical_map = {ci.title: ci for ci in canonical_items}
 
+    # Build list_id → user lookup
+    list_user_map = {}
+    for lst in matching_lists:
+        user = db.query(User).filter(User.id == lst.user_id).first()
+        list_user_map[lst.id] = user
+
     # Gather all ranked list items across all matching lists
     all_items = db.query(RankedListItem).filter(
         RankedListItem.list_id.in_(list_ids)
     ).all()
 
-    # Accumulate rank scores per title
-    rank_accumulator: dict[str, list[int]] = {}
+    # Accumulate per-user rank data per title
+    rank_accumulator: dict[str, list[dict]] = {}
     for item in all_items:
         title = item.title
+        user = list_user_map.get(item.list_id)
         if title not in rank_accumulator:
             rank_accumulator[title] = []
-        rank_accumulator[title].append(item.rank)
+        rank_accumulator[title].append({
+            "username": user.username if user else "Unknown",
+            "avatar_url": user.avatar_url if user else None,
+            "rank": item.rank,
+        })
 
     # Build result: only include titles that appear in the canonical collection
     result_items = []
-    for title, ranks in rank_accumulator.items():
+    for title, user_rankings in rank_accumulator.items():
         if title not in canonical_map:
             continue
         ci = canonical_map[title]
-        avg_rank = sum(ranks) / len(ranks)
+        avg_rank = sum(r["rank"] for r in user_rankings) / len(user_rankings)
         result_items.append({
             "title": title,
             "media_type": ci.media_type,
             "poster_path": ci.poster_path,
             "release_year": ci.release_year,
             "avg_rank": round(avg_rank, 2),
-            "rank_count": len(ranks),         # how many users ranked this item
-            "ranks": sorted(ranks),           # raw rank list for display
+            "rank_count": len(user_rankings),
+            "user_rankings": sorted(user_rankings, key=lambda x: x["rank"]),
         })
 
     # Sort by average rank ascending (best consensus position first)
