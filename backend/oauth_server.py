@@ -347,8 +347,8 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
     db.add(profile)
     db.commit()
 
-    access_token = create_token({"sub": user.id, "username": user.username})
-    refresh_token = create_token({"sub": user.id})
+    access_token = create_token({"sub": str(user.id), "username": user.username})
+    refresh_token = create_token({"sub": str(user.id)})
 
     return TokenResponse(
         access_token=access_token,
@@ -381,8 +381,8 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(403, "Account is inactive")
 
-    access_token = create_token({"sub": user.id, "username": user.username})
-    refresh_token = create_token({"sub": user.id})
+    access_token = create_token({"sub": str(user.id), "username": user.username})
+    refresh_token = create_token({"sub": str(user.id)})
 
     return TokenResponse(
         access_token=access_token,
@@ -466,8 +466,8 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
                 db.commit()
 
         # Generate tokens
-        access_token = create_token({"sub": user.id, "username": user.username})
-        refresh_token = create_token({"sub": user.id})
+        access_token = create_token({"sub": str(user.id), "username": user.username})
+        refresh_token = create_token({"sub": str(user.id)})
 
         # Redirect to frontend with token (use the request's origin)
         base_url = str(request.base_url).rstrip('/')
