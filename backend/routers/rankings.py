@@ -1,9 +1,9 @@
 """
-Ranked list endpoints — create collections and rank movies/TV shows within them.
+Ranked lists, admin collections, and friends rankings endpoints.
 """
 from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import asc
+from sqlalchemy import asc, desc
 from datetime import datetime, timezone
 from typing import Optional, List
 from pydantic import BaseModel
@@ -15,6 +15,9 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from models.ranked_list import RankedList, RankedListItem
+from models.collection import Collection, CollectionItem
+from models.friends import Friendship
+from models.user import User
 
 router = APIRouter(prefix="/api/rankings", tags=["rankings"])
 
@@ -24,6 +27,9 @@ TMDB_BEARER = os.getenv(
 )
 TMDB_BASE = "https://api.themoviedb.org/3"
 TMDB_HEADERS = {"Authorization": f"Bearer {TMDB_BEARER}", "accept": "application/json"}
+
+ADMIN_USERNAMES = ["svidthekid"]
+ADMIN_EMAILS = ["svidron.robert@gmail.com"]
 
 
 # ── DB ────────────────────────────────────────────────────────────────────────
@@ -60,46 +66,71 @@ def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
+def _require_admin(user_id: int, db: Session):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if not (user.role == "admin" or user.username in ADMIN_USERNAMES or user.email in ADMIN_EMAILS):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+
 # ── Schemas ───────────────────────────────────────────────────────────────────
 class ListCreate(BaseModel):
     title: str
     description: Optional[str] = None
     is_public: bool = False
 
-
 class ListUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     is_public: Optional[bool] = None
 
-
 class ItemAdd(BaseModel):
     media_id: str
-    media_type: str          # "movie" or "tv"
+    media_type: str
     title: str
     poster_path: Optional[str] = None
     release_year: Optional[str] = None
     overview: Optional[str] = None
     note: Optional[str] = None
 
-
 class ItemUpdate(BaseModel):
     note: Optional[str] = None
 
-
 class ReorderBody(BaseModel):
-    # Ordered list of item IDs from rank 1 → N
     item_ids: List[int]
 
+class CollectionCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    cover_poster: Optional[str] = None
 
-# ── List CRUD ─────────────────────────────────────────────────────────────────
+class CollectionUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    cover_poster: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class CollectionItemAdd(BaseModel):
+    media_id: str
+    media_type: str
+    title: str
+    poster_path: Optional[str] = None
+    release_year: Optional[str] = None
+    overview: Optional[str] = None
+    sort_order: int = 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# USER RANKED LISTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
 @router.get("/my")
 def get_my_lists(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """Return all ranked lists owned by the current user."""
-    lists = db.query(RankedList).filter(RankedList.user_id == user_id).order_by(RankedList.updated_at.desc()).all()
+    lists = db.query(RankedList).filter(RankedList.user_id == user_id).order_by(desc(RankedList.updated_at)).all()
     return [_list_dict(lst, db) for lst in lists]
 
 
@@ -109,13 +140,7 @@ def create_list(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """Create a new ranked list."""
-    lst = RankedList(
-        user_id=user_id,
-        title=body.title,
-        description=body.description,
-        is_public=body.is_public,
-    )
+    lst = RankedList(user_id=user_id, title=body.title, description=body.description, is_public=body.is_public)
     db.add(lst)
     db.commit()
     db.refresh(lst)
@@ -128,11 +153,8 @@ def get_list(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """Return a single list with all its ranked items."""
     lst = _get_owned_list(list_id, user_id, db)
-    items = db.query(RankedListItem).filter(
-        RankedListItem.list_id == list_id
-    ).order_by(asc(RankedListItem.rank)).all()
+    items = db.query(RankedListItem).filter(RankedListItem.list_id == list_id).order_by(asc(RankedListItem.rank)).all()
     result = _list_dict(lst, db)
     result["items"] = [_item_dict(i) for i in items]
     return result
@@ -145,7 +167,6 @@ def update_list(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """Update list title, description, or visibility."""
     lst = _get_owned_list(list_id, user_id, db)
     if body.title is not None:
         lst.title = body.title
@@ -165,14 +186,12 @@ def delete_list(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """Delete a list and all its items."""
     lst = _get_owned_list(list_id, user_id, db)
     db.delete(lst)
     db.commit()
     return {"ok": True}
 
 
-# ── Item CRUD ─────────────────────────────────────────────────────────────────
 @router.post("/my/{list_id}/items")
 def add_item(
     list_id: int,
@@ -180,10 +199,7 @@ def add_item(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """Add a movie/TV show to a ranked list. Appended at the bottom."""
     _get_owned_list(list_id, user_id, db)
-
-    # Check not already in the list
     existing = db.query(RankedListItem).filter(
         RankedListItem.list_id == list_id,
         RankedListItem.media_id == body.media_id,
@@ -191,26 +207,14 @@ def add_item(
     ).first()
     if existing:
         raise HTTPException(status_code=409, detail="Already in this list")
-
-    # Next rank = current max + 1
-    max_rank = db.query(RankedListItem).filter(
-        RankedListItem.list_id == list_id
-    ).count()
-
+    max_rank = db.query(RankedListItem).filter(RankedListItem.list_id == list_id).count()
     item = RankedListItem(
-        list_id=list_id,
-        rank=max_rank + 1,
-        media_id=body.media_id,
-        media_type=body.media_type,
-        title=body.title,
-        poster_path=body.poster_path,
-        release_year=body.release_year,
-        overview=body.overview,
-        note=body.note,
+        list_id=list_id, rank=max_rank + 1,
+        media_id=body.media_id, media_type=body.media_type, title=body.title,
+        poster_path=body.poster_path, release_year=body.release_year,
+        overview=body.overview, note=body.note,
     )
     db.add(item)
-
-    # Touch parent list updated_at
     lst = db.query(RankedList).filter(RankedList.id == list_id).first()
     lst.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -220,18 +224,12 @@ def add_item(
 
 @router.patch("/my/{list_id}/items/{item_id}")
 def update_item(
-    list_id: int,
-    item_id: int,
-    body: ItemUpdate,
+    list_id: int, item_id: int, body: ItemUpdate,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """Update a per-item note."""
     _get_owned_list(list_id, user_id, db)
-    item = db.query(RankedListItem).filter(
-        RankedListItem.id == item_id,
-        RankedListItem.list_id == list_id,
-    ).first()
+    item = db.query(RankedListItem).filter(RankedListItem.id == item_id, RankedListItem.list_id == list_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     if body.note is not None:
@@ -243,64 +241,265 @@ def update_item(
 
 @router.delete("/my/{list_id}/items/{item_id}")
 def remove_item(
-    list_id: int,
-    item_id: int,
+    list_id: int, item_id: int,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """Remove an item and re-pack ranks so they stay contiguous."""
     _get_owned_list(list_id, user_id, db)
-    item = db.query(RankedListItem).filter(
-        RankedListItem.id == item_id,
-        RankedListItem.list_id == list_id,
-    ).first()
+    item = db.query(RankedListItem).filter(RankedListItem.id == item_id, RankedListItem.list_id == list_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     removed_rank = item.rank
     db.delete(item)
-
-    # Shift everything below up by 1
-    remaining = db.query(RankedListItem).filter(
-        RankedListItem.list_id == list_id,
-        RankedListItem.rank > removed_rank,
-    ).all()
-    for r in remaining:
+    for r in db.query(RankedListItem).filter(RankedListItem.list_id == list_id, RankedListItem.rank > removed_rank).all():
         r.rank -= 1
-
-    lst = db.query(RankedList).filter(RankedList.id == list_id).first()
-    lst.updated_at = datetime.now(timezone.utc)
+    db.query(RankedList).filter(RankedList.id == list_id).first().updated_at = datetime.now(timezone.utc)
     db.commit()
     return {"ok": True}
 
 
 @router.put("/my/{list_id}/reorder")
 def reorder_items(
-    list_id: int,
-    body: ReorderBody,
+    list_id: int, body: ReorderBody,
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """
-    Reorder items by supplying the full ordered list of item IDs.
-    The first ID gets rank 1, second gets rank 2, etc.
-    """
     _get_owned_list(list_id, user_id, db)
     items = db.query(RankedListItem).filter(RankedListItem.list_id == list_id).all()
     item_map = {i.id: i for i in items}
-
     if set(body.item_ids) != set(item_map.keys()):
         raise HTTPException(status_code=400, detail="item_ids must contain all items in the list")
-
     for rank, item_id in enumerate(body.item_ids, start=1):
         item_map[item_id].rank = rank
-
-    lst = db.query(RankedList).filter(RankedList.id == list_id).first()
-    lst.updated_at = datetime.now(timezone.utc)
+    db.query(RankedList).filter(RankedList.id == list_id).first().updated_at = datetime.now(timezone.utc)
     db.commit()
     return {"ok": True}
 
 
-# ── TMDB search proxy (reused from reviews, keeps rankings self-contained) ────
+# ── Clone a collection into user's ranked list ─────────────────────────────
+@router.post("/my/from-collection/{collection_id}")
+def create_list_from_collection(
+    collection_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Create a new personal ranked list pre-populated from an admin collection."""
+    col = db.query(Collection).filter(Collection.id == collection_id, Collection.is_active == True).first()
+    if not col:
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    # Check user doesn't already have a list from this collection
+    existing = db.query(RankedList).filter(
+        RankedList.user_id == user_id,
+        RankedList.title == col.title,
+    ).first()
+    if existing:
+        # Just return the existing one
+        items = db.query(RankedListItem).filter(RankedListItem.list_id == existing.id).order_by(asc(RankedListItem.rank)).all()
+        result = _list_dict(existing, db)
+        result["items"] = [_item_dict(i) for i in items]
+        return result
+
+    lst = RankedList(user_id=user_id, title=col.title, description=col.description, is_public=False)
+    db.add(lst)
+    db.flush()
+
+    col_items = db.query(CollectionItem).filter(CollectionItem.collection_id == collection_id).order_by(asc(CollectionItem.sort_order)).all()
+    for idx, ci in enumerate(col_items, start=1):
+        db.add(RankedListItem(
+            list_id=lst.id, rank=idx,
+            media_id=ci.media_id, media_type=ci.media_type, title=ci.title,
+            poster_path=ci.poster_path, release_year=ci.release_year, overview=ci.overview,
+        ))
+
+    db.commit()
+    db.refresh(lst)
+    items = db.query(RankedListItem).filter(RankedListItem.list_id == lst.id).order_by(asc(RankedListItem.rank)).all()
+    result = _list_dict(lst, db)
+    result["items"] = [_item_dict(i) for i in items]
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ADMIN COLLECTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/collections")
+def list_collections(db: Session = Depends(get_db)):
+    """Public: list all active admin collections."""
+    cols = db.query(Collection).filter(Collection.is_active == True).order_by(asc(Collection.title)).all()
+    return [_collection_dict(c, db) for c in cols]
+
+
+@router.get("/collections/{collection_id}")
+def get_collection(collection_id: int, db: Session = Depends(get_db)):
+    col = db.query(Collection).filter(Collection.id == collection_id).first()
+    if not col:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    items = db.query(CollectionItem).filter(CollectionItem.collection_id == collection_id).order_by(asc(CollectionItem.sort_order)).all()
+    result = _collection_dict(col, db)
+    result["items"] = [_col_item_dict(i) for i in items]
+    return result
+
+
+@router.post("/collections")
+def create_collection(
+    body: CollectionCreate,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    _require_admin(user_id, db)
+    col = Collection(title=body.title, description=body.description, cover_poster=body.cover_poster, created_by=user_id)
+    db.add(col)
+    db.commit()
+    db.refresh(col)
+    return _collection_dict(col, db)
+
+
+@router.patch("/collections/{collection_id}")
+def update_collection(
+    collection_id: int, body: CollectionUpdate,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    _require_admin(user_id, db)
+    col = db.query(Collection).filter(Collection.id == collection_id).first()
+    if not col:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    if body.title is not None:
+        col.title = body.title
+    if body.description is not None:
+        col.description = body.description
+    if body.cover_poster is not None:
+        col.cover_poster = body.cover_poster
+    if body.is_active is not None:
+        col.is_active = body.is_active
+    col.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(col)
+    return _collection_dict(col, db)
+
+
+@router.delete("/collections/{collection_id}")
+def delete_collection(
+    collection_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    _require_admin(user_id, db)
+    col = db.query(Collection).filter(Collection.id == collection_id).first()
+    if not col:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    db.delete(col)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/collections/{collection_id}/items")
+def add_collection_item(
+    collection_id: int, body: CollectionItemAdd,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    _require_admin(user_id, db)
+    col = db.query(Collection).filter(Collection.id == collection_id).first()
+    if not col:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    existing = db.query(CollectionItem).filter(
+        CollectionItem.collection_id == collection_id,
+        CollectionItem.media_id == body.media_id,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Already in this collection")
+    item = CollectionItem(
+        collection_id=collection_id, sort_order=body.sort_order,
+        media_id=body.media_id, media_type=body.media_type, title=body.title,
+        poster_path=body.poster_path, release_year=body.release_year, overview=body.overview,
+    )
+    db.add(item)
+    col.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+    return _col_item_dict(item)
+
+
+@router.delete("/collections/{collection_id}/items/{item_id}")
+def remove_collection_item(
+    collection_id: int, item_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    _require_admin(user_id, db)
+    item = db.query(CollectionItem).filter(CollectionItem.id == item_id, CollectionItem.collection_id == collection_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    db.delete(item)
+    db.commit()
+    return {"ok": True}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FRIENDS RANKINGS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/friends")
+def get_friends_rankings(
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Return all public ranked lists from the current user's friends."""
+    # Collect friend IDs (friendship is bidirectional — stored as two rows)
+    friend_ids = set()
+    for f in db.query(Friendship).filter(Friendship.user_id == user_id).all():
+        friend_ids.add(f.friend_id)
+    for f in db.query(Friendship).filter(Friendship.friend_id == user_id).all():
+        friend_ids.add(f.user_id)
+
+    if not friend_ids:
+        return []
+
+    lists = db.query(RankedList).filter(
+        RankedList.user_id.in_(friend_ids),
+        RankedList.is_public == True,
+    ).order_by(desc(RankedList.updated_at)).all()
+
+    result = []
+    for lst in lists:
+        owner = db.query(User).filter(User.id == lst.user_id).first()
+        d = _list_dict(lst, db)
+        d["owner"] = {"id": owner.id, "username": owner.username, "avatar_url": owner.avatar_url} if owner else None
+        result.append(d)
+    return result
+
+
+@router.get("/friends/{friend_user_id}/lists/{list_id}")
+def get_friend_list_detail(
+    friend_user_id: int, list_id: int,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Return a friend's public ranked list with all items."""
+    # Verify friendship
+    is_friend = (
+        db.query(Friendship).filter(Friendship.user_id == user_id, Friendship.friend_id == friend_user_id).first() or
+        db.query(Friendship).filter(Friendship.user_id == friend_user_id, Friendship.friend_id == user_id).first()
+    )
+    if not is_friend:
+        raise HTTPException(status_code=403, detail="Not friends")
+
+    lst = db.query(RankedList).filter(RankedList.id == list_id, RankedList.user_id == friend_user_id, RankedList.is_public == True).first()
+    if not lst:
+        raise HTTPException(status_code=404, detail="List not found or not public")
+
+    items = db.query(RankedListItem).filter(RankedListItem.list_id == list_id).order_by(asc(RankedListItem.rank)).all()
+    owner = db.query(User).filter(User.id == friend_user_id).first()
+    result = _list_dict(lst, db)
+    result["items"] = [_item_dict(i) for i in items]
+    result["owner"] = {"id": owner.id, "username": owner.username, "avatar_url": owner.avatar_url} if owner else None
+    return result
+
+
+# ── TMDB search proxy ─────────────────────────────────────────────────────────
 @router.get("/search")
 async def search_media(
     q: str = Query(..., min_length=1),
@@ -343,7 +542,6 @@ def _get_owned_list(list_id: int, user_id: int, db: Session) -> RankedList:
 
 def _list_dict(lst: RankedList, db: Session) -> dict:
     count = db.query(RankedListItem).filter(RankedListItem.list_id == lst.id).count()
-    # Grab first 4 posters for the cover mosaic
     top_items = db.query(RankedListItem).filter(
         RankedListItem.list_id == lst.id,
         RankedListItem.poster_path.isnot(None),
@@ -362,15 +560,32 @@ def _list_dict(lst: RankedList, db: Session) -> dict:
 
 def _item_dict(i: RankedListItem) -> dict:
     return {
-        "id": i.id,
-        "list_id": i.list_id,
-        "rank": i.rank,
-        "media_id": i.media_id,
-        "media_type": i.media_type,
-        "title": i.title,
-        "poster_path": i.poster_path,
-        "release_year": i.release_year,
-        "overview": i.overview,
-        "note": i.note,
+        "id": i.id, "list_id": i.list_id, "rank": i.rank,
+        "media_id": i.media_id, "media_type": i.media_type, "title": i.title,
+        "poster_path": i.poster_path, "release_year": i.release_year,
+        "overview": i.overview, "note": i.note,
         "added_at": i.added_at.isoformat() if i.added_at else None,
+    }
+
+
+def _collection_dict(c: Collection, db: Session) -> dict:
+    count = db.query(CollectionItem).filter(CollectionItem.collection_id == c.id).count()
+    top_items = db.query(CollectionItem).filter(
+        CollectionItem.collection_id == c.id,
+        CollectionItem.poster_path.isnot(None),
+    ).order_by(asc(CollectionItem.sort_order)).limit(4).all()
+    return {
+        "id": c.id, "title": c.title, "description": c.description,
+        "cover_poster": c.cover_poster, "is_active": c.is_active,
+        "item_count": count,
+        "cover_posters": [i.poster_path for i in top_items],
+        "created_at": c.created_at.isoformat() if c.created_at else None,
+    }
+
+
+def _col_item_dict(i: CollectionItem) -> dict:
+    return {
+        "id": i.id, "collection_id": i.collection_id, "sort_order": i.sort_order,
+        "media_id": i.media_id, "media_type": i.media_type, "title": i.title,
+        "poster_path": i.poster_path, "release_year": i.release_year, "overview": i.overview,
     }

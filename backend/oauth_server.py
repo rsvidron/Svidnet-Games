@@ -79,6 +79,13 @@ try:
 except ImportError as e:
     print(f"⚠ RankedList models not available: {e}")
 
+# Import Collection models
+try:
+    from models.collection import Collection, CollectionItem
+    print("✓ Collection models imported successfully")
+except ImportError as e:
+    print(f"⚠ Collection models not available: {e}")
+
 # Run Wordle table migration (if needed)
 try:
     from migrate_wordle_tables import migrate_wordle_tables
@@ -244,11 +251,8 @@ def movies_page():
 
 @app.get("/rankings")
 def rankings_page():
-    """Serve the ranked lists page"""
-    path = os.path.join(os.path.dirname(__file__), "..", "frontend", "rankings.html")
-    if os.path.exists(path):
-        return FileResponse(path)
-    raise HTTPException(404, "Rankings page not found")
+    """Redirect to the combined movies & TV page"""
+    return RedirectResponse(url="/movies")
 
 @app.get("/health")
 def health():

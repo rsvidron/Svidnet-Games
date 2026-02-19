@@ -15,7 +15,7 @@
             --hover-bg: #252525; --divider: #2a2a2a;
             --input-bg: #252525; --input-border: #333333;
             --poster-bg: #2a2a2a; --modal-bg: #1a1a1a;
-            --star-color: #f59e0b;
+            --star-color: #f59e0b; --rank-bg: #111; --drag-over: rgba(34,197,94,0.15);
         }
         :root[data-theme="light"] {
             --bg: #f4f6f9; --sidebar-bg: #ffffff; --card-bg: #ffffff;
@@ -25,32 +25,19 @@
             --hover-bg: #f3f4f6; --divider: #e5e7eb;
             --input-bg: #f9fafb; --input-border: #d1d5db;
             --poster-bg: #e5e7eb; --modal-bg: #ffffff;
-            --star-color: #d97706;
+            --star-color: #d97706; --rank-bg: #f0f0f0; --drag-over: rgba(22,163,74,0.1);
         }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg); color: var(--text-primary);
-            min-height: 100vh; display: flex; transition: background 0.3s, color 0.3s;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text-primary); min-height: 100vh; display: flex; transition: background 0.3s, color 0.3s; }
 
         /* ── Sidebar ── */
-        .sidebar {
-            width: 240px; background: var(--sidebar-bg); border-right: 1px solid var(--divider);
-            display: flex; flex-direction: column; padding: 24px 0;
-            position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
-            transition: background 0.3s, border-color 0.3s, transform 0.3s;
-        }
+        .sidebar { width: 240px; background: var(--sidebar-bg); border-right: 1px solid var(--divider); display: flex; flex-direction: column; padding: 24px 0; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; transition: background 0.3s, border-color 0.3s, transform 0.3s; }
         .sidebar-logo { padding: 0 24px 28px; border-bottom: 1px solid var(--divider); margin-bottom: 16px; }
         .sidebar-logo h1 { font-size: 18px; font-weight: 700; color: var(--text-primary); }
         .sidebar-logo span { font-size: 12px; color: var(--text-secondary); }
         .sidebar-section { padding: 0 12px; margin-bottom: 8px; }
         .sidebar-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; padding: 0 12px; margin-bottom: 4px; }
-        .sidebar-item {
-            display: flex; align-items: center; gap: 10px; padding: 10px 12px;
-            border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-secondary);
-            cursor: pointer; text-decoration: none; transition: background 0.15s, color 0.15s; margin-bottom: 2px;
-        }
+        .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-secondary); cursor: pointer; text-decoration: none; transition: background 0.15s, color 0.15s; margin-bottom: 2px; }
         .sidebar-item:hover { background: var(--hover-bg); color: var(--text-primary); }
         .sidebar-item.active { background: var(--accent-dim); color: var(--accent); }
         .sidebar-item .icon { font-size: 16px; width: 20px; text-align: center; }
@@ -59,105 +46,57 @@
 
         /* ── Main ── */
         .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-        .topbar {
-            background: var(--sidebar-bg); border-bottom: 1px solid var(--divider);
-            padding: 0 32px; height: 64px; display: flex; align-items: center;
-            justify-content: space-between; position: sticky; top: 0; z-index: 50;
-            transition: background 0.3s, border-color 0.3s;
-        }
+        .topbar { background: var(--sidebar-bg); border-bottom: 1px solid var(--divider); padding: 0 32px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; transition: background 0.3s, border-color 0.3s; }
         .topbar-left h2 { font-size: 18px; font-weight: 600; color: var(--text-primary); }
         .topbar-right { display: flex; align-items: center; gap: 12px; }
-        .theme-toggle {
-            width: 36px; height: 36px; border-radius: 8px; background: var(--hover-bg);
-            border: 1px solid var(--card-border); font-size: 16px;
-            cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
-        }
+        .theme-toggle { width: 36px; height: 36px; border-radius: 8px; background: var(--hover-bg); border: 1px solid var(--card-border); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
         .theme-toggle:hover { background: var(--accent-dim); border-color: var(--accent); }
         .mobile-menu-btn { display: none; background: none; border: none; color: var(--text-primary); font-size: 22px; cursor: pointer; }
-
-        /* ── Content ── */
         .content { padding: 28px 32px; flex: 1; }
 
         /* ── View Tabs ── */
-        .view-tabs { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; }
-        .view-tab {
-            padding: 8px 18px; background: var(--hover-bg); border: 1px solid var(--card-border);
-            border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
-            color: var(--text-secondary); transition: all 0.2s;
-        }
-        .view-tab:hover { border-color: var(--accent); color: var(--text-primary); }
-        .view-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+        .view-tabs { display: flex; gap: 4px; margin-bottom: 24px; flex-wrap: wrap; background: var(--hover-bg); padding: 4px; border-radius: 10px; border: 1px solid var(--card-border); width: fit-content; }
+        .view-tab { padding: 8px 16px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-secondary); transition: all 0.2s; background: transparent; border: none; font-family: inherit; white-space: nowrap; }
+        .view-tab:hover { color: var(--text-primary); }
+        .view-tab.active { background: var(--card-bg); color: var(--text-primary); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+        /* ── Buttons ── */
+        .btn { padding: 9px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-secondary { background: var(--hover-bg); color: var(--text-secondary); border: 1px solid var(--card-border); }
+        .btn-secondary:hover { color: var(--text-primary); }
+        .btn-danger { background: rgba(239,68,68,0.1); color: var(--danger); border: 1px solid rgba(239,68,68,0.25); }
+        .btn-danger:hover { background: var(--danger); color: white; }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+        .btn-icon { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 15px; }
 
         /* ── Search bar ── */
-        .search-section {
-            background: var(--card-bg); border: 1px solid var(--card-border);
-            border-radius: 12px; padding: 20px; margin-bottom: 24px;
-        }
+        .search-section { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
         .search-row { display: flex; gap: 10px; align-items: center; }
         .search-input-wrap { flex: 1; position: relative; }
-        .search-input-wrap input {
-            width: 100%; padding: 11px 14px 11px 40px;
-            background: var(--input-bg); border: 1px solid var(--input-border);
-            border-radius: 8px; font-size: 14px; color: var(--text-primary);
-            outline: none; transition: border-color 0.2s; font-family: inherit;
-        }
+        .search-input-wrap input { width: 100%; padding: 11px 14px 11px 40px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; font-size: 14px; color: var(--text-primary); outline: none; transition: border-color 0.2s; font-family: inherit; }
         .search-input-wrap input:focus { border-color: var(--accent); }
-        .search-input-wrap .search-icon {
-            position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-            color: var(--text-muted); font-size: 16px; pointer-events: none;
-        }
-        .filter-select {
-            padding: 11px 14px; background: var(--input-bg); border: 1px solid var(--input-border);
-            border-radius: 8px; font-size: 13px; color: var(--text-primary);
-            outline: none; font-family: inherit; cursor: pointer;
-        }
+        .search-input-wrap .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 16px; pointer-events: none; }
+        .filter-select { padding: 11px 14px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; font-size: 13px; color: var(--text-primary); outline: none; font-family: inherit; cursor: pointer; }
         .filter-select:focus { border-color: var(--accent); }
-        .btn-search {
-            padding: 11px 20px; background: var(--accent); color: white;
-            border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
-            cursor: pointer; transition: background 0.2s; white-space: nowrap;
-        }
+        .btn-search { padding: 11px 20px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
         .btn-search:hover { background: var(--accent-hover); }
 
         /* ── Section header ── */
-        .section-header {
-            display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
-        }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .section-title { font-size: 16px; font-weight: 600; color: var(--text-primary); }
         .section-count { font-size: 13px; color: var(--text-muted); }
 
         /* ── Media Grid ── */
-        .media-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 16px;
-        }
-
-        /* ── Media Card ── */
-        .media-card {
-            background: var(--card-bg); border: 1px solid var(--card-border);
-            border-radius: 12px; overflow: hidden; cursor: pointer;
-            transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
-            position: relative;
-        }
+        .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
+        .media-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; position: relative; }
         .media-card:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
         .poster-wrap { position: relative; padding-top: 150%; background: var(--poster-bg); }
         .poster-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-        .poster-placeholder {
-            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-            font-size: 40px; color: var(--text-muted);
-        }
-        .media-type-badge {
-            position: absolute; top: 8px; left: 8px;
-            background: rgba(0,0,0,0.75); color: white;
-            font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px;
-            text-transform: uppercase; letter-spacing: 0.5px;
-        }
-        .status-dot {
-            position: absolute; top: 8px; right: 8px;
-            width: 10px; height: 10px; border-radius: 50%;
-            border: 2px solid rgba(0,0,0,0.5);
-        }
+        .poster-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 40px; color: var(--text-muted); }
+        .media-type-badge { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.75); color: white; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .status-dot { position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid rgba(0,0,0,0.5); }
         .status-dot.watched { background: var(--accent); }
         .status-dot.watchlist { background: #f59e0b; }
         .status-dot.dropped { background: var(--danger); }
@@ -165,15 +104,10 @@
         .card-title { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .card-meta { font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; }
         .card-rating { color: var(--star-color); font-weight: 700; }
-        .card-year { color: var(--text-muted); }
 
         /* ── Status filter pills ── */
         .status-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
-        .status-pill {
-            padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
-            cursor: pointer; border: 1px solid var(--card-border);
-            background: var(--hover-bg); color: var(--text-secondary); transition: all 0.2s;
-        }
+        .status-pill { padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--card-border); background: var(--hover-bg); color: var(--text-secondary); transition: all 0.2s; }
         .status-pill.active-pill { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
         .status-pill:hover { border-color: var(--accent); color: var(--text-primary); }
 
@@ -186,42 +120,22 @@
         /* ── Loading ── */
         .loading { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
 
-        /* ── Modal ── */
-        .modal {
-            display: none; position: fixed; inset: 0;
-            background: rgba(0,0,0,0.7); z-index: 1000;
-            align-items: center; justify-content: center; backdrop-filter: blur(6px);
-        }
+        /* ── Review Modal ── */
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(6px); }
         .modal.show { display: flex; }
-        .modal-content {
-            background: var(--modal-bg); border: 1px solid var(--card-border);
-            border-radius: 16px; max-width: 680px; width: 94%;
-            max-height: 92vh; overflow-y: auto;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.6);
-        }
+        .modal-content { background: var(--modal-bg); border: 1px solid var(--card-border); border-radius: 16px; max-width: 680px; width: 94%; max-height: 92vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.6); }
+        .modal-content-sm { background: var(--modal-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 24px; max-width: 460px; width: 94%; box-shadow: 0 25px 60px rgba(0,0,0,0.6); }
+        .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 18px; }
 
         /* ── Detail view inside modal ── */
-        .detail-backdrop {
-            height: 180px; background: var(--poster-bg); position: relative; overflow: hidden;
-            border-radius: 16px 16px 0 0;
-        }
+        .detail-backdrop { height: 180px; background: var(--poster-bg); position: relative; overflow: hidden; border-radius: 16px 16px 0 0; }
         .detail-backdrop img { width: 100%; height: 100%; object-fit: cover; opacity: 0.6; }
-        .detail-backdrop-overlay {
-            position: absolute; inset: 0;
-            background: linear-gradient(to bottom, transparent 40%, var(--modal-bg));
-        }
+        .detail-backdrop-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 40%, var(--modal-bg)); }
         .detail-body { padding: 0 24px 24px; position: relative; margin-top: -60px; }
         .detail-row { display: flex; gap: 20px; align-items: flex-start; }
-        .detail-poster {
-            width: 110px; flex-shrink: 0; border-radius: 10px; overflow: hidden;
-            border: 3px solid var(--card-border); box-shadow: 0 8px 20px rgba(0,0,0,0.4);
-        }
+        .detail-poster { width: 110px; flex-shrink: 0; border-radius: 10px; overflow: hidden; border: 3px solid var(--card-border); box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
         .detail-poster img { width: 100%; display: block; }
-        .detail-poster-placeholder {
-            width: 110px; height: 165px; flex-shrink: 0; border-radius: 10px;
-            background: var(--poster-bg); border: 3px solid var(--card-border);
-            display: flex; align-items: center; justify-content: center; font-size: 36px;
-        }
+        .detail-poster-placeholder { width: 110px; height: 165px; flex-shrink: 0; border-radius: 10px; background: var(--poster-bg); border: 3px solid var(--card-border); display: flex; align-items: center; justify-content: center; font-size: 36px; }
         .detail-info { flex: 1; padding-top: 64px; }
         .detail-title { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; line-height: 1.3; }
         .detail-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
@@ -230,12 +144,7 @@
 
         /* ── Status picker ── */
         .status-picker { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-        .status-btn {
-            flex: 1; min-width: 90px; padding: 9px 12px; border-radius: 8px;
-            font-size: 13px; font-weight: 600; cursor: pointer;
-            border: 1px solid var(--card-border); background: var(--hover-bg);
-            color: var(--text-secondary); transition: all 0.2s; text-align: center;
-        }
+        .status-btn { flex: 1; min-width: 90px; padding: 9px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--card-border); background: var(--hover-bg); color: var(--text-secondary); transition: all 0.2s; text-align: center; }
         .status-btn:hover { border-color: var(--accent); color: var(--text-primary); }
         .status-btn.selected-watchlist { background: rgba(245,158,11,0.15); border-color: #f59e0b; color: #f59e0b; }
         .status-btn.selected-watched { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
@@ -243,43 +152,109 @@
 
         /* ── Star rating ── */
         .star-rating { display: flex; gap: 4px; margin-bottom: 16px; }
-        .star {
-            font-size: 24px; cursor: pointer; color: var(--text-muted);
-            transition: color 0.1s; user-select: none;
-        }
+        .star { font-size: 24px; cursor: pointer; color: var(--text-muted); transition: color 0.1s; user-select: none; }
         .star.filled { color: var(--star-color); }
         .star:hover, .star.hover { color: var(--star-color); }
 
         /* ── Review textarea ── */
-        .review-textarea {
-            width: 100%; padding: 10px 12px; background: var(--input-bg);
-            border: 1px solid var(--input-border); border-radius: 8px;
-            font-size: 13px; color: var(--text-primary); outline: none;
-            resize: vertical; min-height: 80px; font-family: inherit;
-            transition: border-color 0.2s; margin-bottom: 16px;
-        }
+        .review-textarea { width: 100%; padding: 10px 12px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; font-size: 13px; color: var(--text-primary); outline: none; resize: vertical; min-height: 80px; font-family: inherit; transition: border-color 0.2s; margin-bottom: 16px; }
         .review-textarea:focus { border-color: var(--accent); }
 
         /* ── Modal actions ── */
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
-        .btn { padding: 9px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-primary:hover { background: var(--accent-hover); }
-        .btn-secondary { background: var(--hover-bg); color: var(--text-secondary); border: 1px solid var(--card-border); }
-        .btn-secondary:hover { color: var(--text-primary); background: var(--card-border); }
-        .btn-danger { background: rgba(239,68,68,0.1); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
-        .btn-danger:hover { background: var(--danger); color: white; }
-        .modal-close-btn {
-            position: absolute; top: 12px; right: 12px;
-            background: rgba(0,0,0,0.5); border: none; color: white;
-            width: 30px; height: 30px; border-radius: 50%; font-size: 16px;
-            cursor: pointer; display: flex; align-items: center; justify-content: center;
-            transition: background 0.2s; z-index: 10;
-        }
+        .modal-close-btn { position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.5); border: none; color: white; width: 30px; height: 30px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; z-index: 10; }
         .modal-close-btn:hover { background: rgba(0,0,0,0.8); }
-
-        /* ── TMDB credit ── */
         .tmdb-credit { font-size: 11px; color: var(--text-muted); margin-top: 16px; text-align: center; }
+
+        /* ── Rankings: Lists grid ── */
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .page-title { font-size: 20px; font-weight: 700; }
+        .lists-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+        .list-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; overflow: hidden; cursor: pointer; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+        .list-card:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .list-cover { height: 130px; background: var(--poster-bg); display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; overflow: hidden; position: relative; }
+        .list-cover img { width: 100%; height: 100%; object-fit: cover; }
+        .list-cover-placeholder { display: flex; align-items: center; justify-content: center; font-size: 36px; grid-column: 1 / -1; grid-row: 1 / -1; }
+        .list-cover-single { grid-column: 1 / -1; grid-row: 1 / -1; }
+        .list-cover-single img { width: 100%; height: 100%; object-fit: cover; }
+        .list-card-body { padding: 12px; }
+        .list-card-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .list-card-meta { font-size: 12px; color: var(--text-muted); }
+
+        /* ── Rankings: Back button ── */
+        .back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; margin-bottom: 20px; padding: 6px 10px; border-radius: 8px; transition: background 0.15s, color 0.15s; }
+        .back-btn:hover { background: var(--hover-bg); color: var(--text-primary); }
+
+        /* ── Rankings: List detail ── */
+        .list-detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 16px; }
+        .list-detail-title { font-size: 22px; font-weight: 700; }
+        .list-detail-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
+        .list-detail-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+        /* ── Rankings: Add item search ── */
+        .add-row { display: flex; gap: 8px; margin-bottom: 20px; }
+        .add-input { flex: 1; padding: 10px 14px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; font-size: 13px; color: var(--text-primary); outline: none; font-family: inherit; transition: border-color 0.2s; }
+        .add-input:focus { border-color: var(--accent); }
+        .search-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; margin-top: 4px; max-height: 320px; overflow-y: auto; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+        .search-wrap { position: relative; flex: 1; }
+        .search-result-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; transition: background 0.15s; }
+        .search-result-item:hover { background: var(--hover-bg); }
+        .search-result-item:first-child { border-radius: 9px 9px 0 0; }
+        .search-result-item:last-child { border-radius: 0 0 9px 9px; }
+        .search-thumb { width: 32px; height: 48px; object-fit: cover; border-radius: 4px; background: var(--poster-bg); flex-shrink: 0; }
+        .search-thumb-placeholder { width: 32px; height: 48px; border-radius: 4px; background: var(--poster-bg); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+        .search-result-info { flex: 1; min-width: 0; }
+        .search-result-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .search-result-sub { font-size: 11px; color: var(--text-muted); }
+
+        /* ── Rankings: Ranked items ── */
+        .ranked-list { display: flex; flex-direction: column; gap: 6px; }
+        .ranked-item { display: flex; align-items: center; gap: 12px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; transition: border-color 0.15s, box-shadow 0.15s; cursor: grab; user-select: none; }
+        .ranked-item:active { cursor: grabbing; }
+        .ranked-item.dragging { opacity: 0.4; }
+        .ranked-item.drag-over { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); background: var(--drag-over); }
+        .rank-num { min-width: 36px; height: 36px; border-radius: 8px; background: var(--rank-bg); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; color: var(--text-muted); flex-shrink: 0; }
+        .rank-num.top3 { color: var(--accent); }
+        .drag-handle { color: var(--text-muted); font-size: 16px; cursor: grab; flex-shrink: 0; padding: 0 4px; }
+        .item-poster { width: 36px; height: 54px; border-radius: 5px; object-fit: cover; background: var(--poster-bg); flex-shrink: 0; }
+        .item-poster-placeholder { width: 36px; height: 54px; border-radius: 5px; background: var(--poster-bg); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .item-info { flex: 1; min-width: 0; }
+        .item-title { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-sub { font-size: 11px; color: var(--text-muted); display: flex; gap: 8px; margin-top: 2px; }
+        .item-note { font-size: 11px; color: var(--text-secondary); margin-top: 3px; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-type-badge { font-size: 10px; background: var(--hover-bg); border: 1px solid var(--card-border); color: var(--text-muted); padding: 1px 6px; border-radius: 5px; font-weight: 600; text-transform: uppercase; }
+        .item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+        /* ── Collections ── */
+        .collection-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; overflow: hidden; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+        .collection-card:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .collection-card-body { padding: 14px; }
+        .collection-card-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+        .collection-card-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5; }
+        .collection-card-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+        .collection-card-actions { display: flex; gap: 8px; }
+        .collection-items-preview { display: flex; gap: 4px; overflow: hidden; height: 100px; background: var(--poster-bg); }
+        .collection-items-preview img { height: 100%; object-fit: cover; flex: 1; min-width: 0; }
+        .collection-items-preview-placeholder { display: flex; align-items: center; justify-content: center; font-size: 36px; width: 100%; }
+
+        /* ── Friends feed ── */
+        .friend-list-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; overflow: hidden; cursor: pointer; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+        .friend-list-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+        .friend-list-card-body { padding: 14px; }
+        .friend-list-owner { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .friend-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-dim); border: 1px solid var(--accent); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--accent); flex-shrink: 0; overflow: hidden; }
+        .friend-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .friend-name { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+        .friend-list-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+        .friend-list-meta { font-size: 12px; color: var(--text-muted); }
+
+        /* ── Form inputs ── */
+        .form-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; display: block; }
+        .form-input { width: 100%; padding: 10px 12px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; font-size: 13px; color: var(--text-primary); outline: none; font-family: inherit; transition: border-color 0.2s; margin-bottom: 14px; }
+        .form-input:focus { border-color: var(--accent); }
+        textarea.form-input { resize: vertical; min-height: 70px; }
+        .form-check { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; font-size: 13px; color: var(--text-secondary); cursor: pointer; }
+        .form-check input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
 
         /* ── Mobile ── */
         @media (max-width: 768px) {
@@ -293,6 +268,8 @@
             .search-row { flex-wrap: wrap; }
             .detail-row { flex-direction: column; gap: 12px; }
             .detail-info { padding-top: 0; }
+            .lists-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+            .view-tabs { width: 100%; }
         }
     </style>
 </head>
@@ -314,8 +291,7 @@
             <a href="/trivia" class="sidebar-item"><span class="icon">🤓</span> Trivia</a>
             <a href="/wordle" class="sidebar-item"><span class="icon">🟩</span> Wordle</a>
             <a href="/sportsbook" class="sidebar-item"><span class="icon">🏈</span> Sportsbook</a>
-            <a href="/movies" class="sidebar-item active"><span class="icon">🎬</span> Movie Reviews</a>
-            <a href="/rankings" class="sidebar-item"><span class="icon">🏆</span> Rankings</a>
+            <a href="/movies" class="sidebar-item active"><span class="icon">🎬</span> Movies & TV</a>
             <div class="sidebar-item" style="cursor:default;opacity:0.5;"><span class="icon">🤼</span> Wrestling<span class="soon-badge">Soon</span></div>
         </div>
         <div class="sidebar-bottom">
@@ -337,14 +313,19 @@
         </div>
 
         <div class="content">
-            <!-- View switcher -->
+            <!-- View Tabs -->
             <div class="view-tabs">
-                <button class="view-tab active" onclick="switchView('discover', this)">Discover</button>
-                <button class="view-tab" onclick="switchView('mylist', this)">My List</button>
+                <button class="view-tab active" onclick="switchTab('discover', this)">Discover</button>
+                <button class="view-tab" onclick="switchTab('mylist', this)">My List</button>
+                <button class="view-tab" onclick="switchTab('rankings', this)">My Rankings</button>
+                <button class="view-tab" onclick="switchTab('collections', this)">Collections</button>
+                <button class="view-tab" onclick="switchTab('friends', this)">Friends</button>
             </div>
 
-            <!-- ── DISCOVER VIEW ── -->
-            <div id="discover-view">
+            <!-- ══════════════════════════════════════════════
+                 TAB: DISCOVER
+            ══════════════════════════════════════════════ -->
+            <div id="tab-discover">
                 <div class="search-section">
                     <div class="search-row">
                         <div class="search-input-wrap">
@@ -359,14 +340,13 @@
                         <button class="btn-search" onclick="doSearch()">Search</button>
                     </div>
                 </div>
-
-                <div id="discover-content">
-                    <!-- Trending shown by default -->
-                </div>
+                <div id="discover-content"></div>
             </div>
 
-            <!-- ── MY LIST VIEW ── -->
-            <div id="mylist-view" style="display:none;">
+            <!-- ══════════════════════════════════════════════
+                 TAB: MY LIST
+            ══════════════════════════════════════════════ -->
+            <div id="tab-mylist" style="display:none;">
                 <div class="status-pills">
                     <span class="status-pill active-pill" onclick="filterMyList('all', this)">All</span>
                     <span class="status-pill" onclick="filterMyList('watchlist', this)">📋 Watchlist</span>
@@ -375,19 +355,118 @@
                 </div>
                 <div id="mylist-content"></div>
             </div>
+
+            <!-- ══════════════════════════════════════════════
+                 TAB: MY RANKINGS
+            ══════════════════════════════════════════════ -->
+            <div id="tab-rankings" style="display:none;">
+                <!-- Overview -->
+                <div id="rankings-overview">
+                    <div class="page-header">
+                        <div class="page-title">My Ranked Lists</div>
+                        <button class="btn btn-primary" onclick="showCreateListModal()">+ New List</button>
+                    </div>
+                    <div id="rankings-lists-container"><div class="loading">Loading...</div></div>
+                </div>
+                <!-- Detail -->
+                <div id="rankings-detail" style="display:none;">
+                    <div class="back-btn" onclick="goBackToRankings()">← Back to lists</div>
+                    <div class="list-detail-header">
+                        <div>
+                            <div class="list-detail-title" id="ranking-detail-title"></div>
+                            <div class="list-detail-desc" id="ranking-detail-desc"></div>
+                        </div>
+                        <div class="list-detail-actions">
+                            <button class="btn btn-secondary btn-sm" onclick="showEditListModal()">Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteRankedList()">Delete</button>
+                        </div>
+                    </div>
+                    <div class="add-row">
+                        <div class="search-wrap">
+                            <input class="add-input" type="text" id="ranking-add-input" placeholder="Search to add a movie or TV show..." oninput="onRankingAddSearch()" autocomplete="off">
+                            <div class="search-dropdown" id="ranking-search-dropdown" style="display:none;"></div>
+                        </div>
+                    </div>
+                    <div id="ranked-items-container"><div class="loading">Loading...</div></div>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════════
+                 TAB: COLLECTIONS
+            ══════════════════════════════════════════════ -->
+            <div id="tab-collections" style="display:none;">
+                <!-- Overview -->
+                <div id="collections-overview">
+                    <div class="page-header">
+                        <div class="page-title">Collections</div>
+                        <button class="btn btn-primary" id="create-collection-btn" style="display:none;" onclick="showCreateCollectionModal()">+ New Collection</button>
+                    </div>
+                    <div id="collections-container"><div class="loading">Loading...</div></div>
+                </div>
+                <!-- Collection Detail -->
+                <div id="collections-detail" style="display:none;">
+                    <div class="back-btn" onclick="goBackToCollections()">← Back to collections</div>
+                    <div class="list-detail-header">
+                        <div>
+                            <div class="list-detail-title" id="collection-detail-title"></div>
+                            <div class="list-detail-desc" id="collection-detail-desc"></div>
+                        </div>
+                        <div class="list-detail-actions" id="collection-admin-actions" style="display:none;">
+                            <button class="btn btn-secondary btn-sm" onclick="showEditCollectionModal()">Edit</button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteCollection()">Delete</button>
+                        </div>
+                    </div>
+                    <!-- Admin: add items -->
+                    <div id="collection-add-row" style="display:none;" class="add-row">
+                        <div class="search-wrap">
+                            <input class="add-input" type="text" id="collection-add-input" placeholder="Add a movie or TV show to this collection..." oninput="onCollectionAddSearch()" autocomplete="off">
+                            <div class="search-dropdown" id="collection-search-dropdown" style="display:none;"></div>
+                        </div>
+                    </div>
+                    <!-- Start ranking button (non-admin) -->
+                    <div id="collection-rank-btn-row" style="margin-bottom:16px;display:none;">
+                        <button class="btn btn-primary" onclick="startRankingFromCollection()">🏆 Start Ranking This Collection</button>
+                    </div>
+                    <div id="collection-items-container"><div class="loading">Loading...</div></div>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════════
+                 TAB: FRIENDS
+            ══════════════════════════════════════════════ -->
+            <div id="tab-friends" style="display:none;">
+                <!-- Overview -->
+                <div id="friends-overview">
+                    <div class="page-header">
+                        <div class="page-title">Friends' Rankings</div>
+                    </div>
+                    <div id="friends-container"><div class="loading">Loading...</div></div>
+                </div>
+                <!-- Friend list detail -->
+                <div id="friends-detail" style="display:none;">
+                    <div class="back-btn" onclick="goBackToFriends()">← Back to friends</div>
+                    <div class="list-detail-header">
+                        <div>
+                            <div class="list-detail-title" id="friend-list-title"></div>
+                            <div class="list-detail-desc" id="friend-list-owner"></div>
+                        </div>
+                    </div>
+                    <div id="friend-ranked-items-container"><div class="loading">Loading...</div></div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- ── Detail/Review Modal ── -->
+    <!-- ══════════════════════════════════════════════
+         MODAL: Review/Detail (Discover + My List)
+    ══════════════════════════════════════════════ -->
     <div class="modal" id="detail-modal">
         <div class="modal-content" style="position:relative;">
-            <button class="modal-close-btn" onclick="closeModal()">×</button>
-
+            <button class="modal-close-btn" onclick="closeDetailModal()">×</button>
             <div class="detail-backdrop" id="modal-backdrop">
                 <img id="modal-backdrop-img" src="" alt="" style="display:none;">
                 <div class="detail-backdrop-overlay"></div>
             </div>
-
             <div class="detail-body">
                 <div class="detail-row">
                     <div id="modal-poster-wrap"></div>
@@ -397,78 +476,112 @@
                     </div>
                 </div>
                 <div class="detail-overview" id="modal-overview"></div>
-
                 <div class="detail-section-title">Add to my list</div>
                 <div class="status-picker" id="status-picker">
                     <button class="status-btn" data-status="watchlist" onclick="selectStatus('watchlist')">📋 Watchlist</button>
                     <button class="status-btn" data-status="watched" onclick="selectStatus('watched')">✅ Watched</button>
                     <button class="status-btn" data-status="dropped" onclick="selectStatus('dropped')">❌ Dropped</button>
                 </div>
-
                 <div id="rating-section" style="display:none;">
                     <div class="detail-section-title">Your Rating</div>
                     <div class="star-rating" id="star-rating"></div>
                 </div>
-
                 <div class="detail-section-title">Your Notes</div>
                 <textarea class="review-textarea" id="review-text" placeholder="Write a review or notes (optional)..."></textarea>
-
                 <div class="modal-actions">
-                    <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                    <button class="btn btn-danger" id="remove-btn" style="display:none;" onclick="removeFromList()">Remove</button>
-                    <button class="btn btn-primary" id="save-btn" onclick="saveToList()">Save to List</button>
+                    <button class="btn btn-secondary" onclick="closeDetailModal()">Cancel</button>
+                    <button class="btn btn-danger" id="remove-btn" style="display:none;" onclick="removeFromMyList()">Remove</button>
+                    <button class="btn btn-primary" onclick="saveToMyList()">Save to List</button>
                 </div>
                 <div class="tmdb-credit">Data provided by <strong>TMDB</strong> (themoviedb.org)</div>
             </div>
         </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════
+         MODAL: Create/Edit Ranked List
+    ══════════════════════════════════════════════ -->
+    <div class="modal" id="list-modal">
+        <div class="modal-content-sm">
+            <div class="modal-title" id="list-modal-title">New Ranked List</div>
+            <label class="form-label">Title</label>
+            <input class="form-input" type="text" id="list-title-input" placeholder="e.g. Marvel Cinematic Universe">
+            <label class="form-label">Description (optional)</label>
+            <textarea class="form-input" id="list-desc-input" placeholder="What's this list about?"></textarea>
+            <label class="form-check">
+                <input type="checkbox" id="list-public-input">
+                Make this list public
+            </label>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeListModal()">Cancel</button>
+                <button class="btn btn-primary" id="list-modal-save-btn" onclick="saveRankedList()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════
+         MODAL: Create/Edit Collection (Admin)
+    ══════════════════════════════════════════════ -->
+    <div class="modal" id="collection-modal">
+        <div class="modal-content-sm">
+            <div class="modal-title" id="collection-modal-title">New Collection</div>
+            <label class="form-label">Title</label>
+            <input class="form-input" type="text" id="collection-title-input" placeholder="e.g. Marvel Cinematic Universe">
+            <label class="form-label">Description (optional)</label>
+            <textarea class="form-input" id="collection-desc-input" placeholder="What's this collection?"></textarea>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeCollectionModal()">Cancel</button>
+                <button class="btn btn-primary" id="collection-modal-save-btn" onclick="saveCollection()">Create</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const API_URL = window.location.origin;
+        const API = window.location.origin;
+        const POSTER = 'https://image.tmdb.org/t/p/w92';
+        const POSTER_MD = 'https://image.tmdb.org/t/p/w185';
+        const POSTER_LG = 'https://image.tmdb.org/t/p/w342';
+        const BACKDROP = 'https://image.tmdb.org/t/p/w780';
 
         // ── Theme ──────────────────────────────────────────────────────────────────
         function getTheme() { return localStorage.getItem('theme') || 'dark'; }
-        function applyTheme(t) {
-            document.documentElement.setAttribute('data-theme', t);
-            document.getElementById('theme-btn').textContent = t === 'dark' ? '☀️' : '🌙';
-        }
-        function toggleTheme() {
-            const n = getTheme() === 'dark' ? 'light' : 'dark';
-            localStorage.setItem('theme', n);
-            applyTheme(n);
-        }
+        function applyTheme(t) { document.documentElement.setAttribute('data-theme', t); document.getElementById('theme-btn').textContent = t === 'dark' ? '☀️' : '🌙'; }
+        function toggleTheme() { const n = getTheme() === 'dark' ? 'light' : 'dark'; localStorage.setItem('theme', n); applyTheme(n); }
         applyTheme(getTheme());
 
         // ── Auth ───────────────────────────────────────────────────────────────────
-        function getToken() {
-            return localStorage.getItem('access_token') || localStorage.getItem('token');
-        }
-        function getUser() {
-            const s = localStorage.getItem('user');
-            return s ? JSON.parse(s) : null;
-        }
-        function isAdmin(user) {
-            if (!user) return false;
-            return ['svidthekid'].includes(user.username) || ['svidron.robert@gmail.com'].includes(user.email);
-        }
-        function logout() {
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
-        }
+        function getToken() { return localStorage.getItem('access_token') || localStorage.getItem('token'); }
+        function getUser() { try { return JSON.parse(localStorage.getItem('user')); } catch { return null; } }
+        function isAdmin(u) { return u && (['svidthekid'].includes(u.username) || ['svidron.robert@gmail.com'].includes(u.email)); }
+        function authHeaders() { return { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' }; }
+        function logout() { ['access_token','token','user'].forEach(k => localStorage.removeItem(k)); window.location.href = '/login'; }
 
         // ── State ──────────────────────────────────────────────────────────────────
-        let currentView = 'discover';
-        let myList = [];         // all user reviews from API
+        let currentTab = 'discover';
+        let myList = [];
         let myListFilter = 'all';
         let searchTimeout = null;
-        let currentItem = null;  // item being reviewed in modal
+        let addSearchTimeout = null;
+
+        // Review modal state
+        let currentItem = null;
         let selectedStatus = null;
         let selectedRating = 0;
         let existingReviewId = null;
-        const POSTER_BASE = 'https://image.tmdb.org/t/p/w342';
-        const BACKDROP_BASE = 'https://image.tmdb.org/t/p/w780';
+
+        // Rankings state
+        let currentListId = null;
+        let currentListData = null;
+        let rankedItems = [];
+        let editingList = false;
+
+        // Collections state
+        let currentCollectionId = null;
+        let currentCollectionData = null;
+        let editingCollection = false;
+
+        // Friends state
+        let currentFriendListData = null;
 
         // ── Init ───────────────────────────────────────────────────────────────────
         async function init() {
@@ -476,34 +589,41 @@
             if (!user) { window.location.href = '/login'; return; }
             if (isAdmin(user)) {
                 document.getElementById('admin-sidebar-link').style.display = 'flex';
+                document.getElementById('create-collection-btn').style.display = '';
             }
             await loadTrending();
             await loadMyList();
         }
 
-        // ── View Switching ─────────────────────────────────────────────────────────
-        function switchView(view, el) {
+        // ── Tab Switching ──────────────────────────────────────────────────────────
+        function switchTab(tab, el) {
             document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
             el.classList.add('active');
-            currentView = view;
-            document.getElementById('discover-view').style.display = view === 'discover' ? '' : 'none';
-            document.getElementById('mylist-view').style.display = view === 'mylist' ? '' : 'none';
+            ['discover','mylist','rankings','collections','friends'].forEach(t => {
+                document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
+            });
+            currentTab = tab;
+            if (tab === 'rankings' && !currentListId) loadRankingLists();
+            if (tab === 'collections') loadCollections();
+            if (tab === 'friends') loadFriendsRankings();
         }
 
-        // ── Trending ───────────────────────────────────────────────────────────────
+        // ══════════════════════════════════════════════════════════════════════════
+        // DISCOVER TAB
+        // ══════════════════════════════════════════════════════════════════════════
+
         async function loadTrending() {
             const container = document.getElementById('discover-content');
             container.innerHTML = '<div class="loading">Loading trending content...</div>';
             try {
-                const res = await fetch(`${API_URL}/api/reviews/trending?media_type=all&time_window=week`);
+                const res = await fetch(`${API}/api/reviews/trending?media_type=all&time_window=week`);
                 const data = await res.json();
-                renderGrid(container, data.results, 'Trending This Week');
+                renderMediaGrid(container, data.results, 'Trending This Week');
             } catch (e) {
                 container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎬</div><p>Could not load trending content.</p></div>';
             }
         }
 
-        // ── Search ─────────────────────────────────────────────────────────────────
         function onSearchInput() {
             clearTimeout(searchTimeout);
             const q = document.getElementById('search-input').value.trim();
@@ -518,24 +638,22 @@
             const container = document.getElementById('discover-content');
             container.innerHTML = '<div class="loading">Searching...</div>';
             try {
-                const res = await fetch(`${API_URL}/api/reviews/search?q=${encodeURIComponent(q)}&media_type=${type}`);
+                const res = await fetch(`${API}/api/reviews/search?q=${encodeURIComponent(q)}&media_type=${type}`);
                 const data = await res.json();
-                renderGrid(container, data.results, `Results for "${q}" (${data.total_results || data.results.length})`);
+                renderMediaGrid(container, data.results, `Results for "${q}" (${data.total_results || data.results.length})`);
             } catch (e) {
                 container.innerHTML = '<div class="empty-state"><p>Search failed. Please try again.</p></div>';
             }
         }
 
-        // ── My List ────────────────────────────────────────────────────────────────
+        // ══════════════════════════════════════════════════════════════════════════
+        // MY LIST TAB
+        // ══════════════════════════════════════════════════════════════════════════
+
         async function loadMyList() {
             try {
-                const res = await fetch(`${API_URL}/api/reviews/my`, {
-                    headers: { 'Authorization': `Bearer ${getToken()}` }
-                });
-                if (res.ok) {
-                    myList = await res.json();
-                    renderMyList();
-                }
+                const res = await fetch(`${API}/api/reviews/my`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
+                if (res.ok) { myList = await res.json(); renderMyList(); }
             } catch (e) { console.error('Failed to load my list:', e); }
         }
 
@@ -551,81 +669,62 @@
             const filtered = myListFilter === 'all' ? myList : myList.filter(r => r.status === myListFilter);
             if (!filtered.length) {
                 const msgs = { all: 'Your list is empty. Search for movies and TV shows to add them!', watchlist: 'Nothing on your watchlist yet.', watched: "You haven't marked anything as watched.", dropped: "You haven't dropped anything." };
-                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎬</div><p>${msgs[myListFilter]}</p><a onclick="switchView('discover', document.querySelector('.view-tab'))">Browse trending content</a></div>`;
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎬</div><p>${msgs[myListFilter]}</p></div>`;
                 return;
             }
-            renderGrid(container, filtered.map(reviewToCard), statusLabel(myListFilter));
-        }
-
-        function statusLabel(s) {
-            return { all: 'My List', watchlist: 'Watchlist', watched: 'Watched', dropped: 'Dropped' }[s] || 'My List';
+            renderMediaGrid(container, filtered.map(reviewToCard), { all: 'My List', watchlist: 'Watchlist', watched: 'Watched', dropped: 'Dropped' }[myListFilter]);
         }
 
         function reviewToCard(r) {
-            return {
-                id: r.media_id,
-                media_type: r.media_type,
-                title: r.title,
-                poster_path: r.poster_path,
-                release_year: r.release_year,
-                vote_average: null,
-                _status: r.status,
-                _rating: r.rating,
-                _review_id: r.id,
-            };
+            return { id: r.media_id, media_type: r.media_type, title: r.title, poster_path: r.poster_path, release_year: r.release_year, vote_average: null, _status: r.status, _rating: r.rating, _review_id: r.id };
         }
 
-        // ── Render Grid ────────────────────────────────────────────────────────────
-        function renderGrid(container, items, heading) {
+        // ── Shared media grid ──────────────────────────────────────────────────────
+        function renderMediaGrid(container, items, heading) {
             if (!items || !items.length) {
                 container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><p>No results found.</p></div>';
                 return;
             }
-            const cards = items.map(item => mediaCard(item)).join('');
             container.innerHTML = `
                 <div class="section-header">
-                    <div class="section-title">${heading}</div>
+                    <div class="section-title">${escHtml(heading)}</div>
                     <div class="section-count">${items.length} title${items.length !== 1 ? 's' : ''}</div>
                 </div>
-                <div class="media-grid">${cards}</div>`;
+                <div class="media-grid">${items.map(mediaCard).join('')}</div>`;
         }
 
         function mediaCard(item) {
             const poster = item.poster_path
-                ? `<img src="${POSTER_BASE}${item.poster_path}" alt="${escHtml(item.title || '')}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+                ? `<img src="${POSTER_LG}${item.poster_path}" alt="${escHtml(item.title || '')}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
                    <div class="poster-placeholder" style="display:none;">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`
                 : `<div class="poster-placeholder">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`;
             const typeBadge = item.media_type === 'tv' ? '<span class="media-type-badge">TV</span>' : '';
             const statusDot = item._status ? `<span class="status-dot ${item._status}"></span>` : '';
             const ratingStr = item._rating ? `⭐${item._rating}/10` : (item.vote_average ? `⭐${item.vote_average.toFixed(1)}` : '');
-            const year = item.release_year || '';
             const dataJson = escAttr(JSON.stringify(item));
             return `
-                <div class="media-card" onclick='openDetail(${dataJson})'>
+                <div class="media-card" onclick='openDetailModal(${dataJson})'>
                     <div class="poster-wrap">${typeBadge}${statusDot}${poster}</div>
                     <div class="card-body">
                         <div class="card-title">${escHtml(item.title || 'Unknown')}</div>
                         <div class="card-meta">
                             <span class="card-rating">${ratingStr}</span>
-                            <span class="card-year">${year}</span>
+                            <span>${item.release_year || ''}</span>
                         </div>
                     </div>
                 </div>`;
         }
 
-        // ── Detail Modal ───────────────────────────────────────────────────────────
-        async function openDetail(item) {
+        // ── Detail / Review Modal ──────────────────────────────────────────────────
+        async function openDetailModal(item) {
             currentItem = item;
             selectedStatus = item._status || null;
             selectedRating = item._rating || 0;
             existingReviewId = item._review_id || null;
 
-            // Check if already in list
             if (!item._status) {
                 try {
-                    const res = await fetch(`${API_URL}/api/reviews/my/check/${item.media_type}/${item.id}`, {
-                        headers: { 'Authorization': `Bearer ${getToken()}` }
-                    });
+                    const res = await fetch(`${API}/api/reviews/my/check/${item.media_type}/${item.id}`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
                     if (res.ok) {
                         const data = await res.json();
                         if (data.in_list) {
@@ -642,44 +741,28 @@
                 document.getElementById('review-text').value = item._review_text || '';
             }
 
-            // Backdrop
             const backdropEl = document.getElementById('modal-backdrop-img');
-            if (item.backdrop_path) {
-                backdropEl.src = `${BACKDROP_BASE}${item.backdrop_path}`;
-                backdropEl.style.display = '';
-            } else {
-                backdropEl.style.display = 'none';
-            }
+            if (item.backdrop_path) { backdropEl.src = `${BACKDROP}${item.backdrop_path}`; backdropEl.style.display = ''; }
+            else { backdropEl.style.display = 'none'; }
 
-            // Poster
             const posterWrap = document.getElementById('modal-poster-wrap');
             if (item.poster_path) {
-                posterWrap.innerHTML = `<div class="detail-poster"><img src="${POSTER_BASE}${item.poster_path}" alt="poster"></div>`;
+                posterWrap.innerHTML = `<div class="detail-poster"><img src="${POSTER_LG}${item.poster_path}" alt="poster"></div>`;
             } else {
                 posterWrap.innerHTML = `<div class="detail-poster-placeholder">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`;
             }
 
             document.getElementById('modal-title').textContent = item.title || 'Unknown';
-            const sub = [item.media_type === 'tv' ? 'TV Show' : 'Movie', item.release_year].filter(Boolean).join(' · ');
-            document.getElementById('modal-sub').textContent = sub;
+            document.getElementById('modal-sub').textContent = [item.media_type === 'tv' ? 'TV Show' : 'Movie', item.release_year].filter(Boolean).join(' · ');
             document.getElementById('modal-overview').textContent = item.overview || '';
-
-            // Status buttons
             updateStatusBtns();
-            // Star rating
             buildStars();
             document.getElementById('rating-section').style.display = selectedStatus === 'watched' ? '' : 'none';
-
-            // Show/hide remove button
             document.getElementById('remove-btn').style.display = existingReviewId ? '' : 'none';
-
             document.getElementById('detail-modal').classList.add('show');
         }
 
-        function closeModal() {
-            document.getElementById('detail-modal').classList.remove('show');
-            currentItem = null;
-        }
+        function closeDetailModal() { document.getElementById('detail-modal').classList.remove('show'); currentItem = null; }
 
         function selectStatus(status) {
             selectedStatus = status;
@@ -690,9 +773,7 @@
         function updateStatusBtns() {
             document.querySelectorAll('.status-btn').forEach(btn => {
                 btn.className = 'status-btn';
-                if (btn.dataset.status === selectedStatus) {
-                    btn.classList.add(`selected-${selectedStatus}`);
-                }
+                if (btn.dataset.status === selectedStatus) btn.classList.add(`selected-${selectedStatus}`);
             });
         }
 
@@ -706,9 +787,7 @@
                 star.dataset.value = i;
                 star.addEventListener('click', () => { selectedRating = i; buildStars(); });
                 star.addEventListener('mouseenter', () => {
-                    container.querySelectorAll('.star').forEach((s, idx) => {
-                        s.classList.toggle('hover', idx < i);
-                    });
+                    container.querySelectorAll('.star').forEach((s, idx) => s.classList.toggle('hover', idx < i));
                 });
                 star.addEventListener('mouseleave', () => {
                     container.querySelectorAll('.star').forEach(s => s.classList.remove('hover'));
@@ -717,65 +796,649 @@
             }
         }
 
-        async function saveToList() {
+        async function saveToMyList() {
             if (!selectedStatus) { alert('Please pick a status (Watchlist / Watched / Dropped)'); return; }
             const body = {
-                media_id: String(currentItem.id),
-                media_type: currentItem.media_type,
-                title: currentItem.title,
-                original_title: currentItem.original_title || null,
-                poster_path: currentItem.poster_path || null,
-                backdrop_path: currentItem.backdrop_path || null,
-                overview: currentItem.overview || null,
-                release_year: currentItem.release_year || null,
-                genres: currentItem.genres || null,
-                status: selectedStatus,
-                rating: selectedStatus === 'watched' && selectedRating > 0 ? selectedRating : null,
+                media_id: String(currentItem.id), media_type: currentItem.media_type, title: currentItem.title,
+                original_title: currentItem.original_title || null, poster_path: currentItem.poster_path || null,
+                backdrop_path: currentItem.backdrop_path || null, overview: currentItem.overview || null,
+                release_year: currentItem.release_year || null, genres: currentItem.genres || null,
+                status: selectedStatus, rating: selectedStatus === 'watched' && selectedRating > 0 ? selectedRating : null,
                 review_text: document.getElementById('review-text').value.trim() || null,
             };
             try {
-                const res = await fetch(`${API_URL}/api/reviews/my`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
-                });
-                if (res.ok) {
-                    closeModal();
-                    await loadMyList();
-                } else {
-                    const err = await res.json();
-                    alert(err.detail || 'Failed to save');
-                }
+                const res = await fetch(`${API}/api/reviews/my`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                if (res.ok) { closeDetailModal(); await loadMyList(); }
+                else { const err = await res.json(); alert(err.detail || 'Failed to save'); }
             } catch (e) { alert('Error: ' + e.message); }
         }
 
-        async function removeFromList() {
+        async function removeFromMyList() {
             if (!existingReviewId) return;
             if (!confirm('Remove this from your list?')) return;
             try {
-                const res = await fetch(`${API_URL}/api/reviews/my/${existingReviewId}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${getToken()}` },
-                });
-                if (res.ok) {
-                    closeModal();
-                    await loadMyList();
-                }
+                const res = await fetch(`${API}/api/reviews/my/${existingReviewId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${getToken()}` } });
+                if (res.ok) { closeDetailModal(); await loadMyList(); }
             } catch (e) { alert('Error: ' + e.message); }
         }
 
-        // ── Utilities ──────────────────────────────────────────────────────────────
-        function escHtml(s) {
-            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-        }
-        function escAttr(s) {
-            return String(s).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+        // ══════════════════════════════════════════════════════════════════════════
+        // MY RANKINGS TAB
+        // ══════════════════════════════════════════════════════════════════════════
+
+        async function loadRankingLists() {
+            const container = document.getElementById('rankings-lists-container');
+            try {
+                const res = await fetch(`${API}/api/rankings/my`, { headers: authHeaders() });
+                if (!res.ok) throw new Error(await res.text());
+                const lists = await res.json();
+                if (!lists.length) {
+                    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🏆</div><p>No ranked lists yet.</p><button class="btn btn-primary" onclick="showCreateListModal()">Create your first list</button></div>`;
+                    return;
+                }
+                container.innerHTML = `<div class="lists-grid">${lists.map(rankingListCard).join('')}</div>`;
+            } catch (e) {
+                container.innerHTML = `<div class="empty-state"><p>Failed to load: ${e.message}</p></div>`;
+            }
         }
 
-        // Close modal on backdrop click
-        document.getElementById('detail-modal').addEventListener('click', function(e) {
-            if (e.target === this) closeModal();
+        function rankingListCard(lst) {
+            const posters = lst.cover_posters || [];
+            let coverHtml = '';
+            if (!posters.length) {
+                coverHtml = `<div class="list-cover-placeholder">🏆</div>`;
+            } else if (posters.length === 1) {
+                coverHtml = `<div class="list-cover-single"><img src="${POSTER_MD}${posters[0]}" loading="lazy"></div>`;
+            } else {
+                coverHtml = posters.slice(0, 4).map(p => `<img src="${POSTER}${p}" loading="lazy">`).join('');
+            }
+            return `<div class="list-card" onclick="openRankedList(${lst.id})">
+                <div class="list-cover">${coverHtml}</div>
+                <div class="list-card-body">
+                    <div class="list-card-title">${escHtml(lst.title)}</div>
+                    <div class="list-card-meta">${lst.item_count} title${lst.item_count !== 1 ? 's' : ''} · ${lst.is_public ? '🌐 Public' : '🔒 Private'}</div>
+                </div>
+            </div>`;
+        }
+
+        async function openRankedList(listId) {
+            currentListId = listId;
+            document.getElementById('rankings-overview').style.display = 'none';
+            document.getElementById('rankings-detail').style.display = '';
+            document.getElementById('ranked-items-container').innerHTML = '<div class="loading">Loading...</div>';
+            document.getElementById('ranking-add-input').value = '';
+            document.getElementById('ranking-search-dropdown').style.display = 'none';
+            await loadRankedListDetail();
+        }
+
+        async function loadRankedListDetail() {
+            try {
+                const res = await fetch(`${API}/api/rankings/my/${currentListId}`, { headers: authHeaders() });
+                if (!res.ok) throw new Error(await res.text());
+                currentListData = await res.json();
+                rankedItems = currentListData.items || [];
+                document.getElementById('ranking-detail-title').textContent = currentListData.title;
+                document.getElementById('ranking-detail-desc').textContent = currentListData.description || '';
+                renderRankedItems();
+            } catch (e) {
+                document.getElementById('ranked-items-container').innerHTML = `<div class="empty-state"><p>Failed to load: ${e.message}</p></div>`;
+            }
+        }
+
+        function renderRankedItems() {
+            const container = document.getElementById('ranked-items-container');
+            if (!rankedItems.length) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎬</div><p>No items yet. Search above to add movies and TV shows.</p></div>`;
+                return;
+            }
+            container.innerHTML = `<div class="ranked-list" id="ranked-list">${rankedItems.map(rankRow).join('')}</div>`;
+            initDragAndDrop();
+        }
+
+        function rankRow(item) {
+            const poster = item.poster_path
+                ? `<img class="item-poster" src="${POSTER_MD}${item.poster_path}" loading="lazy" onerror="this.style.display='none';this.nextSibling.style.display='flex';">
+                   <div class="item-poster-placeholder" style="display:none;">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`
+                : `<div class="item-poster-placeholder">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`;
+            const medals = ['🥇','🥈','🥉'];
+            const rankDisplay = item.rank <= 3 ? medals[item.rank - 1] : item.rank;
+            const top3 = item.rank <= 3 ? ' top3' : '';
+            const noteHtml = item.note ? `<div class="item-note">${escHtml(item.note)}</div>` : '';
+            return `<div class="ranked-item" data-id="${item.id}" draggable="true">
+                <div class="rank-num${top3}">${rankDisplay}</div>
+                <span class="drag-handle" title="Drag to reorder">⠿</span>
+                ${poster}
+                <div class="item-info">
+                    <div class="item-title">${escHtml(item.title)}</div>
+                    <div class="item-sub">
+                        <span class="item-type-badge">${item.media_type}</span>
+                        ${item.release_year ? `<span>${item.release_year}</span>` : ''}
+                    </div>
+                    ${noteHtml}
+                </div>
+                <div class="item-actions">
+                    <button class="btn btn-secondary btn-icon btn-sm" title="Add note" onclick="promptRankNote(${item.id}, event)">📝</button>
+                    <button class="btn btn-danger btn-icon btn-sm" title="Remove" onclick="removeRankedItem(${item.id}, event)">✕</button>
+                </div>
+            </div>`;
+        }
+
+        // ── Drag & Drop ────────────────────────────────────────────────────────────
+        let dragSrcId = null;
+
+        function initDragAndDrop() {
+            const list = document.getElementById('ranked-list');
+            if (!list) return;
+            list.querySelectorAll('.ranked-item').forEach(el => {
+                el.addEventListener('dragstart', e => {
+                    dragSrcId = parseInt(el.dataset.id);
+                    el.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+                el.addEventListener('dragend', () => {
+                    el.classList.remove('dragging');
+                    list.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
+                });
+                el.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    list.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
+                    el.classList.add('drag-over');
+                });
+                el.addEventListener('drop', async e => {
+                    e.preventDefault();
+                    const dropId = parseInt(el.dataset.id);
+                    if (dragSrcId === dropId) return;
+                    const fromIdx = rankedItems.findIndex(i => i.id === dragSrcId);
+                    const toIdx = rankedItems.findIndex(i => i.id === dropId);
+                    const [moved] = rankedItems.splice(fromIdx, 1);
+                    rankedItems.splice(toIdx, 0, moved);
+                    rankedItems.forEach((item, idx) => { item.rank = idx + 1; });
+                    renderRankedItems();
+                    await saveReorder();
+                });
+            });
+        }
+
+        async function saveReorder() {
+            try {
+                await fetch(`${API}/api/rankings/my/${currentListId}/reorder`, {
+                    method: 'PUT', headers: authHeaders(),
+                    body: JSON.stringify({ item_ids: rankedItems.map(i => i.id) }),
+                });
+            } catch (e) { console.error('Reorder save failed:', e); }
+        }
+
+        // ── Add search (rankings) ──────────────────────────────────────────────────
+        function onRankingAddSearch() {
+            clearTimeout(addSearchTimeout);
+            const q = document.getElementById('ranking-add-input').value.trim();
+            if (!q) { document.getElementById('ranking-search-dropdown').style.display = 'none'; return; }
+            addSearchTimeout = setTimeout(() => doRankingAddSearch(q), 350);
+        }
+
+        async function doRankingAddSearch(q) {
+            const dd = document.getElementById('ranking-search-dropdown');
+            dd.innerHTML = '<div style="padding:12px;font-size:13px;color:var(--text-muted);">Searching...</div>';
+            dd.style.display = '';
+            try {
+                const res = await fetch(`${API}/api/rankings/search?q=${encodeURIComponent(q)}&media_type=multi`);
+                const data = await res.json();
+                const results = data.results || [];
+                if (!results.length) { dd.innerHTML = '<div style="padding:12px;font-size:13px;color:var(--text-muted);">No results found.</div>'; return; }
+                dd.innerHTML = results.map(r => {
+                    const thumb = r.poster_path ? `<img class="search-thumb" src="${POSTER}${r.poster_path}" loading="lazy">` : `<div class="search-thumb-placeholder">${r.media_type === 'tv' ? '📺' : '🎬'}</div>`;
+                    return `<div class="search-result-item" onclick='addRankedItem(${escAttr(JSON.stringify(r))})'>
+                        ${thumb}
+                        <div class="search-result-info">
+                            <div class="search-result-title">${escHtml(r.title || '')}</div>
+                            <div class="search-result-sub">${r.media_type.toUpperCase()}${r.release_year ? ' · ' + r.release_year : ''}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) { dd.innerHTML = `<div style="padding:12px;font-size:13px;color:var(--text-muted);">Search failed.</div>`; }
+        }
+
+        async function addRankedItem(result) {
+            document.getElementById('ranking-search-dropdown').style.display = 'none';
+            document.getElementById('ranking-add-input').value = '';
+            try {
+                const res = await fetch(`${API}/api/rankings/my/${currentListId}/items`, {
+                    method: 'POST', headers: authHeaders(),
+                    body: JSON.stringify({ media_id: result.id, media_type: result.media_type, title: result.title, poster_path: result.poster_path || null, release_year: result.release_year || null, overview: result.overview || null }),
+                });
+                if (res.status === 409) { alert('Already in this list.'); return; }
+                if (!res.ok) throw new Error(await res.text());
+                await loadRankedListDetail();
+            } catch (e) { alert('Failed to add: ' + e.message); }
+        }
+
+        async function removeRankedItem(itemId, e) {
+            e.stopPropagation();
+            if (!confirm('Remove from list?')) return;
+            try {
+                const res = await fetch(`${API}/api/rankings/my/${currentListId}/items/${itemId}`, { method: 'DELETE', headers: authHeaders() });
+                if (!res.ok) throw new Error(await res.text());
+                await loadRankedListDetail();
+            } catch (e) { alert('Failed to remove: ' + e.message); }
+        }
+
+        async function promptRankNote(itemId, e) {
+            e.stopPropagation();
+            const item = rankedItems.find(i => i.id === itemId);
+            const note = prompt('Add a note for this entry (leave blank to clear):', item?.note || '');
+            if (note === null) return;
+            try {
+                const res = await fetch(`${API}/api/rankings/my/${currentListId}/items/${itemId}`, {
+                    method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ note: note.trim() || null }),
+                });
+                if (!res.ok) throw new Error(await res.text());
+                await loadRankedListDetail();
+            } catch (e) { alert('Failed to save note: ' + e.message); }
+        }
+
+        function goBackToRankings() {
+            currentListId = null; currentListData = null;
+            document.getElementById('rankings-detail').style.display = 'none';
+            document.getElementById('rankings-overview').style.display = '';
+            loadRankingLists();
+        }
+
+        // ── Create / Edit List Modal ───────────────────────────────────────────────
+        function showCreateListModal() {
+            editingList = false;
+            document.getElementById('list-modal-title').textContent = 'New Ranked List';
+            document.getElementById('list-modal-save-btn').textContent = 'Create';
+            document.getElementById('list-title-input').value = '';
+            document.getElementById('list-desc-input').value = '';
+            document.getElementById('list-public-input').checked = false;
+            document.getElementById('list-modal').classList.add('show');
+            setTimeout(() => document.getElementById('list-title-input').focus(), 50);
+        }
+
+        function showEditListModal() {
+            if (!currentListData) return;
+            editingList = true;
+            document.getElementById('list-modal-title').textContent = 'Edit List';
+            document.getElementById('list-modal-save-btn').textContent = 'Save';
+            document.getElementById('list-title-input').value = currentListData.title;
+            document.getElementById('list-desc-input').value = currentListData.description || '';
+            document.getElementById('list-public-input').checked = currentListData.is_public;
+            document.getElementById('list-modal').classList.add('show');
+        }
+
+        function closeListModal() { document.getElementById('list-modal').classList.remove('show'); }
+
+        async function saveRankedList() {
+            const title = document.getElementById('list-title-input').value.trim();
+            if (!title) { alert('Title is required'); return; }
+            const body = { title, description: document.getElementById('list-desc-input').value.trim() || null, is_public: document.getElementById('list-public-input').checked };
+            try {
+                let res;
+                if (editingList) {
+                    res = await fetch(`${API}/api/rankings/my/${currentListId}`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(body) });
+                } else {
+                    res = await fetch(`${API}/api/rankings/my`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+                }
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                closeListModal();
+                if (editingList) { await loadRankedListDetail(); } else { await openRankedList(data.id); }
+                await loadRankingLists();
+            } catch (e) { alert('Failed to save: ' + e.message); }
+        }
+
+        async function deleteRankedList() {
+            if (!confirm(`Delete "${currentListData?.title}"? This cannot be undone.`)) return;
+            try {
+                const res = await fetch(`${API}/api/rankings/my/${currentListId}`, { method: 'DELETE', headers: authHeaders() });
+                if (!res.ok) throw new Error(await res.text());
+                goBackToRankings();
+            } catch (e) { alert('Failed to delete: ' + e.message); }
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // COLLECTIONS TAB
+        // ══════════════════════════════════════════════════════════════════════════
+
+        async function loadCollections() {
+            const container = document.getElementById('collections-container');
+            container.innerHTML = '<div class="loading">Loading...</div>';
+            try {
+                const res = await fetch(`${API}/api/rankings/collections`);
+                if (!res.ok) throw new Error(await res.text());
+                const cols = await res.json();
+                if (!cols.length) {
+                    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎬</div><p>No collections yet.${isAdmin(getUser()) ? ' Create the first one!' : ''}</p></div>`;
+                    return;
+                }
+                container.innerHTML = `<div class="lists-grid">${cols.map(collectionCard).join('')}</div>`;
+            } catch (e) {
+                container.innerHTML = `<div class="empty-state"><p>Failed to load collections: ${e.message}</p></div>`;
+            }
+        }
+
+        function collectionCard(col) {
+            const posters = col.cover_posters || [];
+            let coverHtml = '';
+            if (!posters.length) {
+                coverHtml = `<div class="list-cover-placeholder">🎬</div>`;
+            } else if (posters.length === 1) {
+                coverHtml = `<div class="list-cover-single"><img src="${POSTER_MD}${posters[0]}" loading="lazy"></div>`;
+            } else {
+                coverHtml = posters.slice(0, 4).map(p => `<img src="${POSTER}${p}" loading="lazy">`).join('');
+            }
+            return `<div class="list-card" onclick="openCollection(${col.id})">
+                <div class="list-cover">${coverHtml}</div>
+                <div class="list-card-body">
+                    <div class="list-card-title">${escHtml(col.title)}</div>
+                    <div class="list-card-meta">${col.item_count} title${col.item_count !== 1 ? 's' : ''}</div>
+                </div>
+            </div>`;
+        }
+
+        async function openCollection(collectionId) {
+            currentCollectionId = collectionId;
+            document.getElementById('collections-overview').style.display = 'none';
+            document.getElementById('collections-detail').style.display = '';
+            document.getElementById('collection-items-container').innerHTML = '<div class="loading">Loading...</div>';
+            await loadCollectionDetail();
+        }
+
+        async function loadCollectionDetail() {
+            try {
+                const res = await fetch(`${API}/api/rankings/collections/${currentCollectionId}`);
+                if (!res.ok) throw new Error(await res.text());
+                currentCollectionData = await res.json();
+                document.getElementById('collection-detail-title').textContent = currentCollectionData.title;
+                document.getElementById('collection-detail-desc').textContent = currentCollectionData.description || '';
+
+                const user = getUser();
+                const admin = isAdmin(user);
+                document.getElementById('collection-admin-actions').style.display = admin ? '' : 'none';
+                document.getElementById('collection-add-row').style.display = admin ? '' : 'none';
+                document.getElementById('collection-rank-btn-row').style.display = admin ? 'none' : '';
+
+                renderCollectionItems(currentCollectionData.items || []);
+            } catch (e) {
+                document.getElementById('collection-items-container').innerHTML = `<div class="empty-state"><p>Failed to load: ${e.message}</p></div>`;
+            }
+        }
+
+        function renderCollectionItems(items) {
+            const container = document.getElementById('collection-items-container');
+            if (!items.length) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎬</div><p>No items in this collection yet.</p></div>`;
+                return;
+            }
+            const admin = isAdmin(getUser());
+            container.innerHTML = `<div class="ranked-list">${items.map((item, idx) => `
+                <div class="ranked-item" data-id="${item.id}">
+                    <div class="rank-num${idx < 3 ? ' top3' : ''}">${idx + 1}</div>
+                    ${item.poster_path ? `<img class="item-poster" src="${POSTER_MD}${item.poster_path}" loading="lazy">` : `<div class="item-poster-placeholder">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`}
+                    <div class="item-info">
+                        <div class="item-title">${escHtml(item.title)}</div>
+                        <div class="item-sub">
+                            <span class="item-type-badge">${item.media_type}</span>
+                            ${item.release_year ? `<span>${item.release_year}</span>` : ''}
+                        </div>
+                    </div>
+                    ${admin ? `<div class="item-actions"><button class="btn btn-danger btn-icon btn-sm" onclick="removeCollectionItem(${item.id}, event)">✕</button></div>` : ''}
+                </div>`).join('')}</div>`;
+        }
+
+        async function startRankingFromCollection() {
+            try {
+                const res = await fetch(`${API}/api/rankings/my/from-collection/${currentCollectionId}`, { method: 'POST', headers: authHeaders() });
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                // Switch to rankings tab and open the new list
+                document.querySelectorAll('.view-tab').forEach((t, i) => t.classList.toggle('active', i === 2));
+                ['discover','mylist','rankings','collections','friends'].forEach(t => {
+                    document.getElementById('tab-' + t).style.display = t === 'rankings' ? '' : 'none';
+                });
+                currentTab = 'rankings';
+                await openRankedList(data.id);
+            } catch (e) { alert('Failed: ' + e.message); }
+        }
+
+        function goBackToCollections() {
+            currentCollectionId = null; currentCollectionData = null;
+            document.getElementById('collections-detail').style.display = 'none';
+            document.getElementById('collections-overview').style.display = '';
+            loadCollections();
+        }
+
+        // ── Collection admin: add item search ──────────────────────────────────────
+        let collectionAddTimeout = null;
+
+        function onCollectionAddSearch() {
+            clearTimeout(collectionAddTimeout);
+            const q = document.getElementById('collection-add-input').value.trim();
+            if (!q) { document.getElementById('collection-search-dropdown').style.display = 'none'; return; }
+            collectionAddTimeout = setTimeout(() => doCollectionAddSearch(q), 350);
+        }
+
+        async function doCollectionAddSearch(q) {
+            const dd = document.getElementById('collection-search-dropdown');
+            dd.innerHTML = '<div style="padding:12px;font-size:13px;color:var(--text-muted);">Searching...</div>';
+            dd.style.display = '';
+            try {
+                const res = await fetch(`${API}/api/rankings/search?q=${encodeURIComponent(q)}&media_type=multi`);
+                const data = await res.json();
+                const results = data.results || [];
+                if (!results.length) { dd.innerHTML = '<div style="padding:12px;font-size:13px;color:var(--text-muted);">No results found.</div>'; return; }
+                dd.innerHTML = results.map(r => {
+                    const thumb = r.poster_path ? `<img class="search-thumb" src="${POSTER}${r.poster_path}" loading="lazy">` : `<div class="search-thumb-placeholder">${r.media_type === 'tv' ? '📺' : '🎬'}</div>`;
+                    return `<div class="search-result-item" onclick='addCollectionItem(${escAttr(JSON.stringify(r))})'>
+                        ${thumb}
+                        <div class="search-result-info">
+                            <div class="search-result-title">${escHtml(r.title || '')}</div>
+                            <div class="search-result-sub">${r.media_type.toUpperCase()}${r.release_year ? ' · ' + r.release_year : ''}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) { dd.innerHTML = `<div style="padding:12px;font-size:13px;color:var(--text-muted);">Search failed.</div>`; }
+        }
+
+        async function addCollectionItem(result) {
+            document.getElementById('collection-search-dropdown').style.display = 'none';
+            document.getElementById('collection-add-input').value = '';
+            const sortOrder = (currentCollectionData?.items?.length || 0) + 1;
+            try {
+                const res = await fetch(`${API}/api/rankings/collections/${currentCollectionId}/items`, {
+                    method: 'POST', headers: authHeaders(),
+                    body: JSON.stringify({ media_id: result.id, media_type: result.media_type, title: result.title, poster_path: result.poster_path || null, release_year: result.release_year || null, overview: result.overview || null, sort_order: sortOrder }),
+                });
+                if (res.status === 409) { alert('Already in this collection.'); return; }
+                if (!res.ok) throw new Error(await res.text());
+                await loadCollectionDetail();
+            } catch (e) { alert('Failed to add: ' + e.message); }
+        }
+
+        async function removeCollectionItem(itemId, e) {
+            e.stopPropagation();
+            if (!confirm('Remove from collection?')) return;
+            try {
+                const res = await fetch(`${API}/api/rankings/collections/${currentCollectionId}/items/${itemId}`, { method: 'DELETE', headers: authHeaders() });
+                if (!res.ok) throw new Error(await res.text());
+                await loadCollectionDetail();
+            } catch (e) { alert('Failed to remove: ' + e.message); }
+        }
+
+        // ── Collection modal (admin) ───────────────────────────────────────────────
+        function showCreateCollectionModal() {
+            editingCollection = false;
+            document.getElementById('collection-modal-title').textContent = 'New Collection';
+            document.getElementById('collection-modal-save-btn').textContent = 'Create';
+            document.getElementById('collection-title-input').value = '';
+            document.getElementById('collection-desc-input').value = '';
+            document.getElementById('collection-modal').classList.add('show');
+            setTimeout(() => document.getElementById('collection-title-input').focus(), 50);
+        }
+
+        function showEditCollectionModal() {
+            if (!currentCollectionData) return;
+            editingCollection = true;
+            document.getElementById('collection-modal-title').textContent = 'Edit Collection';
+            document.getElementById('collection-modal-save-btn').textContent = 'Save';
+            document.getElementById('collection-title-input').value = currentCollectionData.title;
+            document.getElementById('collection-desc-input').value = currentCollectionData.description || '';
+            document.getElementById('collection-modal').classList.add('show');
+        }
+
+        function closeCollectionModal() { document.getElementById('collection-modal').classList.remove('show'); }
+
+        async function saveCollection() {
+            const title = document.getElementById('collection-title-input').value.trim();
+            if (!title) { alert('Title is required'); return; }
+            const body = { title, description: document.getElementById('collection-desc-input').value.trim() || null };
+            try {
+                let res;
+                if (editingCollection) {
+                    res = await fetch(`${API}/api/rankings/collections/${currentCollectionId}`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(body) });
+                } else {
+                    res = await fetch(`${API}/api/rankings/collections`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) });
+                }
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                closeCollectionModal();
+                if (editingCollection) { await loadCollectionDetail(); }
+                else { await openCollection(data.id); }
+                await loadCollections();
+            } catch (e) { alert('Failed to save: ' + e.message); }
+        }
+
+        async function deleteCollection() {
+            if (!confirm(`Delete "${currentCollectionData?.title}"? This cannot be undone.`)) return;
+            try {
+                const res = await fetch(`${API}/api/rankings/collections/${currentCollectionId}`, { method: 'DELETE', headers: authHeaders() });
+                if (!res.ok) throw new Error(await res.text());
+                goBackToCollections();
+            } catch (e) { alert('Failed to delete: ' + e.message); }
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // FRIENDS TAB
+        // ══════════════════════════════════════════════════════════════════════════
+
+        async function loadFriendsRankings() {
+            const container = document.getElementById('friends-container');
+            container.innerHTML = '<div class="loading">Loading...</div>';
+            try {
+                const res = await fetch(`${API}/api/rankings/friends`, { headers: authHeaders() });
+                if (!res.ok) throw new Error(await res.text());
+                const lists = await res.json();
+                if (!lists.length) {
+                    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">👥</div><p>No friends' rankings yet. Add friends to see their public ranked lists!</p></div>`;
+                    return;
+                }
+                container.innerHTML = `<div class="lists-grid">${lists.map(friendListCard).join('')}</div>`;
+            } catch (e) {
+                container.innerHTML = `<div class="empty-state"><p>Failed to load: ${e.message}</p></div>`;
+            }
+        }
+
+        function friendListCard(lst) {
+            const owner = lst.owner;
+            const posters = lst.cover_posters || [];
+            let coverHtml = '';
+            if (!posters.length) {
+                coverHtml = `<div class="list-cover-placeholder">🏆</div>`;
+            } else if (posters.length === 1) {
+                coverHtml = `<div class="list-cover-single"><img src="${POSTER_MD}${posters[0]}" loading="lazy"></div>`;
+            } else {
+                coverHtml = posters.slice(0, 4).map(p => `<img src="${POSTER}${p}" loading="lazy">`).join('');
+            }
+            const avatarHtml = owner?.avatar_url
+                ? `<img src="${owner.avatar_url}" alt="${escHtml(owner.username || '')}">`
+                : (owner?.username ? owner.username.charAt(0).toUpperCase() : '?');
+            return `<div class="list-card" onclick="openFriendList(${lst.id}, ${owner?.id || 0})">
+                <div class="list-cover">${coverHtml}</div>
+                <div class="list-card-body">
+                    <div class="friend-list-owner">
+                        <div class="friend-avatar">${avatarHtml}</div>
+                        <span class="friend-name">${escHtml(owner?.username || 'Unknown')}</span>
+                    </div>
+                    <div class="list-card-title">${escHtml(lst.title)}</div>
+                    <div class="list-card-meta">${lst.item_count} title${lst.item_count !== 1 ? 's' : ''}</div>
+                </div>
+            </div>`;
+        }
+
+        async function openFriendList(listId, friendUserId) {
+            document.getElementById('friends-overview').style.display = 'none';
+            document.getElementById('friends-detail').style.display = '';
+            document.getElementById('friend-ranked-items-container').innerHTML = '<div class="loading">Loading...</div>';
+            try {
+                const res = await fetch(`${API}/api/rankings/friends/${friendUserId}/lists/${listId}`, { headers: authHeaders() });
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                currentFriendListData = data;
+                document.getElementById('friend-list-title').textContent = data.title;
+                const owner = data.owner;
+                document.getElementById('friend-list-owner').textContent = owner ? `by ${owner.username}` : '';
+                renderFriendRankedItems(data.items || []);
+            } catch (e) {
+                document.getElementById('friend-ranked-items-container').innerHTML = `<div class="empty-state"><p>Failed to load: ${e.message}</p></div>`;
+            }
+        }
+
+        function renderFriendRankedItems(items) {
+            const container = document.getElementById('friend-ranked-items-container');
+            if (!items.length) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎬</div><p>This list is empty.</p></div>`;
+                return;
+            }
+            container.innerHTML = `<div class="ranked-list">${items.map(item => {
+                const medals = ['🥇','🥈','🥉'];
+                const rankDisplay = item.rank <= 3 ? medals[item.rank - 1] : item.rank;
+                const top3 = item.rank <= 3 ? ' top3' : '';
+                const noteHtml = item.note ? `<div class="item-note">${escHtml(item.note)}</div>` : '';
+                return `<div class="ranked-item" style="cursor:default;">
+                    <div class="rank-num${top3}">${rankDisplay}</div>
+                    ${item.poster_path ? `<img class="item-poster" src="${POSTER_MD}${item.poster_path}" loading="lazy">` : `<div class="item-poster-placeholder">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`}
+                    <div class="item-info">
+                        <div class="item-title">${escHtml(item.title)}</div>
+                        <div class="item-sub">
+                            <span class="item-type-badge">${item.media_type}</span>
+                            ${item.release_year ? `<span>${item.release_year}</span>` : ''}
+                        </div>
+                        ${noteHtml}
+                    </div>
+                </div>`;
+            }).join('')}</div>`;
+        }
+
+        function goBackToFriends() {
+            currentFriendListData = null;
+            document.getElementById('friends-detail').style.display = 'none';
+            document.getElementById('friends-overview').style.display = '';
+            loadFriendsRankings();
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════
+        // UTILITIES
+        // ══════════════════════════════════════════════════════════════════════════
+
+        function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+        function escAttr(s) { return String(s).replace(/'/g,"&#39;").replace(/"/g,'&quot;'); }
+
+        // Close dropdowns on outside click
+        document.addEventListener('click', e => {
+            const rankWrap = document.querySelector('#tab-rankings .search-wrap');
+            if (rankWrap && !rankWrap.contains(e.target)) document.getElementById('ranking-search-dropdown').style.display = 'none';
+            const colWrap = document.querySelector('#tab-collections .search-wrap');
+            if (colWrap && !colWrap.contains(e.target)) document.getElementById('collection-search-dropdown').style.display = 'none';
         });
+
+        // Close modals on backdrop click
+        document.getElementById('detail-modal').addEventListener('click', function(e) { if (e.target === this) closeDetailModal(); });
+        document.getElementById('list-modal').addEventListener('click', function(e) { if (e.target === this) closeListModal(); });
+        document.getElementById('collection-modal').addEventListener('click', function(e) { if (e.target === this) closeCollectionModal(); });
+
+        // Enter key for modal title inputs
+        document.getElementById('list-title-input').addEventListener('keydown', e => { if (e.key === 'Enter') saveRankedList(); });
+        document.getElementById('collection-title-input').addEventListener('keydown', e => { if (e.key === 'Enter') saveCollection(); });
 
         init();
     </script>
