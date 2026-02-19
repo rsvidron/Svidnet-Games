@@ -1,121 +1,249 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>5th Grade Trivia - Svidhaus Arena</title>
+    <title>Trivia - Svidhaus Arena</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root[data-theme="dark"] {
+            --bg: #0f0f0f; --sidebar-bg: #1a1a1a; --card-bg: #1e1e1e;
+            --card-border: #2a2a2a; --text-primary: #ffffff; --text-secondary: #888888;
+            --text-muted: #555555; --accent: #22c55e; --accent-hover: #16a34a;
+            --accent-dim: rgba(34,197,94,0.1); --danger: #ef4444;
+            --input-bg: #2a2a2a; --input-border: #333333;
+            --hover-bg: #252525; --divider: #2a2a2a; --modal-bg: #1e1e1e;
+            --correct: #22c55e; --wrong: #ef4444;
+            --correct-bg: rgba(34,197,94,0.1); --wrong-bg: rgba(239,68,68,0.1);
+        }
+        :root[data-theme="light"] {
+            --bg: #f4f6f9; --sidebar-bg: #ffffff; --card-bg: #ffffff;
+            --card-border: #e5e7eb; --text-primary: #111827; --text-secondary: #6b7280;
+            --text-muted: #9ca3af; --accent: #16a34a; --accent-hover: #15803d;
+            --accent-dim: rgba(22,163,74,0.08); --danger: #dc2626;
+            --input-bg: #f9fafb; --input-border: #d1d5db;
+            --hover-bg: #f3f4f6; --divider: #e5e7eb; --modal-bg: #ffffff;
+            --correct: #16a34a; --wrong: #dc2626;
+            --correct-bg: rgba(22,163,74,0.08); --wrong-bg: rgba(220,38,38,0.08);
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh; padding: 20px;
+            background: var(--bg); color: var(--text-primary);
+            min-height: 100vh; display: flex; transition: background 0.3s, color 0.3s;
         }
-        .container { max-width: 800px; margin: 0 auto; }
-        .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .nav-btn {
-            background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.4);
-            padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
-            cursor: pointer; text-decoration: none; transition: all 0.2s;
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: 240px; background: var(--sidebar-bg); border-right: 1px solid var(--divider);
+            display: flex; flex-direction: column; padding: 24px 0;
+            position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
+            transition: background 0.3s, border-color 0.3s, transform 0.3s;
         }
-        .nav-btn:hover { background: rgba(255,255,255,0.3); }
-        .header { text-align: center; color: white; margin-bottom: 25px; }
-        .header h1 { font-size: 40px; margin-bottom: 6px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
-        .header p { font-size: 16px; opacity: 0.9; }
-        .game-card {
-            background: white; border-radius: 20px; padding: 35px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3); margin-bottom: 20px;
+        .sidebar-logo { padding: 0 24px 28px; border-bottom: 1px solid var(--divider); margin-bottom: 16px; }
+        .sidebar-logo h1 { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+        .sidebar-logo span { font-size: 12px; color: var(--text-secondary); }
+        .sidebar-section { padding: 0 12px; margin-bottom: 8px; }
+        .sidebar-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; padding: 0 12px; margin-bottom: 4px; }
+        .sidebar-item {
+            display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+            border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-secondary);
+            cursor: pointer; text-decoration: none; transition: background 0.15s, color 0.15s; margin-bottom: 2px;
         }
-        .game-setup { text-align: center; }
-        .game-setup h2 { color: #667eea; margin-bottom: 25px; }
-        .setup-options { display: grid; gap: 18px; margin-bottom: 25px; }
-        .option-group { text-align: left; }
-        .option-group label { display: block; color: #666; margin-bottom: 6px; font-weight: 500; font-size: 14px; }
-        select { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 16px; }
-        select:focus { outline: none; border-color: #667eea; }
+        .sidebar-item:hover { background: var(--hover-bg); color: var(--text-primary); }
+        .sidebar-item.active { background: var(--accent-dim); color: var(--accent); }
+        .sidebar-item .icon { font-size: 16px; width: 20px; text-align: center; }
+        .soon-badge { margin-left: auto; background: var(--card-border); color: var(--text-muted); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
+        .sidebar-bottom { margin-top: auto; padding: 16px 12px; border-top: 1px solid var(--divider); }
+
+        /* ── Main ── */
+        .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+        .topbar {
+            background: var(--sidebar-bg); border-bottom: 1px solid var(--divider);
+            padding: 0 32px; height: 64px; display: flex; align-items: center;
+            justify-content: space-between; position: sticky; top: 0; z-index: 50;
+            transition: background 0.3s, border-color 0.3s;
+        }
+        .topbar-left h2 { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .theme-toggle {
+            width: 36px; height: 36px; border-radius: 8px; background: var(--hover-bg);
+            border: 1px solid var(--card-border); color: var(--text-secondary); font-size: 16px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .theme-toggle:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+        .mobile-menu-btn { display: none; background: none; border: none; color: var(--text-primary); font-size: 22px; cursor: pointer; }
+        .content { padding: 28px 32px; flex: 1; max-width: 860px; width: 100%; }
+
+        /* ── Game Styles ── */
+        .panel {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 12px; padding: 28px; margin-bottom: 20px;
+            transition: background 0.3s, border-color 0.3s;
+        }
+        .panel h2 { font-size: 20px; font-weight: 600; color: var(--accent); margin-bottom: 20px; }
+
+        .setup-options { display: grid; gap: 16px; margin-bottom: 24px; }
+        .option-group label { display: block; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+        select {
+            width: 100%; padding: 11px 14px; background: var(--input-bg);
+            border: 1px solid var(--input-border); border-radius: 8px;
+            font-size: 14px; color: var(--text-primary); outline: none; transition: border-color 0.2s;
+        }
+        select:focus { border-color: var(--accent); }
+
         .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white; border: none; padding: 14px 35px; border-radius: 10px;
-            font-size: 17px; font-weight: 600; cursor: pointer; transition: transform 0.2s;
+            background: var(--accent); color: white; border: none;
+            padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: background 0.2s;
         }
-        .btn:hover { transform: translateY(-2px); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn:hover { background: var(--accent-hover); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
         .btn-secondary {
-            background: white; color: #667eea; border: 2px solid #667eea;
-            padding: 12px 30px; border-radius: 10px; font-size: 15px;
-            font-weight: 600; cursor: pointer; transition: all 0.2s; margin: 0 8px;
+            background: var(--hover-bg); color: var(--text-secondary);
+            border: 1px solid var(--card-border); padding: 11px 24px;
+            border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
         }
-        .btn-secondary:hover { background: #f0f4ff; }
-        .game-interface { display: none; }
-        .game-header { display: flex; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-        .stat { background: #f5f5f5; padding: 10px 16px; border-radius: 10px; text-align: center; flex: 1; min-width: 75px; }
-        .stat-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-value { font-size: 22px; font-weight: 700; color: #667eea; margin-top: 2px; }
-        .progress-bar { width: 100%; height: 6px; background: #e0e0e0; border-radius: 3px; margin-bottom: 20px; overflow: hidden; }
-        .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 3px; transition: width 0.4s; }
-        .quit-row { display: flex; justify-content: flex-end; margin-bottom: 8px; }
-        .quit-btn { background: none; border: none; color: #999; font-size: 13px; cursor: pointer; padding: 4px 10px; border-radius: 6px; }
-        .quit-btn:hover { background: #f5f5f5; color: #666; }
-        .question-card { background: #f9f9f9; padding: 25px; border-radius: 15px; margin-bottom: 25px; }
-        .question-number { color: #764ba2; font-weight: 600; margin-bottom: 8px; font-size: 13px; }
-        .question-text { font-size: 22px; color: #333; margin-bottom: 25px; line-height: 1.4; }
-        .options { display: grid; gap: 12px; }
+        .btn-secondary:hover { background: var(--card-border); color: var(--text-primary); }
+
+        .game-header {
+            display: flex; justify-content: space-between; margin-bottom: 20px;
+            flex-wrap: wrap; gap: 10px;
+        }
+        .stat {
+            background: var(--hover-bg); border: 1px solid var(--card-border);
+            padding: 10px 16px; border-radius: 8px; text-align: center; flex: 1; min-width: 75px;
+        }
+        .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 22px; font-weight: 700; color: var(--accent); margin-top: 2px; }
+
+        .progress-bar { width: 100%; height: 4px; background: var(--card-border); border-radius: 2px; margin-bottom: 20px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s; }
+
+        .quit-row { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+        .quit-btn { background: none; border: none; color: var(--text-muted); font-size: 13px; cursor: pointer; padding: 4px 10px; border-radius: 6px; }
+        .quit-btn:hover { background: var(--hover-bg); color: var(--danger); }
+
+        .question-card {
+            background: var(--hover-bg); border: 1px solid var(--card-border);
+            padding: 24px; border-radius: 10px; margin-bottom: 20px;
+        }
+        .question-number { color: var(--accent); font-weight: 600; margin-bottom: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .question-text { font-size: 20px; color: var(--text-primary); margin-bottom: 22px; line-height: 1.5; }
+
+        .options { display: grid; gap: 10px; }
         .option {
-            background: white; border: 3px solid #e0e0e0; padding: 16px 20px; border-radius: 12px;
-            cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 15px;
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            padding: 14px 18px; border-radius: 10px; cursor: pointer;
+            transition: all 0.15s; display: flex; align-items: center; gap: 14px;
         }
-        .option:hover:not(.disabled) { border-color: #667eea; transform: translateX(5px); }
+        .option:hover:not(.disabled) { border-color: var(--accent); background: var(--accent-dim); }
         .option-letter {
-            background: #667eea; color: white; width: 36px; height: 36px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; flex-shrink: 0;
+            background: var(--accent-dim); color: var(--accent); width: 32px; height: 32px;
+            border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 14px; flex-shrink: 0; border: 1px solid var(--accent);
         }
-        .option-text { font-size: 16px; color: #333; }
-        .option.correct { border-color: #4caf50; background: #e8f5e9; }
-        .option.correct .option-letter { background: #4caf50; }
-        .option.wrong { border-color: #f44336; background: #ffebee; }
-        .option.wrong .option-letter { background: #f44336; }
-        .option.disabled { cursor: default; opacity: 0.7; }
-        .option.disabled:hover { transform: none; border-color: #e0e0e0; }
-        .feedback { margin-top: 20px; padding: 18px; border-radius: 12px; display: none; }
+        .option-text { font-size: 15px; color: var(--text-primary); }
+        .option.correct { border-color: var(--correct); background: var(--correct-bg); }
+        .option.correct .option-letter { background: var(--correct); color: white; border-color: var(--correct); }
+        .option.wrong { border-color: var(--wrong); background: var(--wrong-bg); }
+        .option.wrong .option-letter { background: var(--wrong); color: white; border-color: var(--wrong); }
+        .option.disabled { cursor: default; }
+        .option.disabled:hover { border-color: var(--card-border); background: var(--card-bg); }
+        .option.correct.disabled:hover { border-color: var(--correct); background: var(--correct-bg); }
+        .option.wrong.disabled:hover { border-color: var(--wrong); background: var(--wrong-bg); }
+
+        .feedback { margin-top: 16px; padding: 16px; border-radius: 10px; display: none; }
         .feedback.show { display: block; }
-        .feedback.correct { background: #e8f5e9; border-left: 4px solid #4caf50; }
-        .feedback.wrong { background: #ffebee; border-left: 4px solid #f44336; }
-        .feedback-title { font-weight: 700; font-size: 18px; margin-bottom: 6px; }
-        .feedback.correct .feedback-title { color: #4caf50; }
-        .feedback.wrong .feedback-title { color: #f44336; }
-        .feedback-text { color: #666; line-height: 1.5; }
-        .timer.warning { color: #ff9800; animation: pulse 1s infinite; }
-        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
-        .results { display: none; text-align: center; }
+        .feedback.correct { background: var(--correct-bg); border-left: 3px solid var(--correct); }
+        .feedback.wrong { background: var(--wrong-bg); border-left: 3px solid var(--wrong); }
+        .feedback-title { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+        .feedback.correct .feedback-title { color: var(--correct); }
+        .feedback.wrong .feedback-title { color: var(--wrong); }
+        .feedback-text { color: var(--text-secondary); line-height: 1.5; font-size: 14px; }
+
+        .results { display: none; }
         .results.show { display: block; }
-        .results h2 { color: #667eea; font-size: 32px; margin-bottom: 8px; }
-        .results .grade { font-size: 18px; color: #666; margin-bottom: 25px; }
-        .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px; }
-        .result-stat { background: #f9f9f9; padding: 20px; border-radius: 15px; }
-        .result-label { font-size: 12px; color: #888; text-transform: uppercase; margin-bottom: 5px; }
-        .result-value { font-size: 30px; font-weight: 700; color: #667eea; }
-        .result-buttons { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
-        .loading { text-align: center; padding: 40px; }
-        .loading-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin: 0 auto 15px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .error-message { background: #ffebee; color: #c62828; padding: 12px; border-radius: 10px; margin-bottom: 15px; display: none; }
+        .results h2 { color: var(--accent); font-size: 28px; margin-bottom: 6px; }
+        .results .grade { font-size: 16px; color: var(--text-secondary); margin-bottom: 24px; }
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+        .result-stat { background: var(--hover-bg); border: 1px solid var(--card-border); padding: 18px; border-radius: 10px; text-align: center; }
+        .result-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .result-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+        .result-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
+
+        .loading { text-align: center; padding: 40px; color: var(--text-secondary); }
+        .loading-spinner {
+            border: 3px solid var(--card-border); border-top: 3px solid var(--accent);
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 0.8s linear infinite; margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error-message {
+            background: rgba(239,68,68,0.1); color: var(--danger);
+            border: 1px solid var(--danger); padding: 12px 16px;
+            border-radius: 8px; margin-bottom: 16px; display: none; font-size: 13px;
+        }
         .error-message.show { display: block; }
+
+        .timer.warning { color: #f59e0b; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; }
+            .topbar { padding: 0 16px; }
+            .content { padding: 16px; }
+            .mobile-menu-btn { display: block; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="nav-bar">
-            <a href="/" class="nav-btn">Home</a>
-            <a href="/profile" class="nav-btn">Profile</a>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <h1>Svidhaus Arena</h1>
+            <span>Gaming Hub</span>
         </div>
-        <div class="header">
-            <h1>5th Grade Trivia</h1>
-            <p>Test your knowledge with AI-generated questions!</p>
+        <div class="sidebar-section">
+            <div class="sidebar-label">Menu</div>
+            <a href="/" class="sidebar-item"><span class="icon">⊞</span> Dashboard</a>
+            <a href="/profile" class="sidebar-item"><span class="icon">👤</span> Profile</a>
         </div>
-        <div class="error-message" id="error-message"></div>
+        <div class="sidebar-section" style="margin-top:12px;">
+            <div class="sidebar-label">Games</div>
+            <a href="/trivia" class="sidebar-item active"><span class="icon">🤓</span> Trivia</a>
+            <a href="/wordle" class="sidebar-item"><span class="icon">🟩</span> Wordle</a>
+            <a href="/sportsbook.html" class="sidebar-item"><span class="icon">🏈</span> Sportsbook</a>
+            <div class="sidebar-item" style="cursor:default;opacity:0.5;"><span class="icon">🎬</span> Movie Reviews<span class="soon-badge">Soon</span></div>
+            <div class="sidebar-item" style="cursor:default;opacity:0.5;"><span class="icon">🤼</span> Wrestling<span class="soon-badge">Soon</span></div>
+        </div>
+        <div class="sidebar-bottom">
+            <button class="sidebar-item" onclick="logout()" style="background:none;border:none;text-align:left;width:100%;color:var(--danger);cursor:pointer;">
+                <span class="icon">↩</span> Logout
+            </button>
+        </div>
+    </aside>
 
-        <div class="game-card" id="setup-screen">
-            <div class="game-setup">
+    <div class="main">
+        <div class="topbar">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <button class="mobile-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div class="topbar-left"><h2>5th Grade Trivia</h2></div>
+            </div>
+            <div class="topbar-right">
+                <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="error-message" id="error-message"></div>
+
+            <!-- Setup -->
+            <div class="panel" id="setup-screen">
                 <h2>Start a New Game</h2>
                 <div class="setup-options">
                     <div class="option-group">
@@ -140,46 +268,48 @@
                 </div>
                 <button class="btn" onclick="startGame()">Start Game</button>
             </div>
-        </div>
 
-        <div class="game-card" id="loading-screen" style="display:none;">
-            <div class="loading"><div class="loading-spinner"></div><p>Generating your trivia questions...</p></div>
-        </div>
-
-        <div class="game-card game-interface" id="game-screen">
-            <div class="quit-row"><button class="quit-btn" onclick="quitGame()">Quit Game</button></div>
-            <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
-            <div class="game-header">
-                <div class="stat"><div class="stat-label">Question</div><div class="stat-value" id="question-counter">1/10</div></div>
-                <div class="stat"><div class="stat-label">Score</div><div class="stat-value" id="score">0</div></div>
-                <div class="stat"><div class="stat-label">Correct</div><div class="stat-value" id="correct-count">0</div></div>
-                <div class="stat"><div class="stat-label">Time</div><div class="stat-value timer" id="timer">0s</div></div>
+            <!-- Loading -->
+            <div class="panel" id="loading-screen" style="display:none;">
+                <div class="loading"><div class="loading-spinner"></div><p>Generating your trivia questions...</p></div>
             </div>
-            <div class="question-card">
-                <div class="question-number" id="question-category">Science</div>
-                <div class="question-text" id="question-text">Loading question...</div>
-                <div class="options" id="options-container"></div>
-                <div class="feedback" id="feedback">
-                    <div class="feedback-title" id="feedback-title"></div>
-                    <div class="feedback-text" id="feedback-text"></div>
+
+            <!-- Game -->
+            <div class="panel" id="game-screen" style="display:none;">
+                <div class="quit-row"><button class="quit-btn" onclick="quitGame()">✕ Quit Game</button></div>
+                <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+                <div class="game-header">
+                    <div class="stat"><div class="stat-label">Question</div><div class="stat-value" id="question-counter">1/10</div></div>
+                    <div class="stat"><div class="stat-label">Score</div><div class="stat-value" id="score">0</div></div>
+                    <div class="stat"><div class="stat-label">Correct</div><div class="stat-value" id="correct-count">0</div></div>
+                    <div class="stat"><div class="stat-label">Time</div><div class="stat-value timer" id="timer">0s</div></div>
                 </div>
+                <div class="question-card">
+                    <div class="question-number" id="question-category">Category</div>
+                    <div class="question-text" id="question-text">Loading question...</div>
+                    <div class="options" id="options-container"></div>
+                    <div class="feedback" id="feedback">
+                        <div class="feedback-title" id="feedback-title"></div>
+                        <div class="feedback-text" id="feedback-text"></div>
+                    </div>
+                </div>
+                <button class="btn" id="next-btn" style="display:none;">Next Question</button>
             </div>
-            <button class="btn" id="next-btn" style="display:none;">Next Question</button>
-        </div>
 
-        <div class="game-card results" id="results-screen">
-            <h2>Game Complete!</h2>
-            <div class="grade" id="grade-text"></div>
-            <div class="results-grid">
-                <div class="result-stat"><div class="result-label">Final Score</div><div class="result-value" id="final-score">0</div></div>
-                <div class="result-stat"><div class="result-label">Accuracy</div><div class="result-value" id="accuracy">0%</div></div>
-                <div class="result-stat"><div class="result-label">Correct</div><div class="result-value" id="final-correct">0</div></div>
-                <div class="result-stat"><div class="result-label">Time</div><div class="result-value" id="final-time">0s</div></div>
-            </div>
-            <div class="result-buttons">
-                <button class="btn" onclick="location.reload()">Play Again</button>
-                <button class="btn-secondary" onclick="window.location.href='/'">Home</button>
-                <button class="btn-secondary" onclick="window.location.href='/profile'">Profile</button>
+            <!-- Results -->
+            <div class="panel results" id="results-screen">
+                <h2>Game Complete!</h2>
+                <div class="grade" id="grade-text"></div>
+                <div class="results-grid">
+                    <div class="result-stat"><div class="result-label">Final Score</div><div class="result-value" id="final-score">0</div></div>
+                    <div class="result-stat"><div class="result-label">Accuracy</div><div class="result-value" id="accuracy">0%</div></div>
+                    <div class="result-stat"><div class="result-label">Correct</div><div class="result-value" id="final-correct">0</div></div>
+                    <div class="result-stat"><div class="result-label">Time</div><div class="result-value" id="final-time">0s</div></div>
+                </div>
+                <div class="result-buttons">
+                    <button class="btn" onclick="location.reload()">Play Again</button>
+                    <button class="btn-secondary" onclick="window.location.href='/'">Dashboard</button>
+                </div>
             </div>
         </div>
     </div>
@@ -190,6 +320,18 @@
         let questionStartTime = null, timerInterval = null;
         let totalQuestions = 10, currentQuestionNum = 0;
 
+        // Theme
+        function getTheme() { return localStorage.getItem('theme') || 'dark'; }
+        function applyTheme(t) {
+            document.documentElement.setAttribute('data-theme', t);
+            document.getElementById('theme-btn').textContent = t === 'dark' ? '☀️' : '🌙';
+        }
+        function toggleTheme() { const n = getTheme() === 'dark' ? 'light' : 'dark'; localStorage.setItem('theme', n); applyTheme(n); }
+        applyTheme(getTheme());
+
+        function getToken() { return localStorage.getItem('access_token') || localStorage.getItem('token'); }
+        function logout() { localStorage.removeItem('access_token'); localStorage.removeItem('token'); localStorage.removeItem('user'); window.location.href = '/login'; }
+
         function showError(msg) {
             const el = document.getElementById('error-message');
             el.textContent = msg; el.classList.add('show');
@@ -197,7 +339,7 @@
         }
 
         function quitGame() {
-            if (confirm('Are you sure you want to quit this game?')) {
+            if (confirm('Quit this game?')) {
                 stopTimer();
                 document.getElementById('game-screen').style.display = 'none';
                 document.getElementById('setup-screen').style.display = 'block';
@@ -277,13 +419,11 @@
                 document.getElementById('score').textContent = data.current_score;
                 document.getElementById('correct-count').textContent = data.correct_count;
 
-                // Feedback
                 const fb = document.getElementById('feedback');
                 fb.className = 'feedback show ' + (data.is_correct ? 'correct' : 'wrong');
-                document.getElementById('feedback-title').textContent = data.is_correct ? 'Correct!' : 'Incorrect';
+                document.getElementById('feedback-title').textContent = data.is_correct ? '✓ Correct!' : '✗ Incorrect';
                 document.getElementById('feedback-text').textContent = data.explanation;
 
-                // Highlight options
                 document.querySelectorAll('.option').forEach(opt => {
                     const idx = parseInt(opt.dataset.index);
                     if (idx === data.correct_answer) opt.classList.add('correct');
@@ -299,13 +439,12 @@
                 } else {
                     currentQuestion = data.next_question;
                     currentQuestionNum++;
-                    nextBtn.textContent = 'Next Question';
+                    nextBtn.textContent = 'Next Question →';
                     nextBtn.style.display = 'block';
                     nextBtn.onclick = () => displayQuestion();
                 }
             } catch (e) {
-                showError('Failed to submit answer: ' + e.message);
-                // Re-enable options so user can retry
+                showError('Failed to submit answer');
                 selectedAnswer = null;
                 document.querySelectorAll('.option').forEach((opt, i) => {
                     opt.classList.remove('disabled');
@@ -333,7 +472,6 @@
             document.getElementById('final-correct').textContent = stats.correct + '/' + stats.total;
             const t = stats.time_taken, m = Math.floor(t/60), s = t%60;
             document.getElementById('final-time').textContent = m > 0 ? `${m}:${s.toString().padStart(2,'0')}` : `${s}s`;
-
             let grade = stats.accuracy >= 90 ? 'A+ Amazing!' : stats.accuracy >= 80 ? 'A Great Job!' :
                         stats.accuracy >= 70 ? 'B Good Work!' : stats.accuracy >= 60 ? 'C Keep Trying!' : 'Keep Learning!';
             document.getElementById('grade-text').textContent = grade;

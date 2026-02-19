@@ -1,191 +1,278 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wordle - Svidhaus Arena</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root[data-theme="dark"] {
+            --bg: #0f0f0f; --sidebar-bg: #1a1a1a; --card-bg: #1e1e1e;
+            --card-border: #2a2a2a; --text-primary: #ffffff; --text-secondary: #888888;
+            --text-muted: #555555; --accent: #22c55e; --accent-hover: #16a34a;
+            --accent-dim: rgba(34,197,94,0.1); --danger: #ef4444;
+            --input-bg: #2a2a2a; --input-border: #333333;
+            --hover-bg: #252525; --divider: #2a2a2a; --modal-bg: #1a1a1a;
+            --tile-empty: #2a2a2a; --tile-filled: #3a3a3a;
+            --key-bg: #3a3a3a; --key-hover: #4a4a4a;
+        }
+        :root[data-theme="light"] {
+            --bg: #f4f6f9; --sidebar-bg: #ffffff; --card-bg: #ffffff;
+            --card-border: #e5e7eb; --text-primary: #111827; --text-secondary: #6b7280;
+            --text-muted: #9ca3af; --accent: #16a34a; --accent-hover: #15803d;
+            --accent-dim: rgba(22,163,74,0.08); --danger: #dc2626;
+            --input-bg: #f9fafb; --input-border: #d1d5db;
+            --hover-bg: #f3f4f6; --divider: #e5e7eb; --modal-bg: #ffffff;
+            --tile-empty: #d3d6da; --tile-filled: #878a8c;
+            --key-bg: #d3d6da; --key-hover: #bbb;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh; padding: 20px;
+            background: var(--bg); color: var(--text-primary);
+            min-height: 100vh; display: flex; transition: background 0.3s, color 0.3s;
         }
-        .container { max-width: 600px; margin: 0 auto; }
-        .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .nav-left { display: flex; gap: 10px; }
-        .nav-btn {
-            background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.4);
-            padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
-            cursor: pointer; text-decoration: none; transition: all 0.2s;
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: 240px; background: var(--sidebar-bg); border-right: 1px solid var(--divider);
+            display: flex; flex-direction: column; padding: 24px 0;
+            position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
+            transition: background 0.3s, border-color 0.3s, transform 0.3s;
         }
-        .nav-btn:hover { background: rgba(255,255,255,0.3); }
-        .logout-btn {
-            background: rgba(255,80,80,0.2); color: #ff6b6b; border: 2px solid rgba(255,80,80,0.4);
-            padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
-            cursor: pointer; transition: all 0.2s;
+        .sidebar-logo { padding: 0 24px 28px; border-bottom: 1px solid var(--divider); margin-bottom: 16px; }
+        .sidebar-logo h1 { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+        .sidebar-logo span { font-size: 12px; color: var(--text-secondary); }
+        .sidebar-section { padding: 0 12px; margin-bottom: 8px; }
+        .sidebar-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; padding: 0 12px; margin-bottom: 4px; }
+        .sidebar-item {
+            display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+            border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-secondary);
+            cursor: pointer; text-decoration: none; transition: background 0.15s, color 0.15s; margin-bottom: 2px;
         }
-        .logout-btn:hover { background: rgba(255,80,80,0.3); }
-        .header { text-align: center; color: white; margin-bottom: 25px; }
-        .header h1 { font-size: 48px; font-weight: 700; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); letter-spacing: 2px; }
+        .sidebar-item:hover { background: var(--hover-bg); color: var(--text-primary); }
+        .sidebar-item.active { background: var(--accent-dim); color: var(--accent); }
+        .sidebar-item .icon { font-size: 16px; width: 20px; text-align: center; }
+        .soon-badge { margin-left: auto; background: var(--card-border); color: var(--text-muted); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
+        .sidebar-bottom { margin-top: auto; padding: 16px 12px; border-top: 1px solid var(--divider); }
+
+        /* ── Main ── */
+        .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+        .topbar {
+            background: var(--sidebar-bg); border-bottom: 1px solid var(--divider);
+            padding: 0 32px; height: 64px; display: flex; align-items: center;
+            justify-content: space-between; position: sticky; top: 0; z-index: 50;
+            transition: background 0.3s, border-color 0.3s;
+        }
+        .topbar-left h2 { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .theme-toggle {
+            width: 36px; height: 36px; border-radius: 8px; background: var(--hover-bg);
+            border: 1px solid var(--card-border); font-size: 16px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .theme-toggle:hover { background: var(--accent-dim); border-color: var(--accent); }
+        .stats-topbar-btn {
+            width: 36px; height: 36px; border-radius: 8px; background: var(--hover-bg);
+            border: 1px solid var(--card-border); font-size: 18px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .stats-topbar-btn:hover { background: var(--accent-dim); border-color: var(--accent); }
+        .mobile-menu-btn { display: none; background: none; border: none; color: var(--text-primary); font-size: 22px; cursor: pointer; }
+
+        /* ── Content ── */
+        .content { padding: 28px 32px; flex: 1; display: flex; flex-direction: column; align-items: center; }
+
+        .daily-info {
+            text-align: center; margin-bottom: 16px; color: var(--text-secondary); font-size: 14px;
+        }
+        .daily-info .challenge-number { font-weight: 700; font-size: 15px; color: var(--text-primary); }
+        .daily-info .countdown { color: var(--text-muted); margin-top: 4px; font-size: 13px; }
+
         .game-card {
-            background: white; border-radius: 20px; padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3); margin-bottom: 20px;
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 12px; padding: 28px; width: 100%; max-width: 500px;
+            transition: background 0.3s, border-color 0.3s;
         }
-        .board { display: flex; flex-direction: column; gap: 5px; margin-bottom: 25px; }
+
+        /* ── Wordle tiles ── */
+        .board { display: flex; flex-direction: column; gap: 5px; margin-bottom: 24px; }
         .row { display: flex; gap: 5px; justify-content: center; }
         .tile {
-            width: 62px; height: 62px; border: 2px solid #d3d6da;
+            width: 58px; height: 58px; border: 2px solid var(--tile-empty);
             display: flex; align-items: center; justify-content: center;
-            font-size: 32px; font-weight: 700; text-transform: uppercase;
-            border-radius: 4px; transition: all 0.3s;
+            font-size: 28px; font-weight: 700; text-transform: uppercase;
+            border-radius: 6px; transition: all 0.3s; color: var(--text-primary);
         }
-        .tile.filled { border-color: #878a8c; }
+        .tile.filled { border-color: var(--tile-filled); }
         .tile.correct { background: #6aaa64; border-color: #6aaa64; color: white; }
         .tile.present { background: #c9b458; border-color: #c9b458; color: white; }
         .tile.absent { background: #787c7e; border-color: #787c7e; color: white; }
-        .keyboard { margin-top: 30px; }
+
+        /* ── Keyboard ── */
+        .keyboard { margin-top: 8px; }
         .keyboard-row { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; }
         .key {
-            min-width: 43px; height: 58px; padding: 0 12px;
-            background: #d3d6da; border: none; border-radius: 4px;
-            font-size: 13px; font-weight: 700; text-transform: uppercase;
-            cursor: pointer; transition: all 0.1s;
+            min-width: 43px; height: 56px; padding: 0 8px;
+            background: var(--key-bg); border: none; border-radius: 6px;
+            font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-primary);
+            cursor: pointer; transition: background 0.1s;
             display: flex; align-items: center; justify-content: center;
         }
-        .key:hover { background: #bbb; }
-        .key.wide { min-width: 65px; font-size: 12px; }
+        .key:hover { background: var(--key-hover); }
+        .key.wide { min-width: 65px; font-size: 11px; }
         .key.correct { background: #6aaa64; color: white; }
         .key.present { background: #c9b458; color: white; }
-        .key.absent { background: #787c7e; color: white; }
+        .key.absent { background: #3a3a3a; color: #666; }
+        [data-theme="light"] .key.absent { background: #787c7e; color: white; }
+
+        /* ── Message ── */
         .message {
-            position: fixed; top: 100px; left: 50%; transform: translateX(-50%);
-            background: #333; color: white; padding: 16px 24px; border-radius: 8px;
-            font-size: 14px; font-weight: 600; display: none; z-index: 100;
-            animation: slideDown 0.3s;
+            position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            color: var(--text-primary); padding: 12px 24px; border-radius: 8px;
+            font-size: 14px; font-weight: 600; display: none; z-index: 200;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
         }
-        .message.show { display: block; }
-        @keyframes slideDown { from { opacity: 0; transform: translateX(-50%) translateY(-20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        .message.show { display: block; animation: slideDown 0.3s; }
+        @keyframes slideDown { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+        /* ── Stats Modal ── */
         .stats-modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center;
-            z-index: 1000; animation: fadeIn 0.2s;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            display: none; align-items: center; justify-content: center;
+            z-index: 1000; backdrop-filter: blur(4px);
         }
         .stats-modal.show { display: flex; }
         .stats-content {
-            background: white; border-radius: 20px; padding: 35px; max-width: 500px;
-            width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            background: var(--modal-bg); border: 1px solid var(--card-border);
+            border-radius: 16px; padding: 32px; max-width: 480px;
+            width: 90%; box-shadow: 0 25px 60px rgba(0,0,0,0.5);
         }
-        .stats-header { text-align: center; margin-bottom: 30px; }
-        .stats-header h2 { font-size: 24px; color: #333; margin-bottom: 25px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 30px; }
+        .stats-header { text-align: center; margin-bottom: 28px; }
+        .stats-header h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 22px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 28px; }
         .stat-item { text-align: center; }
-        .stat-item .value { font-size: 36px; font-weight: 700; color: #667eea; }
-        .stat-item .label { font-size: 12px; color: #888; text-transform: uppercase; margin-top: 5px; }
-        .guess-distribution { margin-bottom: 20px; }
-        .guess-distribution h3 { font-size: 16px; color: #333; margin-bottom: 15px; text-transform: uppercase; }
-        .dist-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-        .dist-row .number { font-size: 14px; font-weight: 700; width: 12px; }
+        .stat-item .value { font-size: 32px; font-weight: 700; color: var(--accent); }
+        .stat-item .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; letter-spacing: 0.5px; }
+
+        .guess-distribution { margin-bottom: 24px; }
+        .guess-distribution h3 { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .dist-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+        .dist-row .number { font-size: 13px; font-weight: 700; width: 12px; color: var(--text-secondary); }
         .dist-row .bar {
-            height: 24px; background: #6aaa64; min-width: 20px;
+            height: 22px; background: var(--accent); min-width: 20px;
             display: flex; align-items: center; justify-content: flex-end;
-            padding: 0 8px; color: white; font-size: 14px; font-weight: 700; border-radius: 3px;
+            padding: 0 8px; color: white; font-size: 12px; font-weight: 700; border-radius: 4px;
         }
-        .dist-row .bar.current { background: #538d4e; }
-        .modal-btns { display: flex; gap: 10px; justify-content: center; }
-        .btn {
-            padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600;
-            cursor: pointer; border: none; transition: all 0.2s;
-        }
-        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
-        .btn-primary:hover { transform: translateY(-2px); }
-        .btn-secondary { background: #f0f0f0; color: #666; }
-        .stats-btn {
-            position: fixed; top: 90px; right: 20px; background: rgba(255,255,255,0.9);
-            border: 2px solid rgba(255,255,255,0.4); padding: 10px 20px; border-radius: 10px;
-            font-size: 24px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-        .stats-btn:hover { transform: scale(1.1); }
-        .daily-info {
-            text-align: center; color: white; margin-bottom: 15px; font-size: 14px;
-        }
-        .daily-info .challenge-number { font-weight: 700; font-size: 16px; }
-        .daily-info .timer { color: rgba(255,255,255,0.8); margin-top: 5px; }
-        .leaderboard { margin-top: 25px; }
-        .leaderboard h3 { font-size: 16px; color: #333; margin-bottom: 15px; text-transform: uppercase; }
+
+        .leaderboard { margin-top: 20px; }
+        .leaderboard h3 { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
         .leaderboard-entry {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 10px 0; border-bottom: 1px solid #f0f0f0;
+            padding: 9px 0; border-bottom: 1px solid var(--divider);
         }
         .leaderboard-entry:last-child { border-bottom: none; }
-        .leaderboard-entry .rank { font-weight: 700; color: #667eea; min-width: 30px; }
-        .leaderboard-entry .username { flex: 1; color: #333; font-weight: 500; }
-        .leaderboard-entry .score { color: #888; font-size: 13px; }
-        .leaderboard-entry.won .score { color: #6aaa64; font-weight: 600; }
+        .leaderboard-entry .rank { font-weight: 700; color: var(--accent); min-width: 30px; font-size: 14px; }
+        .leaderboard-entry .username { flex: 1; color: var(--text-primary); font-weight: 500; font-size: 14px; }
+        .leaderboard-entry .score { color: var(--text-muted); font-size: 13px; }
+        .leaderboard-entry.won .score { color: var(--accent); font-weight: 600; }
+
+        .modal-btns { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+        .btn-primary {
+            background: var(--accent); color: white; border: none;
+            padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-primary:hover { background: var(--accent-hover); }
+
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; }
+            .topbar { padding: 0 16px; }
+            .content { padding: 16px; }
+            .mobile-menu-btn { display: block; }
+            .tile { width: 50px; height: 50px; font-size: 24px; }
+            .key { min-width: 34px; height: 48px; font-size: 11px; }
+            .key.wide { min-width: 52px; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="nav-bar">
-            <div class="nav-left">
-                <a href="/" class="nav-btn">Home</a>
-                <a href="/profile" class="nav-btn">Profile</a>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <h1>Svidhaus Arena</h1>
+            <span>Gaming Hub</span>
+        </div>
+        <div class="sidebar-section">
+            <div class="sidebar-label">Menu</div>
+            <a href="/" class="sidebar-item"><span class="icon">⊞</span> Dashboard</a>
+            <a href="/profile" class="sidebar-item"><span class="icon">👤</span> Profile</a>
+        </div>
+        <div class="sidebar-section" style="margin-top:12px;">
+            <div class="sidebar-label">Games</div>
+            <a href="/trivia" class="sidebar-item"><span class="icon">🤓</span> Trivia</a>
+            <a href="/wordle" class="sidebar-item active"><span class="icon">🟩</span> Wordle</a>
+            <a href="/sportsbook.html" class="sidebar-item"><span class="icon">🏈</span> Sportsbook</a>
+            <div class="sidebar-item" style="cursor:default;opacity:0.5;"><span class="icon">🎬</span> Movie Reviews<span class="soon-badge">Soon</span></div>
+            <div class="sidebar-item" style="cursor:default;opacity:0.5;"><span class="icon">🤼</span> Wrestling<span class="soon-badge">Soon</span></div>
+        </div>
+        <div class="sidebar-bottom">
+            <button class="sidebar-item" onclick="logout()" style="background:none;border:none;text-align:left;width:100%;color:var(--danger);cursor:pointer;">
+                <span class="icon">↩</span> Logout
+            </button>
+        </div>
+    </aside>
+
+    <div class="main">
+        <div class="topbar">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <button class="mobile-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div class="topbar-left"><h2>Wordle</h2></div>
             </div>
-            <button class="logout-btn" onclick="logout()">Logout</button>
+            <div class="topbar-right">
+                <button class="stats-topbar-btn" onclick="showStats()" title="Statistics">📊</button>
+                <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️</button>
+            </div>
         </div>
 
-        <div class="header">
-            <h1>WORDLE</h1>
-        </div>
+        <div class="content">
+            <div class="daily-info">
+                <div class="challenge-number">Challenge #<span id="challenge-number">—</span></div>
+                <div class="countdown" id="timer">Next challenge in --:--:--</div>
+            </div>
 
-        <div class="daily-info" id="daily-info">
-            <div class="challenge-number">Challenge #<span id="challenge-number">-</span></div>
-            <div class="timer" id="timer">Next challenge in --:--:--</div>
-        </div>
-
-        <div class="game-card">
-            <div class="board" id="board"></div>
-
-            <div class="keyboard">
-                <div class="keyboard-row">
-                    <button class="key" data-key="Q">Q</button>
-                    <button class="key" data-key="W">W</button>
-                    <button class="key" data-key="E">E</button>
-                    <button class="key" data-key="R">R</button>
-                    <button class="key" data-key="T">T</button>
-                    <button class="key" data-key="Y">Y</button>
-                    <button class="key" data-key="U">U</button>
-                    <button class="key" data-key="I">I</button>
-                    <button class="key" data-key="O">O</button>
-                    <button class="key" data-key="P">P</button>
-                </div>
-                <div class="keyboard-row">
-                    <button class="key" data-key="A">A</button>
-                    <button class="key" data-key="S">S</button>
-                    <button class="key" data-key="D">D</button>
-                    <button class="key" data-key="F">F</button>
-                    <button class="key" data-key="G">G</button>
-                    <button class="key" data-key="H">H</button>
-                    <button class="key" data-key="J">J</button>
-                    <button class="key" data-key="K">K</button>
-                    <button class="key" data-key="L">L</button>
-                </div>
-                <div class="keyboard-row">
-                    <button class="key wide" data-key="ENTER">ENTER</button>
-                    <button class="key" data-key="Z">Z</button>
-                    <button class="key" data-key="X">X</button>
-                    <button class="key" data-key="C">C</button>
-                    <button class="key" data-key="V">V</button>
-                    <button class="key" data-key="B">B</button>
-                    <button class="key" data-key="N">N</button>
-                    <button class="key" data-key="M">M</button>
-                    <button class="key wide" data-key="BACKSPACE">⌫</button>
+            <div class="game-card">
+                <div class="board" id="board"></div>
+                <div class="keyboard">
+                    <div class="keyboard-row">
+                        <button class="key" data-key="Q">Q</button><button class="key" data-key="W">W</button>
+                        <button class="key" data-key="E">E</button><button class="key" data-key="R">R</button>
+                        <button class="key" data-key="T">T</button><button class="key" data-key="Y">Y</button>
+                        <button class="key" data-key="U">U</button><button class="key" data-key="I">I</button>
+                        <button class="key" data-key="O">O</button><button class="key" data-key="P">P</button>
+                    </div>
+                    <div class="keyboard-row">
+                        <button class="key" data-key="A">A</button><button class="key" data-key="S">S</button>
+                        <button class="key" data-key="D">D</button><button class="key" data-key="F">F</button>
+                        <button class="key" data-key="G">G</button><button class="key" data-key="H">H</button>
+                        <button class="key" data-key="J">J</button><button class="key" data-key="K">K</button>
+                        <button class="key" data-key="L">L</button>
+                    </div>
+                    <div class="keyboard-row">
+                        <button class="key wide" data-key="ENTER">ENTER</button>
+                        <button class="key" data-key="Z">Z</button><button class="key" data-key="X">X</button>
+                        <button class="key" data-key="C">C</button><button class="key" data-key="V">V</button>
+                        <button class="key" data-key="B">B</button><button class="key" data-key="N">N</button>
+                        <button class="key" data-key="M">M</button>
+                        <button class="key wide" data-key="BACKSPACE">⌫</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-
-    <button class="stats-btn" onclick="showStats()">📊</button>
 
     <div class="message" id="message"></div>
 
@@ -209,7 +296,7 @@
                 <div id="leaderboard"></div>
             </div>
             <div class="modal-btns">
-                <button class="btn btn-primary" onclick="hideStats()">Close</button>
+                <button class="btn-primary" onclick="hideStats()">Close</button>
             </div>
         </div>
     </div>
@@ -236,6 +323,18 @@
             localStorage.removeItem('user');
             window.location.href = '/';
         }
+
+        function getTheme() { return localStorage.getItem('theme') || 'dark'; }
+        function applyTheme(t) {
+            document.documentElement.setAttribute('data-theme', t);
+            document.getElementById('theme-btn').textContent = t === 'dark' ? '☀️' : '🌙';
+        }
+        function toggleTheme() {
+            const n = getTheme() === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('theme', n);
+            applyTheme(n);
+        }
+        applyTheme(getTheme());
 
         function createBoard() {
             const board = document.getElementById('board');
