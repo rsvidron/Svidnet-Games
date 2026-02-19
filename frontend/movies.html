@@ -262,6 +262,32 @@
         .col-panel-label { font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
         .col-panel-label .ranking-badge { font-size: 10px; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent); border-radius: 10px; padding: 2px 8px; text-transform: none; letter-spacing: 0; font-weight: 600; }
 
+        /* ── Leaderboard sidebar ── */
+        .lb-toggle-btn { padding: 7px 14px; background: var(--hover-bg); border: 1px solid var(--card-border); border-radius: 8px; font-size: 12px; font-weight: 600; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; white-space: nowrap; font-family: inherit; }
+        .lb-toggle-btn:hover, .lb-toggle-btn.lb-open { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+        .lb-sidebar { width: 280px; flex-shrink: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; margin-left: 20px; overflow: hidden; transition: width 0.3s ease, opacity 0.3s ease, margin 0.3s ease; position: sticky; top: 80px; align-self: flex-start; }
+        .lb-sidebar.lb-collapsed { width: 0; opacity: 0; margin-left: 0; pointer-events: none; border: none; }
+        .lb-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; border-bottom: 1px solid var(--card-border); }
+        .lb-title { font-size: 13px; font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+        .lb-close-btn { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; line-height: 1; padding: 0 2px; transition: color 0.15s; }
+        .lb-close-btn:hover { color: var(--text-primary); }
+        .lb-subtext { padding: 6px 16px 10px; font-size: 11px; color: var(--text-muted); border-bottom: 1px solid var(--card-border); white-space: nowrap; }
+        #lb-content { max-height: calc(100vh - 220px); overflow-y: auto; padding: 10px 0; }
+        .lb-row { display: flex; align-items: center; gap: 10px; padding: 8px 14px; transition: background 0.15s; }
+        .lb-row:hover { background: var(--hover-bg); }
+        .lb-rank { min-width: 28px; font-size: 14px; font-weight: 800; color: var(--text-muted); text-align: center; flex-shrink: 0; }
+        .lb-rank.lb-top { color: var(--accent); }
+        .lb-poster { width: 28px; height: 42px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: var(--poster-bg); }
+        .lb-poster-ph { width: 28px; height: 42px; border-radius: 4px; background: var(--poster-bg); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+        .lb-info { flex: 1; min-width: 0; }
+        .lb-item-title { font-size: 12px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .lb-avg { font-size: 10px; color: var(--text-muted); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+        .lb-avg-num { font-weight: 700; color: var(--accent); font-size: 11px; }
+        .lb-spread-bar { height: 4px; border-radius: 2px; background: var(--card-border); flex: 1; overflow: hidden; }
+        .lb-spread-fill { height: 100%; background: var(--accent); border-radius: 2px; opacity: 0.6; }
+        .lb-empty { padding: 24px 16px; text-align: center; font-size: 13px; color: var(--text-muted); }
+        .lb-section-sep { height: 1px; background: var(--divider); margin: 6px 14px; }
+
         /* ── Mobile ── */
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
@@ -277,6 +303,8 @@
             .lists-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
             .view-tabs { width: 100%; }
             #collection-split-view { grid-template-columns: 1fr !important; }
+            #col-detail-outer { flex-direction: column !important; }
+            .lb-sidebar:not(.lb-collapsed) { width: 100% !important; margin-left: 0 !important; margin-top: 16px; position: static; }
         }
     </style>
 </head>
@@ -413,34 +441,52 @@
                 <!-- Collection Detail -->
                 <div id="collections-detail" style="display:none;">
                     <div class="back-btn" onclick="goBackToCollections()">← Back to collections</div>
-                    <div class="list-detail-header">
-                        <div>
-                            <div class="list-detail-title" id="collection-detail-title"></div>
-                            <div class="list-detail-desc" id="collection-detail-desc"></div>
+                    <!-- Outer flex: main content + leaderboard sidebar -->
+                    <div id="col-detail-outer" style="display:flex;gap:0;align-items:flex-start;">
+                        <!-- Main column -->
+                        <div style="flex:1;min-width:0;">
+                            <div class="list-detail-header">
+                                <div>
+                                    <div class="list-detail-title" id="collection-detail-title"></div>
+                                    <div class="list-detail-desc" id="collection-detail-desc"></div>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <button class="lb-toggle-btn" id="lb-toggle-btn" onclick="toggleLeaderboard()" title="Toggle Leaderboard">📊 Leaderboard</button>
+                                    <div class="list-detail-actions" id="collection-admin-actions" style="display:none;">
+                                        <button class="btn btn-secondary btn-sm" onclick="showEditCollectionModal()">Edit</button>
+                                        <button class="btn btn-danger btn-sm" onclick="deleteCollection()">Delete</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Admin: add items -->
+                            <div id="collection-add-row" style="display:none;" class="add-row">
+                                <div class="search-wrap">
+                                    <input class="add-input" type="text" id="collection-add-input" placeholder="Add a movie or TV show to this collection..." oninput="onCollectionAddSearch()" autocomplete="off">
+                                    <div class="search-dropdown" id="collection-search-dropdown" style="display:none;"></div>
+                                </div>
+                            </div>
+                            <!-- Split layout: canonical list + user ranking -->
+                            <div id="collection-split-view" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+                                <!-- Left: canonical collection -->
+                                <div>
+                                    <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Official Order</div>
+                                    <div id="collection-items-container"><div class="loading">Loading...</div></div>
+                                </div>
+                                <!-- Right: user's personal ranking -->
+                                <div>
+                                    <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Your Ranking</div>
+                                    <div id="user-ranking-container"><div class="loading">Loading...</div></div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="list-detail-actions" id="collection-admin-actions" style="display:none;">
-                            <button class="btn btn-secondary btn-sm" onclick="showEditCollectionModal()">Edit</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteCollection()">Delete</button>
-                        </div>
-                    </div>
-                    <!-- Admin: add items -->
-                    <div id="collection-add-row" style="display:none;" class="add-row">
-                        <div class="search-wrap">
-                            <input class="add-input" type="text" id="collection-add-input" placeholder="Add a movie or TV show to this collection..." oninput="onCollectionAddSearch()" autocomplete="off">
-                            <div class="search-dropdown" id="collection-search-dropdown" style="display:none;"></div>
-                        </div>
-                    </div>
-                    <!-- Split layout: canonical list + user ranking -->
-                    <div id="collection-split-view" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
-                        <!-- Left: canonical collection -->
-                        <div>
-                            <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Official Order</div>
-                            <div id="collection-items-container"><div class="loading">Loading...</div></div>
-                        </div>
-                        <!-- Right: user's personal ranking -->
-                        <div>
-                            <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:12px;">Your Ranking</div>
-                            <div id="user-ranking-container"><div class="loading">Loading...</div></div>
+                        <!-- Leaderboard sidebar -->
+                        <div id="lb-sidebar" class="lb-sidebar lb-collapsed">
+                            <div class="lb-header">
+                                <span class="lb-title">📊 Community Leaderboard</span>
+                                <button class="lb-close-btn" onclick="toggleLeaderboard()" title="Close">×</button>
+                            </div>
+                            <div class="lb-subtext" id="lb-subtext">Average rank across all users</div>
+                            <div id="lb-content"><div class="loading">Loading...</div></div>
                         </div>
                     </div>
                 </div>
@@ -1166,6 +1212,11 @@
 
         async function openCollection(collectionId) {
             currentCollectionId = collectionId;
+            lbLoaded = false;
+            // Collapse leaderboard sidebar on new collection open
+            lbOpen = false;
+            document.getElementById('lb-sidebar').classList.add('lb-collapsed');
+            document.getElementById('lb-toggle-btn').classList.remove('lb-open');
             document.getElementById('collections-overview').style.display = 'none';
             document.getElementById('collections-detail').style.display = '';
             document.getElementById('collection-items-container').innerHTML = '<div class="loading">Loading...</div>';
@@ -1386,9 +1437,84 @@
 
         function goBackToCollections() {
             currentCollectionId = null; currentCollectionData = null; userCollectionRanking = null;
+            lbOpen = false;
             document.getElementById('collections-detail').style.display = 'none';
             document.getElementById('collections-overview').style.display = '';
             loadCollections();
+        }
+
+        // ── Leaderboard sidebar ────────────────────────────────────────────────────
+        let lbOpen = false;
+        let lbLoaded = false;
+
+        function toggleLeaderboard() {
+            lbOpen = !lbOpen;
+            const sidebar = document.getElementById('lb-sidebar');
+            const btn = document.getElementById('lb-toggle-btn');
+            sidebar.classList.toggle('lb-collapsed', !lbOpen);
+            btn.classList.toggle('lb-open', lbOpen);
+            if (lbOpen && !lbLoaded) {
+                loadLeaderboard();
+            }
+        }
+
+        async function loadLeaderboard() {
+            if (!currentCollectionId) return;
+            lbLoaded = true;
+            const content = document.getElementById('lb-content');
+            content.innerHTML = '<div class="loading" style="padding:20px;">Loading...</div>';
+            try {
+                const res = await fetch(`${API}/api/rankings/collections/${currentCollectionId}/leaderboard`);
+                if (!res.ok) throw new Error(await res.text());
+                const data = await res.json();
+                renderLeaderboard(data);
+            } catch (e) {
+                content.innerHTML = `<div class="lb-empty">Failed to load leaderboard.</div>`;
+            }
+        }
+
+        function renderLeaderboard(data) {
+            const content = document.getElementById('lb-content');
+            const subtext = document.getElementById('lb-subtext');
+
+            const n = data.ranker_count;
+            subtext.textContent = n === 0
+                ? 'No rankings yet'
+                : `${n} ranker${n !== 1 ? 's' : ''} · averaged positions`;
+
+            const items = data.items || [];
+            if (!items.length) {
+                content.innerHTML = `<div class="lb-empty">No one has ranked this collection yet.<br>Be the first!</div>`;
+                return;
+            }
+
+            const medals = ['🥇', '🥈', '🥉'];
+            const maxAvg = Math.max(...items.map(i => i.avg_rank));
+
+            content.innerHTML = items.map((item, idx) => {
+                const pos = idx + 1;
+                const isTop = pos <= 3;
+                const rankDisplay = isTop ? medals[pos - 1] : pos;
+                const spreadPct = maxAvg > 0 ? Math.round((item.avg_rank / maxAvg) * 100) : 50;
+                const poster = item.poster_path
+                    ? `<img class="lb-poster" src="${POSTER}${item.poster_path}" loading="lazy">`
+                    : `<div class="lb-poster-ph">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`;
+                const rankerNote = item.rank_count < n
+                    ? `<span title="${n - item.rank_count} ranker(s) didn't include this">·${item.rank_count}/${n}</span>`
+                    : '';
+                return `<div class="lb-row">
+                    <div class="lb-rank${isTop ? ' lb-top' : ''}">${rankDisplay}</div>
+                    ${poster}
+                    <div class="lb-info">
+                        <div class="lb-item-title" title="${escHtml(item.title)}">${escHtml(item.title)}</div>
+                        <div class="lb-avg">
+                            <span class="lb-avg-num">avg #${item.avg_rank % 1 === 0 ? item.avg_rank : item.avg_rank.toFixed(1)}</span>
+                            ${rankerNote}
+                            <div class="lb-spread-bar"><div class="lb-spread-fill" style="width:${spreadPct}%"></div></div>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
         }
 
         // ── Collection admin: add item search ──────────────────────────────────────

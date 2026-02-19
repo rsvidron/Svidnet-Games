@@ -439,6 +439,85 @@ def remove_collection_item(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# COLLECTION LEADERBOARD
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/collections/{collection_id}/leaderboard")
+def get_collection_leaderboard(
+    collection_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    For each item in the collection, compute the average rank across all users
+    who have a ranked list matching this collection's title.
+    Returns items sorted by average rank (lowest avg = best consensus rank).
+    """
+    col = db.query(Collection).filter(Collection.id == collection_id).first()
+    if not col:
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    # Find all ranked lists whose title matches the collection title
+    matching_lists = db.query(RankedList).filter(RankedList.title == col.title).all()
+    if not matching_lists:
+        return {"collection_id": collection_id, "title": col.title, "ranker_count": 0, "items": []}
+
+    list_ids = [l.id for l in matching_lists]
+    ranker_count = len(list_ids)
+
+    # Fetch canonical items for reference (title, poster_path, media_type, release_year)
+    canonical_items = db.query(CollectionItem).filter(
+        CollectionItem.collection_id == collection_id
+    ).order_by(asc(CollectionItem.sort_order)).all()
+
+    # Build a lookup: title -> canonical info
+    canonical_map = {ci.title: ci for ci in canonical_items}
+
+    # Gather all ranked list items across all matching lists
+    all_items = db.query(RankedListItem).filter(
+        RankedListItem.list_id.in_(list_ids)
+    ).all()
+
+    # Accumulate rank scores per title
+    rank_accumulator: dict[str, list[int]] = {}
+    for item in all_items:
+        title = item.title
+        if title not in rank_accumulator:
+            rank_accumulator[title] = []
+        rank_accumulator[title].append(item.rank)
+
+    # Build result: only include titles that appear in the canonical collection
+    result_items = []
+    for title, ranks in rank_accumulator.items():
+        if title not in canonical_map:
+            continue
+        ci = canonical_map[title]
+        avg_rank = sum(ranks) / len(ranks)
+        result_items.append({
+            "title": title,
+            "media_type": ci.media_type,
+            "poster_path": ci.poster_path,
+            "release_year": ci.release_year,
+            "avg_rank": round(avg_rank, 2),
+            "rank_count": len(ranks),         # how many users ranked this item
+            "ranks": sorted(ranks),           # raw rank list for display
+        })
+
+    # Sort by average rank ascending (best consensus position first)
+    result_items.sort(key=lambda x: x["avg_rank"])
+
+    # Re-number consensus positions 1..N
+    for idx, item in enumerate(result_items, start=1):
+        item["consensus_rank"] = idx
+
+    return {
+        "collection_id": collection_id,
+        "title": col.title,
+        "ranker_count": ranker_count,
+        "items": result_items,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # FRIENDS RANKINGS
 # ═══════════════════════════════════════════════════════════════════════════════
 
