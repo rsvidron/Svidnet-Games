@@ -1,137 +1,229 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile - Svidhaus Arena</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root[data-theme="dark"] {
+            --bg: #0f0f0f; --sidebar-bg: #1a1a1a; --card-bg: #1e1e1e;
+            --card-border: #2a2a2a; --text-primary: #ffffff; --text-secondary: #888888;
+            --text-muted: #555555; --accent: #22c55e; --accent-hover: #16a34a;
+            --accent-dim: rgba(34,197,94,0.1); --danger: #ef4444;
+            --hover-bg: #252525; --divider: #2a2a2a; --stat-bg: #252525;
+        }
+        :root[data-theme="light"] {
+            --bg: #f4f6f9; --sidebar-bg: #ffffff; --card-bg: #ffffff;
+            --card-border: #e5e7eb; --text-primary: #111827; --text-secondary: #6b7280;
+            --text-muted: #9ca3af; --accent: #16a34a; --accent-hover: #15803d;
+            --accent-dim: rgba(22,163,74,0.08); --danger: #dc2626;
+            --hover-bg: #f3f4f6; --divider: #e5e7eb; --stat-bg: #f3f4f6;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh; padding: 20px;
+            background: var(--bg); color: var(--text-primary);
+            min-height: 100vh; display: flex; transition: background 0.3s, color 0.3s;
         }
-        .container { max-width: 900px; margin: 0 auto; }
-        .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .nav-left { display: flex; gap: 10px; }
-        .nav-btn {
-            background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.4);
-            padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
-            cursor: pointer; text-decoration: none; transition: all 0.2s;
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: 240px; background: var(--sidebar-bg); border-right: 1px solid var(--divider);
+            display: flex; flex-direction: column; padding: 24px 0;
+            position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
+            transition: background 0.3s, border-color 0.3s, transform 0.3s;
         }
-        .nav-btn:hover { background: rgba(255,255,255,0.3); }
-        .nav-btn.active { background: rgba(255,255,255,0.35); border-color: white; }
+        .sidebar-logo { padding: 0 24px 28px; border-bottom: 1px solid var(--divider); margin-bottom: 16px; }
+        .sidebar-logo h1 { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+        .sidebar-logo span { font-size: 12px; color: var(--text-secondary); }
+        .sidebar-section { padding: 0 12px; margin-bottom: 8px; }
+        .sidebar-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; padding: 0 12px; margin-bottom: 4px; }
+        .sidebar-item {
+            display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+            border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-secondary);
+            cursor: pointer; text-decoration: none; transition: background 0.15s, color 0.15s; margin-bottom: 2px;
+        }
+        .sidebar-item:hover { background: var(--hover-bg); color: var(--text-primary); }
+        .sidebar-item.active { background: var(--accent-dim); color: var(--accent); }
+        .sidebar-item .icon { font-size: 16px; width: 20px; text-align: center; }
+        .soon-badge { margin-left: auto; background: var(--card-border); color: var(--text-muted); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
+        .sidebar-bottom { margin-top: auto; padding: 16px 12px; border-top: 1px solid var(--divider); }
+
+        /* ── Main ── */
+        .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+        .topbar {
+            background: var(--sidebar-bg); border-bottom: 1px solid var(--divider);
+            padding: 0 32px; height: 64px; display: flex; align-items: center;
+            justify-content: space-between; position: sticky; top: 0; z-index: 50;
+            transition: background 0.3s, border-color 0.3s;
+        }
+        .topbar-left h2 { font-size: 18px; font-weight: 600; color: var(--text-primary); }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .theme-toggle {
+            width: 36px; height: 36px; border-radius: 8px; background: var(--hover-bg);
+            border: 1px solid var(--card-border); font-size: 16px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .theme-toggle:hover { background: var(--accent-dim); border-color: var(--accent); }
+        .mobile-menu-btn { display: none; background: none; border: none; color: var(--text-primary); font-size: 22px; cursor: pointer; }
+
+        /* ── Content ── */
+        .content { padding: 28px 32px; flex: 1; }
+
+        /* ── Profile Card ── */
         .profile-card {
-            background: white; border-radius: 20px; padding: 35px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3); margin-bottom: 20px;
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 16px; padding: 28px; margin-bottom: 20px;
+            transition: background 0.3s, border-color 0.3s;
         }
-        .profile-header { display: flex; align-items: center; gap: 25px; margin-bottom: 25px; }
+        .profile-header { display: flex; align-items: center; gap: 24px; margin-bottom: 28px; }
         .profile-avatar {
-            width: 90px; height: 90px; border-radius: 50%;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            width: 80px; height: 80px; border-radius: 50%;
+            background: var(--accent-dim); border: 2px solid var(--accent);
             display: flex; align-items: center; justify-content: center;
-            color: white; font-size: 36px; font-weight: 700; flex-shrink: 0;
+            color: var(--accent); font-size: 32px; font-weight: 700; flex-shrink: 0;
         }
         .profile-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-        .profile-info h2 { font-size: 28px; color: #333; margin-bottom: 4px; }
-        .profile-info .email { color: #888; font-size: 14px; margin-bottom: 4px; }
-        .profile-info .member-since { color: #aaa; font-size: 13px; }
-        .profile-info .auth-badge {
-            display: inline-block; padding: 3px 10px; border-radius: 5px;
-            font-size: 11px; font-weight: 600; margin-top: 5px;
+        .profile-info h2 { font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+        .profile-info .email { color: var(--text-secondary); font-size: 14px; margin-bottom: 4px; }
+        .profile-info .member-since { color: var(--text-muted); font-size: 13px; }
+        .auth-badge {
+            display: inline-block; padding: 3px 10px; border-radius: 6px;
+            font-size: 11px; font-weight: 600; margin-top: 6px;
         }
-        .auth-badge.google { background: #e8f5e9; color: #4caf50; }
-        .auth-badge.local { background: #e3f2fd; color: #2196f3; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px; }
-        .stat-box { background: #f9f9f9; border-radius: 15px; padding: 20px; text-align: center; }
-        .stat-box .value { font-size: 30px; font-weight: 700; color: #667eea; }
-        .stat-box .label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+        .auth-badge.google { background: rgba(66,133,244,0.12); color: #4285f4; }
+        .auth-badge.local { background: var(--accent-dim); color: var(--accent); }
+
+        /* ── Stats Grid ── */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 14px; margin-bottom: 28px;
+        }
+        .stat-box {
+            background: var(--stat-bg); border: 1px solid var(--card-border);
+            border-radius: 12px; padding: 18px; text-align: center;
+        }
+        .stat-box .value { font-size: 28px; font-weight: 700; color: var(--accent); }
+        .stat-box .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+        /* ── Section Title ── */
         .section-title {
-            font-size: 20px; font-weight: 600; color: #333; margin-bottom: 15px;
-            padding-bottom: 8px; border-bottom: 2px solid #f0f0f0;
+            font-size: 16px; font-weight: 600; color: var(--text-primary);
+            margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--divider);
         }
-        .category-stats { margin-bottom: 30px; }
+
+        /* ── Category Stats ── */
+        .category-stats { margin-bottom: 28px; }
         .category-row {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 12px 0; border-bottom: 1px solid #f5f5f5;
+            padding: 12px 0; border-bottom: 1px solid var(--divider);
         }
         .category-row:last-child { border-bottom: none; }
-        .category-name { font-weight: 500; color: #333; text-transform: capitalize; }
+        .category-name { font-weight: 500; color: var(--text-primary); font-size: 14px; text-transform: capitalize; }
         .category-detail { display: flex; gap: 20px; }
-        .category-detail span { font-size: 13px; color: #888; }
-        .category-detail .highlight { color: #667eea; font-weight: 600; }
-        .game-history { margin-bottom: 30px; }
+        .category-detail span { font-size: 13px; color: var(--text-secondary); }
+        .category-detail .highlight { color: var(--accent); font-weight: 600; }
+
+        /* ── Game History ── */
+        .game-history { margin-bottom: 12px; }
         .history-row {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 14px 0; border-bottom: 1px solid #f5f5f5;
+            padding: 14px 0; border-bottom: 1px solid var(--divider);
         }
         .history-row:last-child { border-bottom: none; }
-        .history-left h4 { font-size: 14px; color: #333; margin-bottom: 3px; }
-        .history-left p { font-size: 12px; color: #999; }
+        .history-left h4 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 3px; }
+        .history-left p { font-size: 12px; color: var(--text-muted); }
         .history-right { text-align: right; }
-        .history-right .score { font-size: 20px; font-weight: 700; color: #667eea; }
-        .history-right .detail { font-size: 12px; color: #888; }
-        .progress-ring { margin-bottom: 30px; text-align: center; }
-        .accuracy-ring {
-            width: 140px; height: 140px; margin: 0 auto 10px;
-            position: relative; display: flex; align-items: center; justify-content: center;
+        .history-right .score { font-size: 22px; font-weight: 700; color: var(--accent); }
+        .history-right .detail { font-size: 12px; color: var(--text-muted); }
+
+        /* ── Empty State ── */
+        .empty-state { text-align: center; padding: 32px 20px; color: var(--text-muted); font-size: 14px; }
+        .empty-state a { color: var(--accent); }
+
+        /* ── Mobile ── */
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; }
+            .topbar { padding: 0 16px; }
+            .content { padding: 16px; }
+            .mobile-menu-btn { display: block; }
+            .profile-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .category-detail { gap: 10px; flex-wrap: wrap; }
         }
-        .accuracy-ring svg { position: absolute; top: 0; left: 0; }
-        .accuracy-ring .accuracy-text { font-size: 32px; font-weight: 700; color: #667eea; }
-        .accuracy-ring .accuracy-label { font-size: 12px; color: #888; display: block; margin-top: 2px; }
-        .empty-state { text-align: center; padding: 25px; color: #aaa; font-size: 14px; }
-        .load-more {
-            display: block; width: 100%; padding: 12px; background: #f5f5f5;
-            border: none; border-radius: 10px; color: #667eea; font-size: 14px;
-            font-weight: 600; cursor: pointer; margin-top: 10px;
-        }
-        .load-more:hover { background: #eef; }
-        .logout-btn {
-            background: rgba(255,80,80,0.2); color: #ff6b6b; border: 2px solid rgba(255,80,80,0.4);
-            padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
-            cursor: pointer; transition: all 0.2s;
-        }
-        .logout-btn:hover { background: rgba(255,80,80,0.3); }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="nav-bar">
-            <div class="nav-left">
-                <a href="/" class="nav-btn">Home</a>
-                <a href="/profile" class="nav-btn active">Profile</a>
-                <a href="/admin" class="nav-btn" id="admin-nav-btn" style="display: none;">Admin</a>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <h1>Svidhaus Arena</h1>
+            <span>Gaming Hub</span>
+        </div>
+        <div class="sidebar-section">
+            <div class="sidebar-label">Menu</div>
+            <a href="/" class="sidebar-item"><span class="icon">⊞</span> Dashboard</a>
+            <a href="/profile" class="sidebar-item active"><span class="icon">👤</span> Profile</a>
+            <a href="/admin" class="sidebar-item" id="admin-sidebar-link" style="display:none;"><span class="icon">⚙️</span> Admin</a>
+        </div>
+        <div class="sidebar-section" style="margin-top:12px;">
+            <div class="sidebar-label">Games</div>
+            <a href="/trivia" class="sidebar-item"><span class="icon">🤓</span> Trivia</a>
+            <a href="/wordle" class="sidebar-item"><span class="icon">🟩</span> Wordle</a>
+            <a href="/sportsbook.html" class="sidebar-item"><span class="icon">🏈</span> Sportsbook</a>
+            <div class="sidebar-item" style="cursor:default;opacity:0.5;"><span class="icon">🎬</span> Movie Reviews<span class="soon-badge">Soon</span></div>
+            <div class="sidebar-item" style="cursor:default;opacity:0.5;"><span class="icon">🤼</span> Wrestling<span class="soon-badge">Soon</span></div>
+        </div>
+        <div class="sidebar-bottom">
+            <button class="sidebar-item" onclick="logout()" style="background:none;border:none;text-align:left;width:100%;color:var(--danger);cursor:pointer;">
+                <span class="icon">↩</span> Logout
+            </button>
+        </div>
+    </aside>
+
+    <div class="main">
+        <div class="topbar">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <button class="mobile-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <div class="topbar-left"><h2>Profile</h2></div>
             </div>
-            <button class="logout-btn" onclick="logout()">Logout</button>
+            <div class="topbar-right">
+                <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️</button>
+            </div>
         </div>
 
-        <div class="profile-card">
-            <div class="profile-header">
-                <div class="profile-avatar" id="profile-avatar"></div>
-                <div class="profile-info">
-                    <h2 id="profile-username">Loading...</h2>
-                    <div class="email" id="profile-email"></div>
-                    <div class="member-since" id="member-since"></div>
+        <div class="content">
+            <div class="profile-card">
+                <div class="profile-header">
+                    <div class="profile-avatar" id="profile-avatar"></div>
+                    <div class="profile-info">
+                        <h2 id="profile-username">Loading...</h2>
+                        <div class="email" id="profile-email"></div>
+                        <div class="member-since" id="member-since"></div>
+                    </div>
                 </div>
-            </div>
 
-            <div class="stats-grid" id="stats-grid">
-                <div class="stat-box"><div class="value" id="total-games">0</div><div class="label">Games Played</div></div>
-                <div class="stat-box"><div class="value" id="total-score">0</div><div class="label">Total Score</div></div>
-                <div class="stat-box"><div class="value" id="avg-accuracy">0%</div><div class="label">Avg Accuracy</div></div>
-                <div class="stat-box"><div class="value" id="best-accuracy">0%</div><div class="label">Best Accuracy</div></div>
-                <div class="stat-box"><div class="value" id="total-correct">0</div><div class="label">Correct Answers</div></div>
-                <div class="stat-box"><div class="value" id="total-questions">0</div><div class="label">Total Questions</div></div>
-            </div>
+                <div class="stats-grid" id="stats-grid">
+                    <div class="stat-box"><div class="value" id="total-games">0</div><div class="label">Games Played</div></div>
+                    <div class="stat-box"><div class="value" id="total-score">0</div><div class="label">Total Score</div></div>
+                    <div class="stat-box"><div class="value" id="avg-accuracy">0%</div><div class="label">Avg Accuracy</div></div>
+                    <div class="stat-box"><div class="value" id="best-accuracy">0%</div><div class="label">Best Accuracy</div></div>
+                    <div class="stat-box"><div class="value" id="total-correct">0</div><div class="label">Correct Answers</div></div>
+                    <div class="stat-box"><div class="value" id="total-questions">0</div><div class="label">Total Questions</div></div>
+                </div>
 
-            <div class="section-title">Performance by Category</div>
-            <div class="category-stats" id="category-stats">
-                <div class="empty-state">No category data yet.</div>
-            </div>
+                <div class="section-title">Performance by Category</div>
+                <div class="category-stats" id="category-stats">
+                    <div class="empty-state">No category data yet.</div>
+                </div>
 
-            <div class="section-title">Game History</div>
-            <div class="game-history" id="game-history">
-                <div class="empty-state">No games played yet. <a href="/trivia" style="color:#667eea;">Play your first game!</a></div>
+                <div class="section-title">Game History</div>
+                <div class="game-history" id="game-history">
+                    <div class="empty-state">No games played yet. <a href="/trivia">Play your first game!</a></div>
+                </div>
             </div>
         </div>
     </div>
@@ -139,7 +231,21 @@
     <script>
         const API_URL = window.location.origin;
 
-        function getToken() { return localStorage.getItem('token'); }
+        function getTheme() { return localStorage.getItem('theme') || 'dark'; }
+        function applyTheme(t) {
+            document.documentElement.setAttribute('data-theme', t);
+            document.getElementById('theme-btn').textContent = t === 'dark' ? '☀️' : '🌙';
+        }
+        function toggleTheme() {
+            const n = getTheme() === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('theme', n);
+            applyTheme(n);
+        }
+        applyTheme(getTheme());
+
+        function getToken() {
+            return localStorage.getItem('access_token') || localStorage.getItem('token');
+        }
         function getUser() {
             const s = localStorage.getItem('user');
             return s ? JSON.parse(s) : null;
@@ -147,14 +253,13 @@
 
         function isAdmin(user) {
             if (!user) return false;
-            // Check if user is in admin list
             const adminUsernames = ['svidthekid'];
             const adminEmails = ['svidron.robert@gmail.com'];
-            return adminUsernames.includes(user.username) ||
-                   adminEmails.includes(user.email);
+            return adminUsernames.includes(user.username) || adminEmails.includes(user.email);
         }
 
         function logout() {
+            localStorage.removeItem('access_token');
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             window.location.href = '/login';
@@ -164,19 +269,10 @@
             const user = getUser();
             if (!user) { window.location.href = '/login'; return; }
 
-            // Debug admin check
-            console.log('Current user:', user);
-            console.log('Username:', user.username);
-            console.log('Email:', user.email);
-            console.log('Is admin?', isAdmin(user));
-
-            // Show admin button if user is admin
             if (isAdmin(user)) {
-                document.getElementById('admin-nav-btn').style.display = 'block';
-                console.log('Admin button should now be visible');
+                document.getElementById('admin-sidebar-link').style.display = 'flex';
             }
 
-            // Set basic user info
             document.getElementById('profile-username').textContent = user.username;
             document.getElementById('profile-email').textContent = user.email || '';
             const avatarEl = document.getElementById('profile-avatar');
@@ -186,7 +282,6 @@
                 avatarEl.textContent = user.username.charAt(0).toUpperCase();
             }
 
-            // Load profile data from API
             try {
                 const res = await fetch(`${API_URL}/api/user/profile`, {
                     headers: { 'Authorization': `Bearer ${getToken()}` }
@@ -199,10 +294,7 @@
                     document.getElementById('best-accuracy').textContent = data.best_accuracy + '%';
                     document.getElementById('total-correct').textContent = data.total_correct;
                     document.getElementById('total-questions').textContent = data.total_questions_answered;
-
-                    // Category stats
                     renderCategories(data.category_stats);
-                    // Game history
                     renderHistory(data.game_history);
                 }
             } catch (e) { console.error('Failed to load profile:', e); }
@@ -229,7 +321,7 @@
         function renderHistory(games) {
             const container = document.getElementById('game-history');
             if (!games || games.length === 0) {
-                container.innerHTML = '<div class="empty-state">No games played yet. <a href="/trivia" style="color:#667eea;">Play your first game!</a></div>';
+                container.innerHTML = '<div class="empty-state">No games played yet. <a href="/trivia">Play your first game!</a></div>';
                 return;
             }
             container.innerHTML = games.map(g => `
@@ -250,7 +342,7 @@
 
         function formatTime(sec) {
             if (!sec) return '0s';
-            const m = Math.floor(sec/60), s = sec%60;
+            const m = Math.floor(sec / 60), s = sec % 60;
             return m > 0 ? `${m}m ${s}s` : `${s}s`;
         }
 
@@ -260,9 +352,9 @@
             const now = new Date();
             const diff = Math.floor((now - d) / 1000);
             if (diff < 60) return 'just now';
-            if (diff < 3600) return Math.floor(diff/60) + 'm ago';
-            if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
-            if (diff < 604800) return Math.floor(diff/86400) + 'd ago';
+            if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+            if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+            if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
             return d.toLocaleDateString();
         }
 
