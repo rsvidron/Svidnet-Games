@@ -268,6 +268,7 @@
                 <button class="tab" onclick="switchTab('questions', this)">Questions</button>
                 <button class="tab" onclick="switchTab('wordle', this)">Wordle Words</button>
                 <button class="tab" onclick="switchTab('links', this)">Links</button>
+                <button class="tab" onclick="switchTab('collections', this)">Collections</button>
                 <button class="tab" onclick="switchTab('import', this)">Import/Export</button>
             </div>
 
@@ -317,6 +318,20 @@
                         <button class="btn btn-primary" onclick="showCreateLinkModal()">+ New Link</button>
                     </div>
                     <div id="links-list"></div>
+                </div>
+            </div>
+
+            <!-- Collections Section -->
+            <div class="content-section" id="collections-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Movie & TV Collections</h2>
+                        <button class="btn btn-primary" onclick="showCreateCollectionModal()">+ New Collection</button>
+                    </div>
+                    <p style="color:var(--text-secondary);margin-bottom:20px;font-size:14px;">
+                        Create curated collections that users can browse and rank (e.g. Marvel Cinematic Universe, Nolan Films).
+                    </p>
+                    <div id="collections-list"></div>
                 </div>
             </div>
 
@@ -530,12 +545,64 @@
         </div>
     </div>
 
+    <!-- Collection Modal -->
+    <div class="modal" id="collection-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="collection-modal-title">New Collection</h3>
+                <button class="modal-close" onclick="closeModal('collection-modal')">×</button>
+            </div>
+            <div id="collection-alert"></div>
+            <form id="collection-form" onsubmit="saveCollection(event)">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Title *</label>
+                        <input type="text" id="collection-title" required placeholder="e.g. Marvel Cinematic Universe">
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="collection-description" placeholder="What's this collection about?" rows="3"></textarea>
+                    </div>
+                    <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+                        <input type="checkbox" id="collection-active" checked style="width:auto;">
+                        <label for="collection-active" style="margin-bottom:0;">Active (visible to users)</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('collection-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Collection</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Item to Collection Modal -->
+    <div class="modal" id="add-item-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Items to <span id="add-item-collection-name"></span></h3>
+                <button class="modal-close" onclick="closeModal('add-item-modal')">×</button>
+            </div>
+            <div style="padding:20px;">
+                <div class="form-group">
+                    <label>Search TMDB</label>
+                    <input type="text" id="tmdb-search-input" placeholder="Search for movies or TV shows..." oninput="onTMDBSearch()">
+                </div>
+                <div id="tmdb-search-results" style="margin-top:12px;max-height:400px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_URL = window.location.origin;
+        const TMDB_POSTER = 'https://image.tmdb.org/t/p/w92';
         let currentEditingCategory = null;
         let currentEditingQuestion = null;
         let currentEditingWord = null;
         let currentEditingLink = null;
+        let currentEditingCollection = null;
+        let currentCollectionId = null;
+        let tmdbSearchTimeout = null;
 
         // Theme
         function getTheme() { return localStorage.getItem('theme') || 'dark'; }
@@ -578,6 +645,9 @@
             } else if (tab === 'links') {
                 document.getElementById('links-section').classList.add('active');
                 loadLinks();
+            } else if (tab === 'collections') {
+                document.getElementById('collections-section').classList.add('active');
+                loadCollections();
             } else if (tab === 'import') {
                 document.getElementById('import-section').classList.add('active');
             }
@@ -994,6 +1064,269 @@
                 if (!res.ok) throw new Error('Failed to delete');
                 loadLinks();
             } catch (e) { alert(e.message); }
+        }
+
+        // ── Collections Management ──────────────────────────────────────────────────
+
+        async function loadCollections() {
+            try {
+                const res = await fetch(`${API_URL}/api/rankings/collections`);
+                if (!res.ok) throw new Error('Failed to load collections');
+                const collections = await res.json();
+
+                const container = document.getElementById('collections-list');
+                if (!collections.length) {
+                    container.innerHTML = '<div class="alert alert-info">No collections yet. Create the first one!</div>';
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Description</th>
+                                    <th>Items</th>
+                                    <th>Status</th>
+                                    <th style="text-align:right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${collections.map(c => `
+                                    <tr>
+                                        <td><strong>${escapeHtml(c.title)}</strong></td>
+                                        <td style="color:var(--text-secondary);font-size:13px;">${escapeHtml(c.description || '—')}</td>
+                                        <td><span class="badge">${c.item_count || 0} items</span></td>
+                                        <td>${c.is_active ? '<span class="badge badge-active">Active</span>' : '<span class="badge">Inactive</span>'}</td>
+                                        <td style="text-align:right;">
+                                            <button class="btn-icon" onclick="manageCollectionItems(${c.id}, '${escapeHtml(c.title).replace(/'/g, "\\'")}')">📋 Items</button>
+                                            <button class="btn-icon" onclick="editCollection(${JSON.stringify(c).replace(/"/g, '&quot;')})">✏️</button>
+                                            <button class="btn-icon btn-danger" onclick="deleteCollection(${c.id}, '${escapeHtml(c.title).replace(/'/g, "\\'")}')">🗑️</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (e) {
+                document.getElementById('collections-list').innerHTML = `<div class="alert alert-error">Error loading collections: ${e.message}</div>`;
+            }
+        }
+
+        function showCreateCollectionModal() {
+            currentEditingCollection = null;
+            document.getElementById('collection-modal-title').textContent = 'New Collection';
+            document.getElementById('collection-form').reset();
+            document.getElementById('collection-active').checked = true;
+            document.getElementById('collection-alert').innerHTML = '';
+            document.getElementById('collection-modal').classList.add('show');
+        }
+
+        function editCollection(collection) {
+            currentEditingCollection = collection;
+            document.getElementById('collection-modal-title').textContent = 'Edit Collection';
+            document.getElementById('collection-title').value = collection.title;
+            document.getElementById('collection-description').value = collection.description || '';
+            document.getElementById('collection-active').checked = collection.is_active;
+            document.getElementById('collection-alert').innerHTML = '';
+            document.getElementById('collection-modal').classList.add('show');
+        }
+
+        async function saveCollection(e) {
+            e.preventDefault();
+            const data = {
+                title: document.getElementById('collection-title').value,
+                description: document.getElementById('collection-description').value || null,
+                is_active: document.getElementById('collection-active').checked,
+            };
+            try {
+                const url = currentEditingCollection
+                    ? `${API_URL}/api/rankings/collections/${currentEditingCollection.id}`
+                    : `${API_URL}/api/rankings/collections`;
+                const method = currentEditingCollection ? 'PATCH' : 'POST';
+                const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(data) });
+                if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Failed to save'); }
+                closeModal('collection-modal');
+                loadCollections();
+            } catch (e) {
+                document.getElementById('collection-alert').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+            }
+        }
+
+        async function deleteCollection(id, title) {
+            if (!confirm(`Delete collection "${title}" and all its items? This cannot be undone.`)) return;
+            try {
+                const res = await fetch(`${API_URL}/api/rankings/collections/${id}`, { method: 'DELETE', headers: authHeaders() });
+                if (!res.ok) throw new Error('Failed to delete');
+                loadCollections();
+            } catch (e) { alert(e.message); }
+        }
+
+        async function manageCollectionItems(collectionId, collectionTitle) {
+            currentCollectionId = collectionId;
+            document.getElementById('add-item-collection-name').textContent = collectionTitle;
+
+            // Load current items
+            try {
+                const res = await fetch(`${API_URL}/api/rankings/collections/${collectionId}`);
+                if (!res.ok) throw new Error('Failed to load collection');
+                const collection = await res.json();
+
+                const resultsDiv = document.getElementById('tmdb-search-results');
+                const items = collection.items || [];
+
+                if (!items.length) {
+                    resultsDiv.innerHTML = '<div class="alert alert-info">No items yet. Search above to add movies and TV shows.</div>';
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div style="margin-bottom:20px;">
+                            <h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary);">Current Items (${items.length})</h4>
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                                ${items.map((item, idx) => `
+                                    <div style="display:flex;align-items:center;gap:12px;background:var(--card-bg);border:1px solid var(--card-border);border-radius:8px;padding:10px;">
+                                        <span style="min-width:24px;font-weight:700;color:var(--text-muted);">#${idx + 1}</span>
+                                        ${item.poster_path ? `<img src="${TMDB_POSTER}${item.poster_path}" style="width:32px;height:48px;border-radius:4px;object-fit:cover;">` : `<div style="width:32px;height:48px;border-radius:4px;background:var(--input-bg);display:flex;align-items:center;justify-content:center;font-size:16px;">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`}
+                                        <div style="flex:1;">
+                                            <div style="font-weight:600;font-size:13px;">${escapeHtml(item.title)}</div>
+                                            <div style="font-size:11px;color:var(--text-muted);">${item.media_type.toUpperCase()}${item.release_year ? ' · ' + item.release_year : ''}</div>
+                                        </div>
+                                        <button class="btn btn-danger btn-sm" onclick="removeCollectionItem(${collectionId}, ${item.id}, '${collectionTitle}')">Remove</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div style="border-top:1px solid var(--divider);padding-top:16px;margin-top:16px;">
+                            <h4 style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--text-primary);">Add More Items</h4>
+                            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;">Search for movies or TV shows to add to this collection.</p>
+                        </div>
+                    `;
+                }
+
+                document.getElementById('tmdb-search-input').value = '';
+                document.getElementById('add-item-modal').classList.add('show');
+            } catch (e) {
+                alert('Failed to load collection: ' + e.message);
+            }
+        }
+
+        function onTMDBSearch() {
+            clearTimeout(tmdbSearchTimeout);
+            const query = document.getElementById('tmdb-search-input').value.trim();
+            if (!query) return;
+            tmdbSearchTimeout = setTimeout(() => searchTMDB(query), 400);
+        }
+
+        async function searchTMDB(query) {
+            const resultsDiv = document.getElementById('tmdb-search-results');
+            const existingContent = resultsDiv.innerHTML;
+
+            // Append search results after existing items
+            try {
+                const res = await fetch(`${API_URL}/api/rankings/search?q=${encodeURIComponent(query)}&media_type=multi`);
+                const data = await res.json();
+                const results = data.results || [];
+
+                if (!results.length) {
+                    // Keep existing items, just show no results message
+                    const searchSection = `<div style="border-top:1px solid var(--divider);padding-top:16px;margin-top:16px;">
+                        <div class="alert alert-info">No results found for "${query}"</div>
+                    </div>`;
+
+                    // Replace only the search section
+                    if (existingContent.includes('Current Items')) {
+                        resultsDiv.innerHTML = existingContent.split('<div style="border-top:1px solid var(--divider);padding-top:16px;margin-top:16px;">')[0] + searchSection;
+                    } else {
+                        resultsDiv.innerHTML = searchSection;
+                    }
+                    return;
+                }
+
+                const searchSection = `<div style="border-top:1px solid var(--divider);padding-top:16px;margin-top:16px;">
+                    <h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary);">Search Results</h4>
+                    <div style="display:flex;flex-direction:column;gap:6px;">
+                        ${results.slice(0, 10).map(r => `
+                            <div style="display:flex;align-items:center;gap:12px;background:var(--hover-bg);border:1px solid var(--card-border);border-radius:8px;padding:10px;cursor:pointer;transition:border-color 0.2s;" onclick="addItemToCollection(${JSON.stringify(r).replace(/"/g, '&quot;')})">
+                                ${r.poster_path ? `<img src="${TMDB_POSTER}${r.poster_path}" style="width:32px;height:48px;border-radius:4px;object-fit:cover;">` : `<div style="width:32px;height:48px;border-radius:4px;background:var(--input-bg);display:flex;align-items:center;justify-content:center;font-size:16px;">${r.media_type === 'tv' ? '📺' : '🎬'}</div>`}
+                                <div style="flex:1;">
+                                    <div style="font-weight:600;font-size:13px;">${escapeHtml(r.title)}</div>
+                                    <div style="font-size:11px;color:var(--text-muted);">${r.media_type.toUpperCase()}${r.release_year ? ' · ' + r.release_year : ''}</div>
+                                </div>
+                                <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();addItemToCollection(${JSON.stringify(r).replace(/"/g, '&quot;')})">+ Add</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+
+                // Replace only the search section
+                if (existingContent.includes('Current Items')) {
+                    resultsDiv.innerHTML = existingContent.split('<div style="border-top:1px solid var(--divider);padding-top:16px;margin-top:16px;">')[0] + searchSection;
+                } else {
+                    resultsDiv.innerHTML = searchSection;
+                }
+            } catch (e) {
+                console.error('Search failed:', e);
+            }
+        }
+
+        async function addItemToCollection(result) {
+            if (!currentCollectionId) return;
+            const sortOrder = 999; // Will be appended at the end
+
+            try {
+                const res = await fetch(`${API_URL}/api/rankings/collections/${currentCollectionId}/items`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        media_id: String(result.id),
+                        media_type: result.media_type,
+                        title: result.title,
+                        poster_path: result.poster_path || null,
+                        release_year: result.release_year || null,
+                        overview: result.overview || null,
+                        sort_order: sortOrder,
+                    }),
+                });
+
+                if (res.status === 409) {
+                    alert('This item is already in the collection.');
+                    return;
+                }
+                if (!res.ok) throw new Error('Failed to add item');
+
+                // Reload the items view
+                const collectionName = document.getElementById('add-item-collection-name').textContent;
+                await manageCollectionItems(currentCollectionId, collectionName);
+            } catch (e) {
+                alert('Failed to add item: ' + e.message);
+            }
+        }
+
+        async function removeCollectionItem(collectionId, itemId, collectionName) {
+            if (!confirm('Remove this item from the collection?')) return;
+
+            try {
+                const res = await fetch(`${API_URL}/api/rankings/collections/${collectionId}/items/${itemId}`, {
+                    method: 'DELETE',
+                    headers: authHeaders(),
+                });
+                if (!res.ok) throw new Error('Failed to remove item');
+
+                // Reload the items view
+                await manageCollectionItems(collectionId, collectionName);
+            } catch (e) {
+                alert('Failed to remove item: ' + e.message);
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function authHeaders() {
+            return { 'Content-Type': 'application/json' };
         }
     </script>
 </body>
