@@ -98,23 +98,29 @@ class ReviewUpdate(BaseModel):
 @router.get("/debug-token")
 def debug_token(authorization: Optional[str] = Header(None)):
     """Decode whatever token the browser sends and show its raw payload."""
-    if not authorization:
-        return {"error": "No Authorization header"}
-    token = authorization.removeprefix("Bearer ").strip()
+    import base64 as _b64, json as _json
     secret = os.getenv("SECRET_KEY", "test-secret-key-for-development")
-    try:
-        payload = jwt.decode(token, secret, algorithms=["HS256"])
-        return {"ok": True, "payload": payload, "secret_key_env_set": bool(os.getenv("SECRET_KEY"))}
-    except JWTError as e:
-        # Try decode without verification to see the raw claims
+    secret_set = bool(os.getenv("SECRET_KEY"))
+    # Always decode claims without verification first so we see them regardless
+    raw_claims = None
+    if authorization:
         try:
-            import base64, json
+            token = authorization.removeprefix("Bearer ").strip()
             parts = token.split(".")
             padded = parts[1] + "=" * (4 - len(parts[1]) % 4)
-            raw = json.loads(base64.urlsafe_b64decode(padded))
-            return {"ok": False, "jose_error": str(e), "raw_claims": raw}
-        except Exception as e2:
-            return {"ok": False, "jose_error": str(e), "decode_error": str(e2)}
+            raw_claims = _json.loads(_b64.urlsafe_b64decode(padded))
+        except Exception:
+            pass
+
+    if not authorization:
+        return {"error": "No Authorization header", "secret_key_env_set": secret_set}
+
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        payload = jwt.decode(token, secret, algorithms=["HS256"])
+        return {"ok": True, "payload": payload, "secret_key_env_set": secret_set}
+    except JWTError as e:
+        return {"ok": False, "jose_error": str(e), "raw_claims": raw_claims, "secret_key_env_set": secret_set}
 
 
 # ── TMDB Search ──────────────────────────────────────────────────────────────
