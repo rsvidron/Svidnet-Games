@@ -268,7 +268,8 @@
         // ── Auth ───────────────────────────────────────────────────────────────
         function getToken() { return localStorage.getItem('access_token') || localStorage.getItem('token'); }
         function getUser() { try { return JSON.parse(localStorage.getItem('user')); } catch { return null; } }
-        function isAdmin(u) { return u && (['svidthekid'].includes(u.username) || ['svidron.robert@gmail.com'].includes(u.email)); }
+        function isAdmin(u) { return u && u.role === 'admin'; }
+        function hasRole(u, ...roles) { return u && roles.includes(u.role); }
         function authHeaders() { return { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' }; }
         function logout() { ['access_token','token','user'].forEach(k => localStorage.removeItem(k)); window.location.href = '/login'; }
 
@@ -280,9 +281,24 @@
         let editingList = false;
 
         // ── Init ───────────────────────────────────────────────────────────────
+        function requireRole(...roles) {
+            const u = getUser();
+            if (!u) { window.location.href = '/login'; return false; }
+            if (!roles.includes(u.role)) {
+                document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg);flex-direction:column;gap:16px;font-family:sans-serif;">
+                    <div style="font-size:48px;">🔒</div>
+                    <div style="font-size:20px;font-weight:700;color:var(--text-primary,#fff);">Access Restricted</div>
+                    <div style="font-size:14px;color:var(--text-secondary,#888);text-align:center;max-width:320px;">This section requires a <strong>User</strong> account or higher. Contact an admin to upgrade your access.</div>
+                    <a href="/" style="margin-top:8px;padding:10px 20px;background:#22c55e;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Back to Dashboard</a>
+                </div>`;
+                return false;
+            }
+            return true;
+        }
+
         async function init() {
+            if (!requireRole('user', 'admin')) return;
             const user = getUser();
-            if (!user) { window.location.href = '/login'; return; }
             if (isAdmin(user)) document.getElementById('admin-sidebar-link').style.display = 'flex';
             await loadLists();
         }

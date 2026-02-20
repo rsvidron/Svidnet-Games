@@ -773,7 +773,7 @@
             <a href="/profile" class="sidebar-item">
                 <span class="icon">👤</span> Profile
             </a>
-            <a href="/links" class="sidebar-item">
+            <a href="/links" class="sidebar-item" id="nav-links" style="display:none;">
                 <span class="icon">🔗</span> Links
             </a>
             <a href="/admin" class="sidebar-item" id="admin-nav-btn" style="display:none;">
@@ -789,13 +789,13 @@
             <a href="/wordle" class="sidebar-item">
                 <span class="icon">🟩</span> Wordle
             </a>
-            <a href="/sportsbook" class="sidebar-item">
+            <a href="/sportsbook" class="sidebar-item" id="nav-sportsbook" style="display:none;">
                 <span class="icon">🏈</span> Sportsbook
             </a>
-            <a href="/movies" class="sidebar-item">
+            <a href="/movies" class="sidebar-item" id="nav-movies" style="display:none;">
                 <span class="icon">🎬</span> Movies &amp; TV
             </a>
-            <div class="sidebar-item" style="cursor:default; opacity:0.5;">
+            <div class="sidebar-item" id="nav-wrestling" style="cursor:default; opacity:0.5; display:none;">
                 <span class="icon">🤼</span> Wrestling
                 <span class="soon-badge">Soon</span>
             </div>
@@ -1008,11 +1008,8 @@
             return null;
         }
 
-        function isAdmin(user) {
-            if (!user) return false;
-            return ['svidthekid'].includes(user.username) ||
-                   ['svidron.robert@gmail.com'].includes(user.email);
-        }
+        function isAdmin(user) { return user && user.role === 'admin'; }
+        function hasRole(u, ...roles) { return u && roles.includes(u.role); }
 
         function logout() {
             localStorage.removeItem('access_token');
@@ -1080,6 +1077,16 @@
             currentUser = getUser();
             if (!currentUser) { window.location.href = '/login'; return; }
 
+            const role = currentUser.role || 'basic';
+            const isUserOrAbove = ['user', 'admin'].includes(role);
+
+            // Show nav items based on role
+            if (isUserOrAbove) {
+                document.getElementById('nav-links').style.display = 'flex';
+                document.getElementById('nav-sportsbook').style.display = 'flex';
+                document.getElementById('nav-movies').style.display = 'flex';
+                document.getElementById('nav-wrestling').style.display = 'flex';
+            }
             if (isAdmin(currentUser)) {
                 document.getElementById('admin-nav-btn').style.display = 'flex';
             }
@@ -1092,8 +1099,10 @@
                 avatarEl.textContent = currentUser.username.charAt(0).toUpperCase();
             }
 
+            const roleMeta = { basic: { label: 'Basic', color: '#6b7280' }, user: { label: 'User', color: '#3b82f6' }, admin: { label: 'Admin', color: '#22c55e' } };
+            const rm = roleMeta[role] || roleMeta.basic;
             document.getElementById('welcome-text').innerHTML =
-                `<span class="accent-dot"></span>Welcome back, ${currentUser.username}!`;
+                `<span class="accent-dot"></span>Welcome back, ${currentUser.username}! <span style="font-size:12px;font-weight:600;background:${rm.color}22;color:${rm.color};border:1px solid ${rm.color}44;border-radius:8px;padding:2px 9px;vertical-align:middle;">${rm.label}</span>`;
 
             try {
                 const res = await fetch(`${API_URL}/api/user/dashboard`, {

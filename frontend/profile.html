@@ -252,12 +252,8 @@
             return s ? JSON.parse(s) : null;
         }
 
-        function isAdmin(user) {
-            if (!user) return false;
-            const adminUsernames = ['svidthekid'];
-            const adminEmails = ['svidron.robert@gmail.com'];
-            return adminUsernames.includes(user.username) || adminEmails.includes(user.email);
-        }
+        function isAdmin(user) { return user && user.role === 'admin'; }
+        function hasRole(u, ...roles) { return u && roles.includes(u.role); }
 
         function logout() {
             localStorage.removeItem('access_token');

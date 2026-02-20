@@ -263,10 +263,8 @@
             return s ? JSON.parse(s) : null;
         }
 
-        function isAdmin(user) {
-            if (!user) return false;
-            return ['svidthekid'].includes(user.username) || ['svidron.robert@gmail.com'].includes(user.email);
-        }
+        function isAdmin(user) { return user && user.role === 'admin'; }
+        function hasRole(u, ...roles) { return u && roles.includes(u.role); }
 
         function logout() {
             localStorage.removeItem('access_token');
@@ -275,9 +273,24 @@
             window.location.href = '/login';
         }
 
+        function requireRole(...roles) {
+            const u = getUser();
+            if (!u) { window.location.href = '/login'; return false; }
+            if (!roles.includes(u.role)) {
+                document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg);flex-direction:column;gap:16px;font-family:sans-serif;">
+                    <div style="font-size:48px;">🔒</div>
+                    <div style="font-size:20px;font-weight:700;color:var(--text-primary,#fff);">Access Restricted</div>
+                    <div style="font-size:14px;color:var(--text-secondary,#888);text-align:center;max-width:320px;">This section requires a <strong>User</strong> account or higher. Contact an admin to upgrade your access.</div>
+                    <a href="/" style="margin-top:8px;padding:10px 20px;background:#22c55e;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Back to Dashboard</a>
+                </div>`;
+                return false;
+            }
+            return true;
+        }
+
         async function loadLinks() {
+            if (!requireRole('user', 'admin')) return;
             const user = getUser();
-            if (!user) { window.location.href = '/login'; return; }
 
             if (isAdmin(user)) {
                 document.getElementById('admin-sidebar-link').style.display = 'flex';

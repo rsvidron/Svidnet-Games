@@ -269,6 +269,7 @@
                 <button class="tab" onclick="switchTab('wordle', this)">Wordle Words</button>
                 <button class="tab" onclick="switchTab('links', this)">Links</button>
                 <button class="tab" onclick="switchTab('collections', this)">Collections</button>
+                <button class="tab" onclick="switchTab('users', this)">Users</button>
                 <button class="tab" onclick="switchTab('import', this)">Import/Export</button>
             </div>
 
@@ -332,6 +333,24 @@
                         Create curated collections that users can browse and rank (e.g. Marvel Cinematic Universe, Nolan Films).
                     </p>
                     <div id="collections-list"></div>
+                </div>
+            </div>
+
+            <!-- Users Section -->
+            <div class="content-section" id="users-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>User Management</h2>
+                        <div style="font-size:13px;color:var(--text-muted);" id="users-count"></div>
+                    </div>
+                    <p style="color:var(--text-secondary);margin-bottom:20px;font-size:14px;">
+                        Manage user roles and accounts. Roles: <strong>Basic</strong> (Wordle/Trivia only) → <strong>User</strong> (full access) → <strong>Admin</strong> (everything).
+                    </p>
+                    <div style="margin-bottom:16px;">
+                        <input type="text" id="user-search" placeholder="Search by username or email..." oninput="filterUsers()"
+                            style="width:100%;max-width:360px;padding:9px 14px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:8px;font-size:13px;color:var(--text-primary);outline:none;font-family:inherit;">
+                    </div>
+                    <div id="users-list"></div>
                 </div>
             </div>
 
@@ -626,6 +645,17 @@
 
         // Load initial data
         document.addEventListener('DOMContentLoaded', () => {
+            const u = getUser();
+            if (!u) { window.location.href = '/login'; return; }
+            if (u.role !== 'admin') {
+                document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f0f0f;flex-direction:column;gap:16px;font-family:sans-serif;">
+                    <div style="font-size:48px;">🔒</div>
+                    <div style="font-size:20px;font-weight:700;color:#fff;">Admin Access Required</div>
+                    <div style="font-size:14px;color:#888;text-align:center;max-width:320px;">You don't have permission to access the admin panel.</div>
+                    <a href="/" style="margin-top:8px;padding:10px 20px;background:#22c55e;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;">Back to Dashboard</a>
+                </div>`;
+                return;
+            }
             loadCategories();
             loadQuestions();
         });
@@ -648,6 +678,9 @@
             } else if (tab === 'collections') {
                 document.getElementById('collections-section').classList.add('active');
                 loadCollections();
+            } else if (tab === 'users') {
+                document.getElementById('users-section').classList.add('active');
+                loadUsers();
             } else if (tab === 'import') {
                 document.getElementById('import-section').classList.add('active');
             }
@@ -1325,8 +1358,109 @@
             return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
+        function getToken() { return localStorage.getItem('access_token') || localStorage.getItem('token'); }
+        function getUser() { try { return JSON.parse(localStorage.getItem('user')); } catch { return null; } }
         function authHeaders() {
-            return { 'Content-Type': 'application/json' };
+            return { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' };
+        }
+
+        // ── User Management ────────────────────────────────────────────────────
+        let allUsers = [];
+
+        const ROLE_LABELS = { basic: 'Basic', user: 'User', admin: 'Admin' };
+        const ROLE_COLORS = { basic: '#6b7280', user: '#3b82f6', admin: '#22c55e' };
+
+        async function loadUsers() {
+            const container = document.getElementById('users-list');
+            container.innerHTML = '<div style="padding:20px;color:var(--text-muted);">Loading...</div>';
+            try {
+                const res = await fetch(`${API_URL}/api/admin/users`, { headers: authHeaders() });
+                if (!res.ok) throw new Error(await res.text());
+                allUsers = await res.json();
+                document.getElementById('users-count').textContent = `${allUsers.length} user${allUsers.length !== 1 ? 's' : ''}`;
+                renderUsers(allUsers);
+            } catch (e) {
+                container.innerHTML = `<div style="padding:20px;color:var(--danger);">Failed to load users: ${e.message}</div>`;
+            }
+        }
+
+        function filterUsers() {
+            const q = document.getElementById('user-search').value.toLowerCase();
+            const filtered = q ? allUsers.filter(u => u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) : allUsers;
+            renderUsers(filtered);
+        }
+
+        function renderUsers(users) {
+            const container = document.getElementById('users-list');
+            if (!users.length) {
+                container.innerHTML = '<div style="padding:20px;color:var(--text-muted);">No users found.</div>';
+                return;
+            }
+            const me = getUser();
+            container.innerHTML = `
+                <table class="table">
+                    <thead><tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Active</th>
+                        <th>Joined</th>
+                        <th>Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        ${users.map(u => {
+                            const isSelf = me && u.id === me.id;
+                            const roleColor = ROLE_COLORS[u.role] || '#6b7280';
+                            const joined = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
+                            return `<tr>
+                                <td><strong>${escapeHtml(u.username)}</strong>${isSelf ? ' <span style="font-size:10px;color:var(--accent);">(you)</span>' : ''}</td>
+                                <td style="color:var(--text-secondary);font-size:13px;">${escapeHtml(u.email)}</td>
+                                <td>
+                                    <select onchange="changeUserRole(${u.id}, this.value)" ${isSelf ? 'disabled' : ''}
+                                        style="padding:4px 8px;background:${roleColor}22;color:${roleColor};border:1px solid ${roleColor}44;border-radius:6px;font-size:12px;font-weight:700;cursor:${isSelf ? 'not-allowed' : 'pointer'};outline:none;">
+                                        ${['basic','user','admin'].map(r => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`).join('')}
+                                    </select>
+                                </td>
+                                <td><span style="color:${u.is_active ? 'var(--accent)' : 'var(--danger)'};">${u.is_active ? 'Active' : 'Inactive'}</span></td>
+                                <td style="font-size:12px;color:var(--text-muted);">${joined}</td>
+                                <td>
+                                    ${isSelf ? '—' : `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id}, '${escapeHtml(u.username)}')">Delete</button>`}
+                                </td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>`;
+        }
+
+        async function changeUserRole(userId, newRole) {
+            try {
+                const res = await fetch(`${API}/api/admin/users/${userId}/role`, {
+                    method: 'PATCH',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ role: newRole }),
+                });
+                if (!res.ok) throw new Error((await res.json()).detail || 'Failed');
+                // Update local cache without full reload
+                const u = allUsers.find(x => x.id === userId);
+                if (u) u.role = newRole;
+            } catch (e) {
+                alert('Failed to update role: ' + e.message);
+                loadUsers(); // refresh to reset select
+            }
+        }
+
+        async function deleteUser(userId, username) {
+            if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+            try {
+                const res = await fetch(`${API}/api/admin/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: authHeaders(),
+                });
+                if (!res.ok) throw new Error((await res.json()).detail || 'Failed');
+                loadUsers();
+            } catch (e) {
+                alert('Failed to delete user: ' + e.message);
+            }
         }
     </script>
 </body>

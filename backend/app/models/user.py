@@ -14,7 +14,7 @@ class User(Base, IdMixin, TimestampMixin):
     username = Column(String(50), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
-    role = Column(String(20), default="user", nullable=False, index=True)
+    role = Column(String(20), default="basic", nullable=False, index=True)  # basic | user | admin
     avatar_url = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)

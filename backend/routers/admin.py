@@ -8,9 +8,10 @@ from datetime import datetime, timezone
 from typing import Optional, List
 from pydantic import BaseModel
 import re
-
-import sys
 import os
+import sys
+from jose import jwt, JWTError
+
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from models.admin import TriviaCategory, CustomTriviaQuestion, WordleWord
@@ -34,9 +35,19 @@ def get_db():
 
 
 def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
-    """Extract user ID from JWT token - for now returns 1"""
-    # TODO: Implement proper JWT validation and admin role check
-    return 1
+    """Extract user ID from JWT token."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    token = authorization.removeprefix("Bearer ").strip()
+    secret = os.getenv("SECRET_KEY", "test-secret-key-for-development")
+    try:
+        payload = jwt.decode(token, secret, algorithms=["HS256"])
+        user_id = payload.get("sub") or payload.get("user_id")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token claims")
+        return int(user_id)
+    except JWTError as e:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
 def is_admin(user_id: int, db: Session) -> bool:
@@ -973,3 +984,75 @@ def delete_link(
     db.delete(link)
     db.commit()
     return {"message": "Link deleted"}
+
+
+# ── User Management ────────────────────────────────────────────────────────────
+
+VALID_ROLES = {"basic", "user", "admin"}
+
+
+class UserRoleUpdate(BaseModel):
+    role: str
+
+
+@router.get("/users")
+def list_users(
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """List all users (admin only)."""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    return [
+        {
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "role": u.role,
+            "is_active": u.is_active,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+        }
+        for u in users
+    ]
+
+
+@router.patch("/users/{target_id}/role")
+def update_user_role(
+    target_id: int,
+    data: UserRoleUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Update a user's role (admin only). Cannot demote yourself."""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+    if data.role not in VALID_ROLES:
+        raise HTTPException(400, f"Invalid role. Must be one of: {', '.join(sorted(VALID_ROLES))}")
+    if target_id == user_id:
+        raise HTTPException(400, "Cannot change your own role")
+    target = db.query(User).filter(User.id == target_id).first()
+    if not target:
+        raise HTTPException(404, "User not found")
+    target.role = data.role
+    db.commit()
+    return {"message": f"Role updated to '{data.role}'", "user_id": target_id}
+
+
+@router.delete("/users/{target_id}")
+def delete_user(
+    target_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """Delete a user account (admin only). Cannot delete yourself."""
+    if not is_admin(user_id, db):
+        raise HTTPException(403, "Admin access required")
+    if target_id == user_id:
+        raise HTTPException(400, "Cannot delete your own account")
+    target = db.query(User).filter(User.id == target_id).first()
+    if not target:
+        raise HTTPException(404, "User not found")
+    db.delete(target)
+    db.commit()
+    return {"message": "User deleted"}
