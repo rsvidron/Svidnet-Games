@@ -429,6 +429,12 @@
                         <button class="btn-search" onclick="doSearch()">Search</button>
                     </div>
                 </div>
+                <div id="discover-collections-section" style="margin-bottom:28px;display:none;">
+                    <div class="section-header">
+                        <div class="section-title">🏆 Collections to Rank</div>
+                    </div>
+                    <div id="discover-collections-grid"></div>
+                </div>
                 <div id="discover-content"></div>
             </div>
 
@@ -725,6 +731,7 @@
         async function loadTrending() {
             const container = document.getElementById('discover-content');
             container.innerHTML = '<div class="loading">Loading trending content...</div>';
+            loadDiscoverCollections();
             try {
                 const res = await fetch(`${API}/api/reviews/trending?media_type=all&time_window=week`);
                 const data = await res.json();
@@ -734,10 +741,65 @@
             }
         }
 
+        async function loadDiscoverCollections() {
+            const section = document.getElementById('discover-collections-section');
+            const grid = document.getElementById('discover-collections-grid');
+            try {
+                const [colRes, myRes] = await Promise.all([
+                    fetch(`${API}/api/rankings/collections`),
+                    fetch(`${API}/api/rankings/my`, { headers: authHeaders() }),
+                ]);
+                if (!colRes.ok) return;
+                const cols = await colRes.json();
+                if (!cols.length) return;
+                const myTitles = myRes.ok ? (await myRes.json()).map(l => l.title) : [];
+                grid.innerHTML = `<div class="lists-grid">${cols.map(col => discoverCollectionCard(col, myTitles)).join('')}</div>`;
+                section.style.display = '';
+            } catch (e) { /* silently ignore */ }
+        }
+
+        function discoverCollectionCard(col, myTitles = []) {
+            const posters = col.cover_posters || [];
+            const alreadyRanked = myTitles.includes(col.title);
+            let coverHtml = '';
+            if (!posters.length) {
+                coverHtml = `<div class="list-cover-placeholder">🎬</div>`;
+            } else if (posters.length === 1) {
+                coverHtml = `<div class="list-cover-single"><img src="${POSTER_MD}${posters[0]}" loading="lazy"></div>`;
+            } else {
+                coverHtml = posters.slice(0, 4).map(p => `<img src="${POSTER}${p}" loading="lazy">`).join('');
+            }
+            return `<div class="list-card" onclick="openDiscoverCollection(${col.id})">
+                <div class="list-cover">${coverHtml}</div>
+                <div class="list-card-body">
+                    <div class="list-card-title">${escHtml(col.title)}</div>
+                    <div class="list-card-meta" style="display:flex;align-items:center;gap:8px;">
+                        <span>${col.item_count} title${col.item_count !== 1 ? 's' : ''}</span>
+                        ${alreadyRanked ? `<span style="font-size:10px;background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:1px 7px;font-weight:700;">Ranked ✓</span>` : ''}
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function openDiscoverCollection(collectionId) {
+            // Activate the Collections tab button visually
+            document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+            const tabEl = document.querySelector('.view-tab[onclick*="collections"]');
+            if (tabEl) tabEl.classList.add('active');
+            // Show the collections tab panel, hide others
+            ['discover','mylist','rankings','collections','friends'].forEach(t => {
+                document.getElementById('tab-' + t).style.display = t === 'collections' ? '' : 'none';
+            });
+            currentTab = 'collections';
+            // Open the specific collection directly (skips loadCollections overview)
+            openCollection(collectionId);
+        }
+
         function onSearchInput() {
             clearTimeout(searchTimeout);
             const q = document.getElementById('search-input').value.trim();
             if (!q) { loadTrending(); return; }
+            document.getElementById('discover-collections-section').style.display = 'none';
             searchTimeout = setTimeout(doSearch, 400);
         }
 
@@ -747,6 +809,7 @@
             const type = document.getElementById('type-filter').value;
             const container = document.getElementById('discover-content');
             container.innerHTML = '<div class="loading">Searching...</div>';
+            document.getElementById('discover-collections-section').style.display = 'none';
             try {
                 const res = await fetch(`${API}/api/reviews/search?q=${encodeURIComponent(q)}&media_type=${type}`);
                 const data = await res.json();
