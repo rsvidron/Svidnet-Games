@@ -263,6 +263,9 @@
             return s ? JSON.parse(s) : null;
         }
 
+        function getToken() { return localStorage.getItem('access_token') || localStorage.getItem('token'); }
+        function authHeaders() { return { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' }; }
+
         function isAdmin(user) { return user && user.role === 'admin'; }
         function hasRole(u, ...roles) { return u && roles.includes(u.role); }
 
@@ -297,7 +300,7 @@
             }
 
             try {
-                const res = await fetch(`${API_URL}/api/admin/links`);
+                const res = await fetch(`${API_URL}/api/admin/links`, { headers: authHeaders() });
                 if (!res.ok) throw new Error('Failed to load');
                 allLinks = await res.json();
                 renderLinks(allLinks);
