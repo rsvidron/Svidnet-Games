@@ -13,7 +13,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=True)  # Nullable for OAuth users
     google_id = Column(String(255), unique=True, nullable=True, index=True)
     avatar_url = Column(String(500), nullable=True)
-    role = Column(String(20), default="user", nullable=False)
+    role = Column(String(20), default="basic", nullable=False)  # basic | user | admin
     is_active = Column(Boolean, default=True, nullable=False)
     auth_provider = Column(String(20), default="local", nullable=False)  # local, google
 

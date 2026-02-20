@@ -1003,7 +1003,7 @@ def list_users(
     """List all users (admin only)."""
     if not is_admin(user_id, db):
         raise HTTPException(403, "Admin access required")
-    users = db.query(User).order_by(User.created_at.desc()).all()
+    users = db.query(User).order_by(User.id.desc()).all()
     return [
         {
             "id": u.id,
@@ -1011,7 +1011,7 @@ def list_users(
             "email": u.email,
             "role": u.role,
             "is_active": u.is_active,
-            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "created_at": None,
         }
         for u in users
     ]
