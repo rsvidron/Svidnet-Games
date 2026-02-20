@@ -561,6 +561,26 @@ except Exception as e:
 @app.on_event("startup")
 async def startup_event():
     """Start background services on app startup"""
+    # Seed known admin accounts
+    try:
+        _ADMIN_USERNAMES = ["svidthekid"]
+        _ADMIN_EMAILS = ["svidron.robert@gmail.com"]
+        db = SessionLocal()
+        try:
+            from sqlalchemy import or_
+            updated = db.query(User).filter(
+                or_(User.username.in_(_ADMIN_USERNAMES), User.email.in_(_ADMIN_EMAILS))
+            ).all()
+            for u in updated:
+                if u.role != "admin":
+                    u.role = "admin"
+                    print(f"✓ Seeded admin role for user: {u.username}")
+            db.commit()
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"⚠ Warning: Could not seed admin roles: {e}")
+
     try:
         from app.services.odds_sync_scheduler import sync_scheduler
         sync_scheduler.start()
