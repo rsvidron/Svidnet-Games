@@ -688,11 +688,16 @@
 
         async function loadCategories() {
             try {
-                const res = await fetch(`${API_URL}/api/admin/categories`);
+                const res = await fetch(`${API_URL}/api/admin/categories`, { headers: authHeaders() });
                 const categories = await res.json();
                 const list = document.getElementById('categories-list');
                 const filterSelect = document.getElementById('filter-category');
                 const questionCategorySelect = document.getElementById('question-category');
+
+                if (!Array.isArray(categories)) {
+                    list.innerHTML = `<div class="alert alert-error">Failed to load categories: ${categories.detail || 'Unexpected response'}</div>`;
+                    return;
+                }
 
                 if (categories.length === 0) {
                     list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📁</div><p>No categories yet. Create your first category!</p></div>';
@@ -732,9 +737,14 @@
             try {
                 const categoryId = document.getElementById('filter-category').value;
                 const url = categoryId ? `${API_URL}/api/admin/questions?category_id=${categoryId}` : `${API_URL}/api/admin/questions`;
-                const res = await fetch(url);
+                const res = await fetch(url, { headers: authHeaders() });
                 const questions = await res.json();
                 const list = document.getElementById('questions-list');
+
+                if (!Array.isArray(questions)) {
+                    list.innerHTML = `<div class="alert alert-error">Failed to load questions: ${questions.detail || 'Unexpected response'}</div>`;
+                    return;
+                }
 
                 if (questions.length === 0) {
                     list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">❓</div><p>No questions yet. Create your first question!</p></div>';
@@ -796,7 +806,7 @@
                     ? `${API_URL}/api/admin/categories/${currentEditingCategory.id}`
                     : `${API_URL}/api/admin/categories`;
                 const method = currentEditingCategory ? 'PATCH' : 'POST';
-                const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+                const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(data) });
                 if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Failed to save'); }
                 closeModal('category-modal');
                 loadCategories();
@@ -809,7 +819,7 @@
         async function deleteCategory(id) {
             if (!confirm('Delete this category? This will fail if it has questions.')) return;
             try {
-                const res = await fetch(`${API_URL}/api/admin/categories/${id}`, { method: 'DELETE' });
+                const res = await fetch(`${API_URL}/api/admin/categories/${id}`, { method: 'DELETE', headers: authHeaders() });
                 if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Failed'); }
                 loadCategories();
             } catch (e) { alert(e.message); }
@@ -857,7 +867,7 @@
                     ? `${API_URL}/api/admin/questions/${currentEditingQuestion.id}`
                     : `${API_URL}/api/admin/questions`;
                 const method = currentEditingQuestion ? 'PATCH' : 'POST';
-                const res = await fetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+                const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(data) });
                 if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Failed'); }
                 closeModal('question-modal');
                 loadQuestions();
@@ -870,7 +880,7 @@
         async function deleteQuestion(id) {
             if (!confirm('Delete this question?')) return;
             try {
-                const res = await fetch(`${API_URL}/api/admin/questions/${id}`, { method: 'DELETE' });
+                const res = await fetch(`${API_URL}/api/admin/questions/${id}`, { method: 'DELETE', headers: authHeaders() });
                 if (!res.ok) throw new Error('Failed to delete');
                 loadQuestions();
                 loadCategories();
@@ -885,7 +895,7 @@
 
         async function loadWordleWords() {
             try {
-                const res = await fetch(`${API_URL}/api/admin/wordle-words`);
+                const res = await fetch(`${API_URL}/api/admin/wordle-words`, { headers: authHeaders() });
                 const words = await res.json();
                 const list = document.getElementById('wordle-words-list');
 
@@ -922,7 +932,7 @@
         }
 
         async function editWord(wordId) {
-            const res = await fetch(`${API_URL}/api/admin/wordle-words`);
+            const res = await fetch(`${API_URL}/api/admin/wordle-words`, { headers: authHeaders() });
             const words = await res.json();
             currentEditingWord = words.find(w => w.id === wordId);
             if (!currentEditingWord) return;
@@ -945,7 +955,7 @@
             try {
                 const res = await fetch(url, {
                     method,
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: authHeaders(),
                     body: JSON.stringify(currentEditingWord ? { difficulty: data.difficulty } : data)
                 });
                 if (res.ok) {
@@ -963,7 +973,7 @@
         async function deleteWord(wordId, word) {
             if (!confirm(`Delete word "${word}"?`)) return;
             try {
-                await fetch(`${API_URL}/api/admin/wordle-words/${wordId}`, { method: 'DELETE' });
+                await fetch(`${API_URL}/api/admin/wordle-words/${wordId}`, { method: 'DELETE', headers: authHeaders() });
                 await loadWordleWords();
             } catch (e) { alert(e.message); }
         }
@@ -981,7 +991,7 @@
             try {
                 const formData = new FormData();
                 formData.append('file', file);
-                const res = await fetch(`${API_URL}/api/admin/import/${type}`, { method: 'POST', body: formData });
+                const res = await fetch(`${API_URL}/api/admin/import/${type}`, { method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` }, body: formData });
                 const result = await res.json();
                 if (res.ok) {
                     resultsDiv.innerHTML = `<div class="alert alert-success">
@@ -1004,7 +1014,7 @@
 
         async function loadLinks() {
             try {
-                const res = await fetch(`${API_URL}/api/admin/links/all`);
+                const res = await fetch(`${API_URL}/api/admin/links/all`, { headers: authHeaders() });
                 const links = await res.json();
                 const list = document.getElementById('links-list');
 
@@ -1081,7 +1091,7 @@
                     ? `${API_URL}/api/admin/links/${currentEditingLink.id}`
                     : `${API_URL}/api/admin/links`;
                 const method = currentEditingLink ? 'PATCH' : 'POST';
-                const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+                const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(data) });
                 if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Failed to save'); }
                 closeModal('link-modal');
                 loadLinks();
@@ -1093,7 +1103,7 @@
         async function deleteLink(id, title) {
             if (!confirm(`Delete link "${title}"?`)) return;
             try {
-                const res = await fetch(`${API_URL}/api/admin/links/${id}`, { method: 'DELETE' });
+                const res = await fetch(`${API_URL}/api/admin/links/${id}`, { method: 'DELETE', headers: authHeaders() });
                 if (!res.ok) throw new Error('Failed to delete');
                 loadLinks();
             } catch (e) { alert(e.message); }
@@ -1103,7 +1113,7 @@
 
         async function loadCollections() {
             try {
-                const res = await fetch(`${API_URL}/api/rankings/collections`);
+                const res = await fetch(`${API_URL}/api/rankings/collections`, { headers: authHeaders() });
                 if (!res.ok) throw new Error('Failed to load collections');
                 const collections = await res.json();
 
@@ -1203,7 +1213,7 @@
 
             // Load current items
             try {
-                const res = await fetch(`${API_URL}/api/rankings/collections/${collectionId}`);
+                const res = await fetch(`${API_URL}/api/rankings/collections/${collectionId}`, { headers: authHeaders() });
                 if (!res.ok) throw new Error('Failed to load collection');
                 const collection = await res.json();
 
