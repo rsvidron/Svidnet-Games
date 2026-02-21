@@ -88,7 +88,7 @@ except ImportError as e:
 
 # Import Wrestling models
 try:
-    from models.wrestling import WrestlingEvent, WrestlingQuestion, WrestlingSubmission, WrestlingAnswer
+    from models.wrestling import WrestlingEvent, WrestlingQuestion, WrestlingSubmission, WrestlingAnswer, WrestlingComment, WrestlingReaction
     print("✓ Wrestling models imported successfully")
 except ImportError as e:
     print(f"⚠ Wrestling models not available: {e}")

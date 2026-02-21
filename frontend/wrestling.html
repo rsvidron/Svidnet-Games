@@ -175,6 +175,38 @@
         .empty-state { text-align:center;padding:48px 24px;color:var(--text-muted); }
         .empty-icon { font-size:48px;margin-bottom:16px; }
 
+        /* Reactions */
+        .reactions-bar { display:flex;gap:8px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--divider);margin-top:12px; }
+        .reaction-btn { background:var(--input-bg);border:1px solid var(--input-border);border-radius:20px;
+                        padding:6px 12px;font-size:16px;cursor:pointer;transition:all 0.15s;
+                        display:flex;align-items:center;gap:6px; }
+        .reaction-btn:hover { border-color:var(--accent);background:var(--accent-dim); }
+        .reaction-btn.active { border-color:var(--accent);background:var(--accent-dim); }
+        .reaction-count { font-size:12px;font-weight:600;color:var(--text-secondary); }
+
+        /* Comments */
+        .comments-section { border-top:1px solid var(--divider);padding-top:20px;margin-top:20px; }
+        .comment-form { display:flex;gap:10px;margin-bottom:20px; }
+        .comment-form textarea { flex:1;min-height:60px;padding:10px;background:var(--input-bg);
+                                 border:1px solid var(--input-border);border-radius:8px;
+                                 color:var(--text-primary);font-size:14px;font-family:inherit;
+                                 resize:vertical;outline:none; }
+        .comment-form textarea:focus { border-color:var(--accent); }
+        .comment { display:flex;gap:12px;padding:14px;border-radius:10px;background:var(--card-bg);
+                   border:1px solid var(--card-border);margin-bottom:12px; }
+        .comment-avatar { width:32px;height:32px;border-radius:50%;background:var(--input-bg);
+                          display:flex;align-items:center;justify-content:center;font-size:13px;
+                          font-weight:700;color:var(--accent);flex-shrink:0;overflow:hidden; }
+        .comment-avatar img { width:100%;height:100%;object-fit:cover; }
+        .comment-body { flex:1;min-width:0; }
+        .comment-header { display:flex;align-items:center;gap:8px;margin-bottom:6px; }
+        .comment-username { font-weight:600;font-size:13px; }
+        .comment-time { font-size:11px;color:var(--text-muted); }
+        .comment-text { font-size:14px;line-height:1.5;word-wrap:break-word; }
+        .comment-delete { background:none;border:none;color:var(--danger);cursor:pointer;
+                          font-size:11px;padding:2px 6px;border-radius:4px;margin-left:auto; }
+        .comment-delete:hover { background:rgba(239,68,68,0.1); }
+
         /* Responsive */
         @media (max-width:768px) {
             .sidebar { transform:translateX(-100%); }
@@ -379,6 +411,8 @@
                     return;
                 }
                 container.innerHTML = allEvents.map(ev => renderEventCard(ev)).join('');
+                // Load reactions for graded events
+                allEvents.filter(ev => ev.is_graded).forEach(ev => loadEventReactions(ev.id));
             } catch (e) {
                 container.innerHTML = `<div class="alert alert-error">Failed to load events: ${e.message}</div>`;
             }
@@ -423,6 +457,7 @@
                         ${actionBtn}
                         ${graded ? `<button class="btn btn-secondary" onclick="openEventLb(${ev.id}, '${ev.title.replace(/'/g,"\\'")}')">View Leaderboard</button>` : ''}
                     </div>
+                    ${graded ? `<div class="reactions-bar" id="reactions-${ev.id}"></div>` : ''}
                 </div>
             </div>`;
         }
@@ -590,7 +625,17 @@
                         ${correctVal ? `<div style="font-size:13px;margin-top:4px;"><span style="color:var(--text-muted);">Correct: </span><strong style="color:var(--accent);">${correctVal}</strong></div>` : ''}
                     </div>`;
                 }).join('');
+                // Add comments section
+                html += `<div class="comments-section">
+                    <h4 style="font-size:15px;font-weight:600;margin-bottom:14px;">💬 Comments</h4>
+                    <div class="comment-form">
+                        <textarea id="comment-input" placeholder="Share your thoughts…" maxlength="500"></textarea>
+                        <button class="btn btn-primary" onclick="postComment(${eventId})" style="height:fit-content;align-self:flex-end;">Post</button>
+                    </div>
+                    <div id="comments-list"></div>
+                </div>`;
                 document.getElementById('results-content').innerHTML = html;
+                loadComments(eventId);
             } catch (e) {
                 document.getElementById('results-content').innerHTML = `<div class="alert alert-error">${e.message}</div>`;
             }
@@ -781,6 +826,112 @@
             } catch (e) {
                 container.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
             }
+        }
+
+        // ── Reactions ─────────────────────────────────────────────────────────────
+        const REACTION_EMOJIS = ['🔥', '💪', '😂', '😭', '👏'];
+
+        async function loadEventReactions(eventId) {
+            const container = document.getElementById(`reactions-${eventId}`);
+            if (!container) return;
+            try {
+                const res = await fetch(`${API}/api/wrestling/events/${eventId}/reactions`, { headers: authHeaders() });
+                const reactions = await res.json();
+                const myReactions = new Set();
+                reactions.forEach(r => {
+                    r.users.forEach(u => { if (u.user_id === currentUser?.id) myReactions.add(r.emoji); });
+                });
+                container.innerHTML = REACTION_EMOJIS.map(emoji => {
+                    const r = reactions.find(x => x.emoji === emoji);
+                    const count = r ? r.count : 0;
+                    const active = myReactions.has(emoji);
+                    return `<button class="reaction-btn ${active ? 'active' : ''}" onclick="toggleReaction(${eventId}, '${emoji}')" title="${r ? r.users.map(u => u.username).join(', ') : ''}">
+                        ${emoji}${count > 0 ? `<span class="reaction-count">${count}</span>` : ''}
+                    </button>`;
+                }).join('');
+            } catch (e) {
+                console.error('Failed to load reactions:', e);
+            }
+        }
+
+        async function toggleReaction(eventId, emoji) {
+            try {
+                await fetch(`${API}/api/wrestling/events/${eventId}/reactions`, {
+                    method: 'POST', headers: authHeaders(), body: JSON.stringify({ emoji }),
+                });
+                loadEventReactions(eventId);
+            } catch (e) {
+                alert('Failed to toggle reaction: ' + e.message);
+            }
+        }
+
+        // ── Comments ──────────────────────────────────────────────────────────────
+        let currentCommentsEventId = null;
+
+        async function loadComments(eventId) {
+            currentCommentsEventId = eventId;
+            const container = document.getElementById('comments-list');
+            if (!container) return;
+            container.innerHTML = '<div style="color:var(--text-muted);padding:12px;">Loading…</div>';
+            try {
+                const res = await fetch(`${API}/api/wrestling/events/${eventId}/comments`, { headers: authHeaders() });
+                const comments = await res.json();
+                if (!comments.length) {
+                    container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:16px;">No comments yet. Be the first!</div>';
+                    return;
+                }
+                container.innerHTML = comments.map(c => {
+                    const isMe = currentUser && c.user_id === currentUser.id;
+                    const timeStr = c.created_at ? new Date(c.created_at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) : '';
+                    return `<div class="comment">
+                        <div class="comment-avatar">${c.avatar_url ? `<img src="${c.avatar_url}">` : c.username[0].toUpperCase()}</div>
+                        <div class="comment-body">
+                            <div class="comment-header">
+                                <span class="comment-username">${c.username}${isMe ? ' <span style="font-size:10px;color:var(--accent);">(you)</span>' : ''}</span>
+                                <span class="comment-time">${timeStr}</span>
+                                ${isMe ? `<button class="comment-delete" onclick="deleteComment(${c.id})">Delete</button>` : ''}
+                            </div>
+                            <div class="comment-text">${escapeHtml(c.text)}</div>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = `<div class="alert alert-error">${e.message}</div>`;
+            }
+        }
+
+        async function postComment(eventId) {
+            const textarea = document.getElementById('comment-input');
+            const text = textarea.value.trim();
+            if (!text) return;
+            try {
+                await fetch(`${API}/api/wrestling/events/${eventId}/comments`, {
+                    method: 'POST', headers: authHeaders(), body: JSON.stringify({ text }),
+                });
+                textarea.value = '';
+                loadComments(eventId);
+            } catch (e) {
+                alert('Failed to post comment: ' + e.message);
+            }
+        }
+
+        async function deleteComment(commentId) {
+            if (!confirm('Delete this comment?')) return;
+            try {
+                await fetch(`${API}/api/wrestling/comments/${commentId}`, {
+                    method: 'DELETE', headers: authHeaders(),
+                });
+                loadComments(currentCommentsEventId);
+            } catch (e) {
+                alert('Failed to delete comment: ' + e.message);
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────

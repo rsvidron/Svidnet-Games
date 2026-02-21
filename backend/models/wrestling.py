@@ -29,6 +29,10 @@ class WrestlingEvent(Base):
                                  cascade="all, delete-orphan", order_by="WrestlingQuestion.sort_order")
     submissions   = relationship("WrestlingSubmission", back_populates="event",
                                  cascade="all, delete-orphan")
+    comments      = relationship("WrestlingComment", back_populates="event",
+                                 cascade="all, delete-orphan", order_by="WrestlingComment.created_at.desc()")
+    reactions     = relationship("WrestlingReaction", back_populates="event",
+                                 cascade="all, delete-orphan")
 
 
 class WrestlingQuestion(Base):
@@ -80,3 +84,30 @@ class WrestlingAnswer(Base):
 
     submission    = relationship("WrestlingSubmission", back_populates="answers")
     question      = relationship("WrestlingQuestion", back_populates="answers")
+
+
+class WrestlingComment(Base):
+    """User comment on a graded event"""
+    __tablename__ = "wrestling_comments"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    event_id   = Column(Integer, ForeignKey("wrestling_events.id"), nullable=False, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    text       = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    event      = relationship("WrestlingEvent", back_populates="comments")
+
+
+class WrestlingReaction(Base):
+    """User emoji reaction on an event"""
+    __tablename__ = "wrestling_reactions"
+    __table_args__ = (UniqueConstraint("event_id", "user_id", "emoji", name="uq_reaction_event_user_emoji"),)
+
+    id         = Column(Integer, primary_key=True, index=True)
+    event_id   = Column(Integer, ForeignKey("wrestling_events.id"), nullable=False, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    emoji      = Column(String(10), nullable=False)  # 🔥 💪 😂 😭 👏 etc
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    event      = relationship("WrestlingEvent", back_populates="reactions")

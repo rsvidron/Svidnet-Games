@@ -13,7 +13,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from models.wrestling import WrestlingEvent, WrestlingQuestion, WrestlingSubmission, WrestlingAnswer
+from models.wrestling import WrestlingEvent, WrestlingQuestion, WrestlingSubmission, WrestlingAnswer, WrestlingComment, WrestlingReaction
 from models.user import User
 
 router = APIRouter(prefix="/api/wrestling", tags=["wrestling"])
@@ -582,3 +582,114 @@ def head_to_head(user_a_id: int, user_b_id: int, db: Session = Depends(get_db)):
         "ties":   ties,
         "events": events,
     }
+
+
+# ── Comments ──────────────────────────────────────────────────────────────────
+
+class CommentIn(BaseModel):
+    text: str
+
+
+@router.get("/events/{event_id}/comments")
+def get_comments(event_id: int, db: Session = Depends(get_db)):
+    """Get all comments for an event (public)"""
+    comments = (
+        db.query(WrestlingComment)
+        .filter(WrestlingComment.event_id == event_id)
+        .order_by(WrestlingComment.created_at.desc())
+        .all()
+    )
+    result = []
+    for c in comments:
+        user = db.query(User).filter(User.id == c.user_id).first()
+        result.append({
+            "id":         c.id,
+            "user_id":    c.user_id,
+            "username":   user.username if user else "Unknown",
+            "avatar_url": user.avatar_url if user else None,
+            "text":       c.text,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+        })
+    return result
+
+
+@router.post("/events/{event_id}/comments", status_code=201)
+def post_comment(event_id: int, data: CommentIn, db: Session = Depends(get_db), user_id: int = Depends(require_user)):
+    """Post a comment on a graded event"""
+    ev = db.query(WrestlingEvent).filter(WrestlingEvent.id == event_id).first()
+    if not ev: raise HTTPException(404, "Event not found")
+    if not ev.is_graded: raise HTTPException(400, "Event not graded yet")
+
+    comment = WrestlingComment(
+        event_id = event_id,
+        user_id  = user_id,
+        text     = data.text.strip(),
+    )
+    db.add(comment); db.commit(); db.refresh(comment)
+    user = db.query(User).filter(User.id == user_id).first()
+    return {
+        "id":         comment.id,
+        "user_id":    comment.user_id,
+        "username":   user.username if user else "Unknown",
+        "avatar_url": user.avatar_url if user else None,
+        "text":       comment.text,
+        "created_at": comment.created_at.isoformat() if comment.created_at else None,
+    }
+
+
+@router.delete("/comments/{comment_id}", status_code=204)
+def delete_comment(comment_id: int, db: Session = Depends(get_db), user_id: int = Depends(require_user)):
+    """Delete your own comment"""
+    comment = db.query(WrestlingComment).filter(WrestlingComment.id == comment_id).first()
+    if not comment: raise HTTPException(404, "Comment not found")
+    if comment.user_id != user_id:
+        # Allow admin to delete
+        user = db.query(User).filter(User.id == user_id).first()
+        if not (user and (user.role == "admin" or user.username in ADMIN_USERNAMES or user.email in ADMIN_EMAILS)):
+            raise HTTPException(403, "Not your comment")
+    db.delete(comment); db.commit()
+
+
+# ── Reactions ─────────────────────────────────────────────────────────────────
+
+class ReactionIn(BaseModel):
+    emoji: str
+
+
+@router.get("/events/{event_id}/reactions")
+def get_reactions(event_id: int, db: Session = Depends(get_db)):
+    """Get reaction summary for an event"""
+    reactions = db.query(WrestlingReaction).filter(WrestlingReaction.event_id == event_id).all()
+    # Group by emoji
+    from collections import defaultdict
+    counts = defaultdict(list)
+    for r in reactions:
+        user = db.query(User).filter(User.id == r.user_id).first()
+        counts[r.emoji].append({
+            "user_id":    r.user_id,
+            "username":   user.username if user else "Unknown",
+            "avatar_url": user.avatar_url if user else None,
+        })
+    return [{"emoji": emoji, "count": len(users), "users": users} for emoji, users in counts.items()]
+
+
+@router.post("/events/{event_id}/reactions", status_code=201)
+def toggle_reaction(event_id: int, data: ReactionIn, db: Session = Depends(get_db), user_id: int = Depends(require_user)):
+    """Toggle emoji reaction (add if not exists, remove if exists)"""
+    ev = db.query(WrestlingEvent).filter(WrestlingEvent.id == event_id).first()
+    if not ev: raise HTTPException(404, "Event not found")
+    if not ev.is_graded: raise HTTPException(400, "Event not graded yet")
+
+    existing = db.query(WrestlingReaction).filter(
+        WrestlingReaction.event_id == event_id,
+        WrestlingReaction.user_id  == user_id,
+        WrestlingReaction.emoji    == data.emoji,
+    ).first()
+
+    if existing:
+        db.delete(existing); db.commit()
+        return {"action": "removed", "emoji": data.emoji}
+    else:
+        reaction = WrestlingReaction(event_id=event_id, user_id=user_id, emoji=data.emoji)
+        db.add(reaction); db.commit()
+        return {"action": "added", "emoji": data.emoji}
