@@ -57,10 +57,11 @@ def _upload_avatar_to_s3(file_bytes: bytes, content_type: str, user_id: int) -> 
     import boto3
     from botocore.client import Config
 
+    # Support both AWS_* (Railway native) and S3_* names
     bucket   = os.getenv("S3_BUCKET_NAME", "")
-    endpoint = os.getenv("S3_ENDPOINT_URL", "")   # e.g. https://s3.us-east-1.amazonaws.com or Cloudflare R2
-    region   = os.getenv("S3_REGION", "us-east-1")
-    pub_url  = os.getenv("S3_PUBLIC_URL", "")      # CDN/public base URL override
+    endpoint = os.getenv("AWS_ENDPOINT_URL") or os.getenv("S3_ENDPOINT_URL", "")
+    region   = os.getenv("AWS_DEFAULT_REGION") or os.getenv("S3_REGION", "us-east-1")
+    pub_url  = os.getenv("S3_PUBLIC_URL", "")  # optional CDN base URL
 
     if not bucket:
         raise HTTPException(500, "S3_BUCKET_NAME not configured")
@@ -69,8 +70,8 @@ def _upload_avatar_to_s3(file_bytes: bytes, content_type: str, user_id: int) -> 
     key = f"avatars/{user_id}/{uuid.uuid4().hex}.{ext}"
 
     kwargs = dict(
-        aws_access_key_id=os.getenv("S3_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("S3_SECRET_ACCESS_KEY"),
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("S3_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY") or os.getenv("S3_SECRET_ACCESS_KEY"),
         region_name=region,
         config=Config(signature_version="s3v4"),
     )
