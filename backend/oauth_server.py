@@ -3,14 +3,14 @@ Enhanced API with Google OAuth support
 """
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.responses import RedirectResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime, timedelta, timezone
-from jose import jwt
+from jose import jwt, JWTError
 from passlib.context import CryptContext
 from authlib.integrations.starlette_client import OAuth
 import os
@@ -120,6 +120,16 @@ def create_token(data: dict) -> str:
     expire = datetime.now(timezone.utc) + timedelta(hours=24)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def create_verification_token(user_id: int, email: str) -> str:
+    """Short-lived JWT used in email-verification links (24 h)."""
+    payload = {
+        "sub": str(user_id),
+        "email": email,
+        "purpose": "email_verification",
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24),
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 # Dependency
 def get_db():
@@ -357,7 +367,7 @@ def debug_info():
 
 @app.post("/api/auth/register", response_model=TokenResponse, status_code=201)
 def register(data: UserRegister, db: Session = Depends(get_db)):
-    """Register new user (traditional)"""
+    """Register new user (traditional). Sends verification email; role stays 'basic' until verified."""
 
     if db.query(User).filter(User.username == data.username).first():
         raise HTTPException(400, "Username already exists")
@@ -369,9 +379,10 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
         username=data.username,
         email=data.email,
         hashed_password=hash_password(data.password),
-        role="user",
+        role="basic",          # upgraded to 'user' after email verification
         is_active=True,
-        auth_provider="local"
+        auth_provider="local",
+        email_verified=False,
     )
     db.add(user)
     db.commit()
@@ -380,6 +391,14 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
     profile = UserProfile(user_id=user.id, elo_rating=1200)
     db.add(profile)
     db.commit()
+
+    # Send verification email (non-blocking — failure doesn't prevent registration)
+    try:
+        from services.email import send_verification_email
+        vtoken = create_verification_token(user.id, user.email)
+        send_verification_email(user.email, user.username, vtoken)
+    except Exception as e:
+        print(f"⚠ Could not send verification email: {e}")
 
     access_token = create_token({"sub": str(user.id), "username": user.username})
     refresh_token = create_token({"sub": str(user.id)})
@@ -393,8 +412,57 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
             "email": user.email,
             "role": user.role,
             "avatar_url": user.avatar_url,
-            "auth_provider": user.auth_provider
+            "auth_provider": user.auth_provider,
+            "email_verified": user.email_verified,
         }
+    )
+
+
+@app.get("/api/auth/verify-email")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    """Verify a user's email address via a signed token link."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("purpose") != "email_verification":
+            raise HTTPException(400, "Invalid verification token")
+        user_id = int(payload["sub"])
+        email = payload.get("email")
+    except JWTError:
+        raise HTTPException(400, "Verification link is invalid or has expired")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    if user.email_verified:
+        # Already verified — just redirect
+        return HTMLResponse(
+            "<html><body style='font-family:sans-serif;text-align:center;padding:60px'>"
+            "<h2>✅ Email already verified!</h2>"
+            "<p><a href='/'>Go to Svidhaus Arena</a></p>"
+            "</body></html>"
+        )
+
+    # Verify and upgrade
+    user.email_verified = True
+    if user.role == "basic":
+        user.role = "user"
+    db.commit()
+
+    # Notify admin
+    try:
+        from services.email import send_admin_new_user_notification, ADMIN_EMAIL
+        send_admin_new_user_notification(ADMIN_EMAIL, user.username, user.email)
+    except Exception as e:
+        print(f"⚠ Could not send admin notification: {e}")
+
+    return HTMLResponse(
+        "<html><body style='font-family:sans-serif;text-align:center;padding:60px;"
+        "background:#1a1a2e;color:#fff'>"
+        "<h2 style='color:#e53e3e;'>✅ Email Verified!</h2>"
+        "<p>Your account has been upgraded. You now have full access to Svidhaus Arena.</p>"
+        "<p><a href='/' style='color:#e53e3e;font-weight:bold;'>Go to Svidhaus Arena →</a></p>"
+        "</body></html>"
     )
 
 @app.post("/api/auth/login", response_model=TokenResponse)
@@ -427,7 +495,8 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
             "email": user.email,
             "role": user.role,
             "avatar_url": user.avatar_url,
-            "auth_provider": user.auth_provider
+            "auth_provider": user.auth_provider,
+            "email_verified": getattr(user, "email_verified", False),
         }
     )
 
@@ -465,10 +534,13 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
             # Check if email exists
             existing_user = db.query(User).filter(User.email == email).first()
             if existing_user:
-                # Link Google account to existing user
+                # Link Google account to existing user and mark email as verified
                 existing_user.google_id = google_id
                 existing_user.avatar_url = picture
                 existing_user.auth_provider = "google"
+                existing_user.email_verified = True
+                if existing_user.role == "basic":
+                    existing_user.role = "user"
                 db.commit()
                 user = existing_user
             else:
@@ -488,7 +560,8 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
                     avatar_url=picture,
                     role="user",
                     is_active=True,
-                    auth_provider="google"
+                    auth_provider="google",
+                    email_verified=True,  # Google already verified the email
                 )
                 db.add(user)
                 db.commit()
@@ -603,6 +676,21 @@ async def startup_event():
             db.close()
     except Exception as e:
         print(f"⚠ Warning: Could not seed admin roles: {e}")
+
+    # Migrate: add email_verified column if it doesn't exist yet
+    try:
+        from sqlalchemy import text
+        db = SessionLocal()
+        try:
+            db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE"))
+            db.commit()
+            print("✓ email_verified column ensured on users table")
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"⚠ Warning: Could not run email_verified migration: {e}")
 
     try:
         from app.services.odds_sync_scheduler import sync_scheduler

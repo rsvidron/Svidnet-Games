@@ -91,6 +91,7 @@ class EventIn(BaseModel):
     description: Optional[str] = None
     image_url: Optional[str] = None
     event_date: Optional[str] = None   # ISO string
+    notify_users: bool = False          # send email notification to all verified users
 
 
 class EventUpdate(BaseModel):
@@ -191,7 +192,38 @@ def create_event(data: EventIn, db: Session = Depends(get_db), admin_id: int = D
         event_date  = datetime.fromisoformat(data.event_date) if data.event_date else None,
     )
     db.add(ev); db.commit(); db.refresh(ev)
+
+    if data.notify_users:
+        _send_event_notification(db, ev)
+
     return _event_dict(ev, include_questions=True)
+
+
+@router.post("/events/{event_id}/notify", status_code=200)
+def notify_event_users(event_id: int, db: Session = Depends(get_db), admin_id: int = Depends(require_admin)):
+    """Send notification email for an existing event to all verified users."""
+    ev = db.query(WrestlingEvent).filter(WrestlingEvent.id == event_id).first()
+    if not ev:
+        raise HTTPException(404, "Event not found")
+    sent = _send_event_notification(db, ev)
+    return {"sent_to": sent}
+
+
+def _send_event_notification(db: Session, ev: WrestlingEvent) -> int:
+    """Email all verified users about a wrestling event. Returns number of recipients."""
+    try:
+        from services.email import send_wrestling_event_notification
+        verified_users = db.query(User).filter(
+            User.email_verified == True,  # noqa: E712
+            User.is_active == True,       # noqa: E712
+        ).all()
+        emails = [u.email for u in verified_users if u.email]
+        if emails:
+            send_wrestling_event_notification(emails, ev.title, ev.description or "")
+        return len(emails)
+    except Exception as e:
+        print(f"⚠ Wrestling event notification failed: {e}")
+        return 0
 
 
 @router.patch("/events/{event_id}")

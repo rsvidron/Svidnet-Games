@@ -1529,6 +1529,7 @@
                             <button class="btn btn-sm btn-secondary" onclick="toggleLockEvent(${ev.id}, ${ev.is_locked})">${ev.is_locked ? '🔓 Unlock' : '🔒 Lock'}</button>
                             <button class="btn btn-sm btn-secondary" onclick="openGradeModal(${ev.id})">🏆 Grade</button>
                             <button class="btn btn-sm btn-secondary" onclick="openSubmissionsModal(${ev.id})">👥 Submissions</button>
+                            <button class="btn btn-sm btn-secondary" onclick="notifyWrestlingEvent(${ev.id}, '${ev.title.replace(/'/g,"\\'")}')">📧 Notify</button>
                             <button class="btn btn-sm btn-danger" onclick="deleteWrestlingEvent(${ev.id}, '${ev.title.replace(/'/g,"\\'")}')">Delete</button>
                         </div>
                     </div>
@@ -1545,6 +1546,8 @@
             document.getElementById('w-event-modal-title').textContent = 'New Wrestling Event';
             document.getElementById('w-event-form').reset();
             document.getElementById('w-event-alert').innerHTML = '';
+            document.getElementById('w-event-notify-row').style.display = '';
+            document.getElementById('w-event-notify').checked = false;
             document.getElementById('w-event-modal').classList.add('show');
         }
 
@@ -1558,17 +1561,23 @@
             document.getElementById('w-event-image-url').value = ev.image_url || '';
             document.getElementById('w-event-date').value = ev.event_date ? ev.event_date.substring(0, 16) : '';
             document.getElementById('w-event-alert').innerHTML = '';
+            // Hide notify checkbox on edit (only relevant for new events)
+            document.getElementById('w-event-notify-row').style.display = 'none';
             document.getElementById('w-event-modal').classList.add('show');
         }
 
         async function saveWrestlingEvent(e) {
             e.preventDefault();
+            const isNew = !currentWrestlingEvent;
             const data = {
                 title:       document.getElementById('w-event-title').value.trim(),
                 description: document.getElementById('w-event-description').value.trim() || null,
                 image_url:   document.getElementById('w-event-image-url').value.trim() || null,
                 event_date:  document.getElementById('w-event-date').value || null,
             };
+            if (isNew) {
+                data.notify_users = document.getElementById('w-event-notify').checked;
+            }
             try {
                 const url    = currentWrestlingEvent ? `${API_URL}/api/wrestling/events/${currentWrestlingEvent.id}` : `${API_URL}/api/wrestling/events`;
                 const method = currentWrestlingEvent ? 'PATCH' : 'POST';
@@ -1593,6 +1602,20 @@
             if (!confirm(`Delete "${title}" and all its data? This cannot be undone.`)) return;
             await fetch(`${API_URL}/api/wrestling/events/${eventId}`, { method: 'DELETE', headers: authHeaders() });
             loadWrestlingEvents();
+        }
+
+        async function notifyWrestlingEvent(eventId, title) {
+            if (!confirm(`Send an email notification to all verified users about "${title}"?`)) return;
+            try {
+                const res = await fetch(`${API_URL}/api/wrestling/events/${eventId}/notify`, {
+                    method: 'POST', headers: authHeaders()
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Failed');
+                alert(`✅ Notification sent to ${data.sent_to} user(s)!`);
+            } catch (err) {
+                alert(`❌ Could not send notification: ${err.message}`);
+            }
         }
 
         // ── Questions modal ───────────────────────────────────────────────────────
@@ -1853,6 +1876,15 @@
                 <div class="form-group">
                     <label class="form-label">Event Date</label>
                     <input id="w-event-date" type="datetime-local" class="form-input">
+                </div>
+                <div class="form-group" id="w-event-notify-row">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" id="w-event-notify" style="width:16px;height:16px;">
+                        <span>📧 Notify all verified users by email</span>
+                    </label>
+                    <p style="margin:4px 0 0 24px;font-size:0.82em;color:var(--text-muted);">
+                        Sends a prediction invite email to every user who has verified their email address.
+                    </p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('w-event-modal')">Cancel</button>

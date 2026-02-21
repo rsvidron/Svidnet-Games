@@ -16,6 +16,7 @@ class User(Base):
     role = Column(String(20), default="basic", nullable=False)  # basic | user | admin
     is_active = Column(Boolean, default=True, nullable=False)
     auth_provider = Column(String(20), default="local", nullable=False)  # local, google
+    email_verified = Column(Boolean, default=False, nullable=False)  # True after verification
 
 
 class UserProfile(Base):
