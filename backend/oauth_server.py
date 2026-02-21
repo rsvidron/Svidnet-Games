@@ -499,12 +499,13 @@ def resend_verification_email(authorization: str = Header(None), db: Session = D
         from services.email import send_verification_email
         vtoken = create_verification_token(user.id, user.email)
         success = send_verification_email(user.email, user.username, vtoken)
-        if not success:
-            raise HTTPException(500, "Email service not configured or failed to send")
-        return {"message": "Verification email sent! Check your inbox."}
     except Exception as e:
         print(f"⚠ Resend verification failed: {e}")
-        raise HTTPException(500, f"Could not send verification email: {str(e)}")
+        success = False
+
+    if not success:
+        raise HTTPException(500, "Email delivery failed. Make sure RESEND_API_KEY is set in Railway environment variables.")
+    return {"message": "Verification email sent! Check your inbox."}
 
 
 @app.post("/api/auth/login", response_model=TokenResponse)

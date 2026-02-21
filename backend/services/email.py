@@ -1,49 +1,100 @@
 """
-Email service using Gmail SMTP
+Email service using Resend API (HTTPS, works on Railway)
+Fallback: raw Gmail SMTP for local dev where SMTP is not blocked.
+
+Set RESEND_API_KEY in Railway environment variables.
+Get a free key at https://resend.com (3,000 emails/month free).
 """
-import smtplib
 import os
+import json
+import urllib.request
+import urllib.error
+import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+RESEND_API_KEY    = os.getenv("RESEND_API_KEY", "")
 GMAIL_SMTP_SERVER = os.getenv("GMAIL_SMTP_SERVER", "smtp.gmail.com")
-GMAIL_SMTP_PORT = int(os.getenv("GMAIL_SMTP_PORT", "587"))
-GMAIL_EMAIL = os.getenv("GMAIL_EMAIL", "")
+GMAIL_SMTP_PORT   = int(os.getenv("GMAIL_SMTP_PORT", "587"))
+GMAIL_EMAIL       = os.getenv("GMAIL_EMAIL", "")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
 
-ADMIN_EMAIL = os.getenv("GMAIL_EMAIL", "svidron.robert@gmail.com")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", GMAIL_EMAIL or "svidron.robert@gmail.com")
+FROM_EMAIL  = os.getenv("FROM_EMAIL", GMAIL_EMAIL or "noreply@svidhaus.app")
+FROM_NAME   = "Svidhaus Arena"
 
 # Base URL used in links sent via email
 BASE_URL = os.getenv("BASE_URL", "https://svidhaus.up.railway.app")
 
 
-def _send(to: str | list[str], subject: str, html_body: str) -> bool:
-    """Send an HTML email. Returns True on success, False on failure."""
-    if not GMAIL_EMAIL or not GMAIL_APP_PASSWORD:
-        print("⚠ Email not configured — skipping send")
+def _send_via_resend(to: list[str], subject: str, html_body: str) -> bool:
+    """Send via Resend REST API over HTTPS (works on Railway)."""
+    payload = json.dumps({
+        "from": f"{FROM_NAME} <{FROM_EMAIL}>",
+        "to": to,
+        "subject": subject,
+        "html": html_body,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            print(f"✓ Email sent via Resend to {to}: {subject}")
+            return True
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        print(f"⚠ Resend API error {e.code}: {body}")
+        return False
+    except Exception as e:
+        print(f"⚠ Resend request failed: {e}")
         return False
 
-    recipients = [to] if isinstance(to, str) else to
 
+def _send_via_smtp(to: list[str], subject: str, html_body: str) -> bool:
+    """Fallback: send via Gmail SMTP (may be blocked on Railway)."""
+    if not GMAIL_EMAIL or not GMAIL_APP_PASSWORD:
+        print("⚠ Gmail SMTP not configured")
+        return False
     try:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = f"Svidhaus Arena <{GMAIL_EMAIL}>"
-        msg["To"] = ", ".join(recipients)
-
+        msg["From"]    = f"{FROM_NAME} <{GMAIL_EMAIL}>"
+        msg["To"]      = ", ".join(to)
         msg.attach(MIMEText(html_body, "html"))
 
-        with smtplib.SMTP(GMAIL_SMTP_SERVER, GMAIL_SMTP_PORT) as server:
+        with smtplib.SMTP(GMAIL_SMTP_SERVER, GMAIL_SMTP_PORT, timeout=15) as server:
             server.ehlo()
             server.starttls()
             server.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)
-            server.sendmail(GMAIL_EMAIL, recipients, msg.as_string())
+            server.sendmail(GMAIL_EMAIL, to, msg.as_string())
 
-        print(f"✓ Email sent to {recipients}: {subject}")
+        print(f"✓ Email sent via SMTP to {to}: {subject}")
         return True
     except Exception as e:
-        print(f"⚠ Email send failed: {e}")
+        print(f"⚠ SMTP send failed: {e}")
         return False
+
+
+def _send(to: str | list[str], subject: str, html_body: str) -> bool:
+    """Send an HTML email. Tries Resend first, falls back to SMTP."""
+    recipients = [to] if isinstance(to, str) else to
+
+    if RESEND_API_KEY:
+        return _send_via_resend(recipients, subject, html_body)
+
+    if GMAIL_EMAIL and GMAIL_APP_PASSWORD:
+        return _send_via_smtp(recipients, subject, html_body)
+
+    print("⚠ No email provider configured (set RESEND_API_KEY or GMAIL_EMAIL+GMAIL_APP_PASSWORD)")
+    return False
 
 
 def send_verification_email(to_email: str, username: str, token: str) -> bool:
@@ -92,7 +143,7 @@ def send_wrestling_event_notification(recipients: list[str], event_title: str, e
     desc_html = f"<p>{event_description}</p>" if event_description else ""
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-      <h2 style="color:#e53e3e;">🤼 New Wrestling Event — Svidhaus Arena</h2>
+      <h2 style="color:#e53e3e;">&#129340; New Wrestling Event — Svidhaus Arena</h2>
       <h3>{event_title}</h3>
       {desc_html}
       <p>Head over to make your predictions before the event locks!</p>
