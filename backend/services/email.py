@@ -6,9 +6,6 @@ Set RESEND_API_KEY in Railway environment variables.
 Get a free key at https://resend.com (3,000 emails/month free).
 """
 import os
-import json
-import urllib.request
-import urllib.error
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -28,31 +25,34 @@ BASE_URL = os.getenv("BASE_URL", "https://svidhaus.up.railway.app")
 
 
 def _send_via_resend(to: list[str], subject: str, html_body: str) -> bool:
-    """Send via Resend REST API over HTTPS (works on Railway)."""
-    payload = json.dumps({
-        "from": f"{FROM_NAME} <{FROM_EMAIL}>",
-        "to": to,
-        "subject": subject,
-        "html": html_body,
-    }).encode("utf-8")
-
-    req = urllib.request.Request(
-        "https://api.resend.com/emails",
-        data=payload,
-        headers={
-            "Authorization": f"Bearer {RESEND_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
+    """Send via Resend REST API over HTTPS using httpx (works on Railway)."""
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        import httpx
+    except ImportError:
+        print("⚠ httpx not installed — cannot use Resend API")
+        return False
+
+    try:
+        resp = httpx.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": f"{FROM_NAME} <{FROM_EMAIL}>",
+                "to": to,
+                "subject": subject,
+                "html": html_body,
+            },
+            timeout=15,
+        )
+        if resp.status_code in (200, 201):
             print(f"✓ Email sent via Resend to {to}: {subject}")
             return True
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        print(f"⚠ Resend API error {e.code}: {body}")
-        return False
+        else:
+            print(f"⚠ Resend API error {resp.status_code}: {resp.text}")
+            return False
     except Exception as e:
         print(f"⚠ Resend request failed: {e}")
         return False
