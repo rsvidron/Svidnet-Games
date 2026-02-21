@@ -131,6 +131,20 @@ def create_verification_token(user_id: int, email: str) -> str:
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
+def get_current_user_from_token(authorization: str = None) -> int:
+    """Extract user_id from Bearer token. Raises 401 if missing/invalid."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Authentication required")
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(401, "Invalid token")
+        return int(user_id)
+    except JWTError:
+        raise HTTPException(401, "Invalid or expired token")
+
 # Dependency
 def get_db():
     db = SessionLocal()
@@ -464,6 +478,34 @@ def verify_email(token: str, db: Session = Depends(get_db)):
         "<p><a href='/' style='color:#e53e3e;font-weight:bold;'>Go to Svidhaus Arena →</a></p>"
         "</body></html>"
     )
+
+
+@app.post("/api/auth/resend-verification")
+def resend_verification_email(authorization: str = Header(None), db: Session = Depends(get_db)):
+    """Resend verification email to the current user if they haven't verified yet."""
+    user_id = get_current_user_from_token(authorization)
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    if user.email_verified:
+        raise HTTPException(400, "Email already verified")
+
+    if user.auth_provider != "local":
+        raise HTTPException(400, "Only local accounts can request verification emails")
+
+    try:
+        from services.email import send_verification_email
+        vtoken = create_verification_token(user.id, user.email)
+        success = send_verification_email(user.email, user.username, vtoken)
+        if not success:
+            raise HTTPException(500, "Email service not configured or failed to send")
+        return {"message": "Verification email sent! Check your inbox."}
+    except Exception as e:
+        print(f"⚠ Resend verification failed: {e}")
+        raise HTTPException(500, f"Could not send verification email: {str(e)}")
+
 
 @app.post("/api/auth/login", response_model=TokenResponse)
 def login(data: UserLogin, db: Session = Depends(get_db)):

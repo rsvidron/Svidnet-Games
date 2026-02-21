@@ -207,6 +207,25 @@
                     </div>
                 </div>
 
+                <!-- Email verification banner (shown if not verified) -->
+                <div id="verification-banner" style="display:none;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:16px 20px;margin-bottom:20px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:20px;">⚠️</span>
+                        <div style="flex:1;">
+                            <strong style="color:#f59e0b;font-size:14px;display:block;margin-bottom:4px;">Email not verified</strong>
+                            <p style="color:var(--text-secondary);font-size:13px;margin:0;">
+                                Check your inbox for a verification link to unlock full access.
+                            </p>
+                        </div>
+                        <button
+                            id="resend-verification-btn"
+                            onclick="resendVerificationEmail()"
+                            style="padding:8px 16px;background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all 0.2s;">
+                            📧 Resend Email
+                        </button>
+                    </div>
+                </div>
+
                 <div class="stats-grid" id="stats-grid">
                     <div class="stat-box"><div class="value" id="total-games">0</div><div class="label">Games Played</div></div>
                     <div class="stat-box"><div class="value" id="total-score">0</div><div class="label">Total Score</div></div>
@@ -277,6 +296,11 @@
                 avatarEl.innerHTML = `<img src="${user.avatar_url}" alt="avatar">`;
             } else {
                 avatarEl.textContent = user.username.charAt(0).toUpperCase();
+            }
+
+            // Show verification banner if email not verified (local accounts only)
+            if (user.auth_provider === 'local' && !user.email_verified) {
+                document.getElementById('verification-banner').style.display = 'block';
             }
 
             try {
@@ -356,6 +380,47 @@
         }
 
         loadProfile();
+
+        async function resendVerificationEmail() {
+            const btn = document.getElementById('resend-verification-btn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Sending...';
+            btn.style.opacity = '0.6';
+
+            try {
+                const res = await fetch(`${API_URL}/api/auth/resend-verification`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${getToken()}` }
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Failed to send email');
+                }
+
+                const data = await res.json();
+                btn.innerHTML = '✅ Email Sent!';
+                btn.style.background = 'rgba(34,197,94,0.15)';
+                btn.style.color = '#22c55e';
+                btn.style.borderColor = 'rgba(34,197,94,0.3)';
+
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                    btn.style.background = 'rgba(245,158,11,0.15)';
+                    btn.style.color = '#f59e0b';
+                    btn.style.borderColor = 'rgba(245,158,11,0.3)';
+                }, 3000);
+
+            } catch (err) {
+                alert('❌ ' + err.message);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
+        }
     </script>
 </body>
 </html>
