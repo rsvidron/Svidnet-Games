@@ -10,6 +10,8 @@ from pydantic import BaseModel
 from jose import jwt, JWTError
 import uuid
 import io
+import hashlib
+import hmac
 
 import sys
 import os
@@ -50,47 +52,106 @@ def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
         return 1
 
 
-# --- S3 helper ---
+# --- S3 helper (httpx + AWS Sig V4, no boto3) ---
+
+def _sign(key: bytes, msg: str) -> bytes:
+    return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
+
+def _signing_key(secret: str, date_stamp: str, region: str, service: str) -> bytes:
+    k = _sign(("AWS4" + secret).encode("utf-8"), date_stamp)
+    k = _sign(k, region)
+    k = _sign(k, service)
+    return _sign(k, "aws4_request")
 
 def _upload_avatar_to_s3(file_bytes: bytes, content_type: str, user_id: int) -> str:
-    """Upload avatar image to S3-compatible bucket, return public URL."""
-    import boto3
-    from botocore.client import Config
+    """Upload avatar image to S3-compatible bucket via httpx (no boto3)."""
+    import httpx
+    from datetime import datetime as dt
 
     # Support both AWS_* (Railway native) and S3_* names
-    bucket   = os.getenv("S3_BUCKET_NAME", "")
-    endpoint = os.getenv("AWS_ENDPOINT_URL") or os.getenv("S3_ENDPOINT_URL", "")
-    region   = os.getenv("AWS_DEFAULT_REGION") or os.getenv("S3_REGION", "us-east-1")
-    pub_url  = os.getenv("S3_PUBLIC_URL", "")  # optional CDN base URL
+    bucket     = os.getenv("S3_BUCKET_NAME", "")
+    endpoint   = os.getenv("AWS_ENDPOINT_URL") or os.getenv("S3_ENDPOINT_URL", "")
+    region     = os.getenv("AWS_DEFAULT_REGION") or os.getenv("S3_REGION", "us-east-1")
+    pub_url    = os.getenv("S3_PUBLIC_URL", "")
+    access_key = os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("S3_ACCESS_KEY_ID", "")
+    secret_key = os.getenv("AWS_SECRET_ACCESS_KEY") or os.getenv("S3_SECRET_ACCESS_KEY", "")
 
     if not bucket:
         raise HTTPException(500, "S3_BUCKET_NAME not configured")
+    if not access_key or not secret_key:
+        raise HTTPException(500, "S3 credentials not configured")
 
     ext = "jpg" if "jpeg" in content_type else content_type.split("/")[-1]
     key = f"avatars/{user_id}/{uuid.uuid4().hex}.{ext}"
 
-    kwargs = dict(
-        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID") or os.getenv("S3_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY") or os.getenv("S3_SECRET_ACCESS_KEY"),
-        region_name=region,
-        config=Config(signature_version="s3v4"),
-    )
+    # Build endpoint URL
     if endpoint:
-        kwargs["endpoint_url"] = endpoint
+        host = endpoint.rstrip("/").replace("https://", "").replace("http://", "")
+        base_url = endpoint.rstrip("/")
+        url = f"{base_url}/{bucket}/{key}"
+    else:
+        host = f"{bucket}.s3.{region}.amazonaws.com"
+        base_url = f"https://{host}"
+        url = f"{base_url}/{key}"
 
-    s3 = boto3.client("s3", **kwargs)
-    s3.upload_fileobj(
-        io.BytesIO(file_bytes),
-        bucket,
-        key,
-        ExtraArgs={"ContentType": content_type, "ACL": "public-read"},
+    # AWS Sig V4
+    now = dt.utcnow()
+    amz_date   = now.strftime("%Y%m%dT%H%M%SZ")
+    date_stamp = now.strftime("%Y%m%d")
+
+    payload_hash = hashlib.sha256(file_bytes).hexdigest()
+
+    canonical_headers = (
+        f"content-type:{content_type}\n"
+        f"host:{host}\n"
+        f"x-amz-content-sha256:{payload_hash}\n"
+        f"x-amz-date:{amz_date}\n"
     )
+    signed_headers = "content-type;host;x-amz-content-sha256;x-amz-date"
+
+    # path for canonical request
+    if endpoint:
+        canonical_uri = f"/{bucket}/{key}"
+    else:
+        canonical_uri = f"/{key}"
+
+    canonical_request = "\n".join([
+        "PUT", canonical_uri, "",
+        canonical_headers, signed_headers, payload_hash
+    ])
+
+    credential_scope = f"{date_stamp}/{region}/s3/aws4_request"
+    string_to_sign = "\n".join([
+        "AWS4-HMAC-SHA256", amz_date, credential_scope,
+        hashlib.sha256(canonical_request.encode("utf-8")).hexdigest()
+    ])
+
+    sig = _signing_key(secret_key, date_stamp, region, "s3")
+    signature = hmac.new(sig, string_to_sign.encode("utf-8"), hashlib.sha256).hexdigest()
+
+    auth_header = (
+        f"AWS4-HMAC-SHA256 Credential={access_key}/{credential_scope}, "
+        f"SignedHeaders={signed_headers}, Signature={signature}"
+    )
+
+    headers = {
+        "Authorization":        auth_header,
+        "Content-Type":         content_type,
+        "x-amz-date":           amz_date,
+        "x-amz-content-sha256": payload_hash,
+        "x-amz-acl":            "public-read",
+        "Content-Length":       str(len(file_bytes)),
+    }
+
+    resp = httpx.put(url, content=file_bytes, headers=headers, timeout=30)
+    if resp.status_code not in (200, 201, 204):
+        raise HTTPException(500, f"S3 upload error {resp.status_code}: {resp.text[:200]}")
 
     if pub_url:
         return f"{pub_url.rstrip('/')}/{key}"
     if endpoint:
         return f"{endpoint.rstrip('/')}/{bucket}/{key}"
-    return f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
+    return f"https://{host}/{key}"
 
 
 # --- Schemas ---
