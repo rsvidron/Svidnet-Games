@@ -613,10 +613,31 @@
             renderAvatarFromUser(u);
         }
 
+        // ── Refresh user from server → update localStorage ──
+        async function refreshUser() {
+            try {
+                const res = await fetch(`${API_URL}/api/auth/verification-status`, {
+                    headers: { 'Authorization': `Bearer ${getToken()}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const fresh = { ...getUser(), ...data.user };
+                    localStorage.setItem('user', JSON.stringify(fresh));
+                    return fresh;
+                }
+            } catch (_) {}
+            return getUser();
+        }
+
         // ── Load profile ──
         async function loadProfile() {
-            const user = getUser();
-            if (!user) { window.location.href = '/login'; return; }
+            const cached = getUser();
+            if (!cached) { window.location.href = '/login'; return; }
+
+            // Render immediately from cache, then refresh from server
+            renderProfileView(cached);
+
+            const user = await refreshUser();
 
             if (user.role === 'admin') {
                 document.getElementById('admin-sidebar-link').style.display = 'flex';

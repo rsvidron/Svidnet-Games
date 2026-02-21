@@ -1070,6 +1070,32 @@
             } catch (e) { showToast('Error removing friend'); }
         }
 
+        // ─── Refresh user from server → update localStorage ──────────
+        async function refreshUser() {
+            try {
+                const res = await fetch(`${API_URL}/api/auth/verification-status`, {
+                    headers: { 'Authorization': `Bearer ${getToken()}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const fresh = { ...getUser(), ...data.user };
+                    localStorage.setItem('user', JSON.stringify(fresh));
+                    return fresh;
+                }
+            } catch (_) {}
+            return getUser();
+        }
+
+        function renderAvatar(user) {
+            const avatarEl = document.getElementById('user-avatar');
+            if (!avatarEl) return;
+            if (user && user.avatar_url) {
+                avatarEl.innerHTML = `<img src="${user.avatar_url}" alt="avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+            } else {
+                avatarEl.textContent = (user && user.username) ? user.username.charAt(0).toUpperCase() : '?';
+            }
+        }
+
         // ─── Dashboard load ──────────────────────────
         async function loadDashboard() {
             currentUser = getUser();
@@ -1078,6 +1104,13 @@
             if (currentUser.email_verified === false && currentUser.auth_provider === 'local') {
                 window.location.href = '/login'; return;
             }
+
+            // Render avatar from cache immediately, then refresh from server
+            renderAvatar(currentUser);
+            refreshUser().then(fresh => {
+                currentUser = fresh;
+                renderAvatar(fresh);
+            });
 
             const role = currentUser.role || 'basic';
             const isUserOrAbove = ['user', 'admin'].includes(role);
@@ -1091,14 +1124,6 @@
             }
             if (isAdmin(currentUser)) {
                 document.getElementById('admin-nav-btn').style.display = 'flex';
-            }
-
-            // Avatar
-            const avatarEl = document.getElementById('user-avatar');
-            if (currentUser.avatar_url) {
-                avatarEl.innerHTML = `<img src="${currentUser.avatar_url}" alt="avatar">`;
-            } else {
-                avatarEl.textContent = currentUser.username.charAt(0).toUpperCase();
             }
 
             const roleMeta = { basic: { label: 'Basic', color: '#6b7280' }, user: { label: 'User', color: '#3b82f6' }, admin: { label: 'Admin', color: '#22c55e' } };
