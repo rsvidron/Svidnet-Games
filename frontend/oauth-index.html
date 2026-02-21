@@ -289,6 +289,7 @@
                     Didn't get it? Check your spam folder.<br>
                     The link expires after 24 hours.
                 </p>
+                <p id="verify-countdown" style="font-size:11px;color:var(--text-muted);margin-top:12px;"></p>
             </div>
         </div>
     </div>
@@ -348,14 +349,63 @@
 
         // ── Auth state helpers ────────────────────────────────────────────────
 
+        let _verifyPollInterval = null;
+
         function showVerifyScreen(email, token) {
-            // Store token so resend button can use it, but don't redirect
+            // Store token so resend button and polling can use it, but don't redirect
             localStorage.setItem('token', token);
             localStorage.setItem('access_token', token);
             document.getElementById('auth-section').classList.add('hidden');
             document.getElementById('dashboard-section').classList.add('hidden');
             document.getElementById('verify-section').classList.remove('hidden');
             document.getElementById('verify-email-display').textContent = email;
+            startVerifyPolling(token);
+        }
+
+        function startVerifyPolling(token) {
+            // Clear any existing poll
+            if (_verifyPollInterval) clearInterval(_verifyPollInterval);
+
+            let countdown = 15;
+            updateCountdown(countdown);
+
+            const tick = setInterval(() => {
+                countdown--;
+                updateCountdown(countdown);
+                if (countdown <= 0) {
+                    countdown = 15;
+                    checkIfVerified(token, tick);
+                }
+            }, 1000);
+
+            _verifyPollInterval = tick;
+
+            // Also check immediately after 2s (in case they clicked the link quickly)
+            setTimeout(() => checkIfVerified(token, tick), 2000);
+        }
+
+        function updateCountdown(seconds) {
+            const el = document.getElementById('verify-countdown');
+            if (el) el.textContent = `Checking in ${seconds}s…`;
+        }
+
+        async function checkIfVerified(token, intervalRef) {
+            try {
+                const res = await fetch(`${API_URL}/api/auth/verification-status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.email_verified) {
+                    clearInterval(intervalRef);
+                    _verifyPollInterval = null;
+                    // Update stored user and redirect
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    const el = document.getElementById('verify-countdown');
+                    if (el) el.textContent = '✓ Verified! Logging you in…';
+                    setTimeout(() => { window.location.href = '/'; }, 800);
+                }
+            } catch { /* silent — will retry next interval */ }
         }
 
         function showLoggedIn(user, token) {
@@ -387,6 +437,7 @@
         }
 
         function logout() {
+            if (_verifyPollInterval) { clearInterval(_verifyPollInterval); _verifyPollInterval = null; }
             localStorage.removeItem('token');
             localStorage.removeItem('access_token');
             localStorage.removeItem('user');

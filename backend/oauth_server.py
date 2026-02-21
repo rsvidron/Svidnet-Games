@@ -480,6 +480,28 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     )
 
 
+@app.get("/api/auth/verification-status")
+def verification_status(authorization: str = Header(None), db: Session = Depends(get_db)):
+    """Poll this to check if the current user's email has been verified yet."""
+    user_id = get_current_user_from_token(authorization)
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+    return {
+        "email_verified": user.email_verified,
+        "role": user.role,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "avatar_url": user.avatar_url,
+            "auth_provider": user.auth_provider,
+            "email_verified": user.email_verified,
+        }
+    }
+
+
 @app.post("/api/auth/resend-verification")
 def resend_verification_email(authorization: str = Header(None), db: Session = Depends(get_db)):
     """Resend verification email to the current user if they haven't verified yet."""
