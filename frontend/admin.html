@@ -242,7 +242,7 @@
             <a href="/wordle" class="sidebar-item"><span class="icon">🟩</span> Wordle</a>
             <a href="/sportsbook" class="sidebar-item"><span class="icon">🏈</span> Sportsbook</a>
             <a href="/movies" class="sidebar-item"><span class="icon">🎬</span> Movies &amp; TV</a>
-            <div class="sidebar-item" style="cursor:default;opacity:0.5;"><span class="icon">🤼</span> Wrestling<span class="soon-badge">Soon</span></div>
+            <a href="/wrestling" class="sidebar-item"><span class="icon">🤼</span> Wrestling</a>
         </div>
         <div class="sidebar-bottom">
             <button class="sidebar-item" onclick="logout()" style="background:none;border:none;text-align:left;width:100%;color:var(--danger);cursor:pointer;">
@@ -270,6 +270,7 @@
                 <button class="tab" onclick="switchTab('links', this)">Links</button>
                 <button class="tab" onclick="switchTab('collections', this)">Collections</button>
                 <button class="tab" onclick="switchTab('users', this)">Users</button>
+                <button class="tab" onclick="switchTab('wrestling', this)">🤼 Wrestling</button>
                 <button class="tab" onclick="switchTab('import', this)">Import/Export</button>
             </div>
 
@@ -351,6 +352,20 @@
                             style="width:100%;max-width:360px;padding:9px 14px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:8px;font-size:13px;color:var(--text-primary);outline:none;font-family:inherit;">
                     </div>
                     <div id="users-list"></div>
+                </div>
+            </div>
+
+            <!-- Wrestling Section -->
+            <div class="content-section" id="wrestling-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Wrestling Prediction Events</h2>
+                        <button class="btn btn-primary" onclick="showCreateEventModal()">+ New Event</button>
+                    </div>
+                    <p style="color:var(--text-secondary);margin-bottom:20px;font-size:14px;">
+                        Create prediction forms for wrestling shows. Add questions, lock submissions, then submit correct answers to auto-grade everyone.
+                    </p>
+                    <div id="wrestling-events-list"></div>
                 </div>
             </div>
 
@@ -681,6 +696,9 @@
             } else if (tab === 'users') {
                 document.getElementById('users-section').classList.add('active');
                 loadUsers();
+            } else if (tab === 'wrestling') {
+                document.getElementById('wrestling-section').classList.add('active');
+                loadWrestlingEvents();
             } else if (tab === 'import') {
                 document.getElementById('import-section').classList.add('active');
             }
@@ -1472,6 +1490,463 @@
                 alert('Failed to delete user: ' + e.message);
             }
         }
+
+        // ── Wrestling Admin ─────────────────────────────────────────────────────
+        let wrestlingEvents = [];
+        let currentWrestlingEvent = null;   // event being edited
+        let currentWrestlingEventId = null; // event whose questions are open
+        let wrestlingQuestions = [];        // questions for currently open event
+        let editingQuestion = null;
+
+        async function loadWrestlingEvents() {
+            const list = document.getElementById('wrestling-events-list');
+            list.innerHTML = '<div style="color:var(--text-muted);padding:16px;">Loading…</div>';
+            try {
+                const res = await fetch(`${API_URL}/api/wrestling/events`, { headers: authHeaders() });
+                wrestlingEvents = await res.json();
+                if (!wrestlingEvents.length) {
+                    list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🤼</div><p>No events yet. Create your first wrestling event!</p></div>';
+                    return;
+                }
+                list.innerHTML = wrestlingEvents.map(ev => `
+                    <div style="border:1px solid var(--card-border);border-radius:12px;padding:20px;margin-bottom:16px;background:var(--card-bg);">
+                        <div style="display:flex;align-items:flex-start;gap:16px;">
+                            ${ev.image_url ? `<img src="${ev.image_url}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;flex-shrink:0;">` : `<div style="width:80px;height:80px;background:var(--input-bg);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;">🤼</div>`}
+                            <div style="flex:1;min-width:0;">
+                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+                                    <strong style="font-size:16px;">${ev.title}</strong>
+                                    ${ev.is_locked ? '<span class="badge inactive">🔒 Locked</span>' : '<span class="badge active">Open</span>'}
+                                    ${ev.is_graded ? '<span class="badge active" style="background:rgba(59,130,246,0.15);color:#3b82f6;">✓ Graded</span>' : ''}
+                                </div>
+                                ${ev.event_date ? `<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">📅 ${new Date(ev.event_date).toLocaleDateString()}</div>` : ''}
+                                ${ev.description ? `<div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">${ev.description}</div>` : ''}
+                                <div style="font-size:12px;color:var(--text-muted);">${ev.question_count} question${ev.question_count !== 1 ? 's' : ''}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--divider);">
+                            <button class="btn btn-sm btn-secondary" onclick="openEventQuestions(${ev.id})">✏️ Questions</button>
+                            <button class="btn btn-sm btn-secondary" onclick="showEditEventModal(${ev.id})">Edit</button>
+                            <button class="btn btn-sm btn-secondary" onclick="toggleLockEvent(${ev.id}, ${ev.is_locked})">${ev.is_locked ? '🔓 Unlock' : '🔒 Lock'}</button>
+                            <button class="btn btn-sm btn-secondary" onclick="openGradeModal(${ev.id})">🏆 Grade</button>
+                            <button class="btn btn-sm btn-secondary" onclick="openSubmissionsModal(${ev.id})">👥 Submissions</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteWrestlingEvent(${ev.id}, '${ev.title.replace(/'/g,"\\'")}')">Delete</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                list.innerHTML = `<div class="alert alert-error">Failed to load events: ${e.message}</div>`;
+            }
+        }
+
+        // ── Event modal ──────────────────────────────────────────────────────────
+
+        function showCreateEventModal() {
+            currentWrestlingEvent = null;
+            document.getElementById('w-event-modal-title').textContent = 'New Wrestling Event';
+            document.getElementById('w-event-form').reset();
+            document.getElementById('w-event-alert').innerHTML = '';
+            document.getElementById('w-event-modal').classList.add('show');
+        }
+
+        function showEditEventModal(eventId) {
+            const ev = wrestlingEvents.find(e => e.id === eventId);
+            if (!ev) return;
+            currentWrestlingEvent = ev;
+            document.getElementById('w-event-modal-title').textContent = 'Edit Event';
+            document.getElementById('w-event-title').value = ev.title;
+            document.getElementById('w-event-description').value = ev.description || '';
+            document.getElementById('w-event-image-url').value = ev.image_url || '';
+            document.getElementById('w-event-date').value = ev.event_date ? ev.event_date.substring(0, 16) : '';
+            document.getElementById('w-event-alert').innerHTML = '';
+            document.getElementById('w-event-modal').classList.add('show');
+        }
+
+        async function saveWrestlingEvent(e) {
+            e.preventDefault();
+            const data = {
+                title:       document.getElementById('w-event-title').value.trim(),
+                description: document.getElementById('w-event-description').value.trim() || null,
+                image_url:   document.getElementById('w-event-image-url').value.trim() || null,
+                event_date:  document.getElementById('w-event-date').value || null,
+            };
+            try {
+                const url    = currentWrestlingEvent ? `${API_URL}/api/wrestling/events/${currentWrestlingEvent.id}` : `${API_URL}/api/wrestling/events`;
+                const method = currentWrestlingEvent ? 'PATCH' : 'POST';
+                const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(data) });
+                if (!res.ok) throw new Error((await res.json()).detail || 'Failed');
+                closeModal('w-event-modal');
+                loadWrestlingEvents();
+            } catch (err) {
+                document.getElementById('w-event-alert').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+            }
+        }
+
+        async function toggleLockEvent(eventId, currentlyLocked) {
+            await fetch(`${API_URL}/api/wrestling/events/${eventId}`, {
+                method: 'PATCH', headers: authHeaders(),
+                body: JSON.stringify({ is_locked: !currentlyLocked }),
+            });
+            loadWrestlingEvents();
+        }
+
+        async function deleteWrestlingEvent(eventId, title) {
+            if (!confirm(`Delete "${title}" and all its data? This cannot be undone.`)) return;
+            await fetch(`${API_URL}/api/wrestling/events/${eventId}`, { method: 'DELETE', headers: authHeaders() });
+            loadWrestlingEvents();
+        }
+
+        // ── Questions modal ───────────────────────────────────────────────────────
+
+        async function openEventQuestions(eventId) {
+            currentWrestlingEventId = eventId;
+            const ev = wrestlingEvents.find(e => e.id === eventId);
+            document.getElementById('w-questions-event-title').textContent = ev ? ev.title : '';
+            document.getElementById('w-questions-modal').classList.add('show');
+            await loadEventQuestions(eventId);
+        }
+
+        async function loadEventQuestions(eventId) {
+            const container = document.getElementById('w-questions-list');
+            container.innerHTML = '<div style="color:var(--text-muted);padding:12px;">Loading…</div>';
+            try {
+                const res = await fetch(`${API_URL}/api/wrestling/events/${eventId}`, { headers: authHeaders() });
+                const ev = await res.json();
+                wrestlingQuestions = ev.questions || [];
+                renderQuestionsList();
+            } catch (err) {
+                container.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+            }
+        }
+
+        function renderQuestionsList() {
+            const container = document.getElementById('w-questions-list');
+            if (!wrestlingQuestions.length) {
+                container.innerHTML = '<div style="color:var(--text-muted);padding:12px;text-align:center;">No questions yet. Add one below.</div>';
+                return;
+            }
+            container.innerHTML = wrestlingQuestions.map((q, i) => `
+                <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--card-border);border-radius:8px;margin-bottom:8px;background:var(--card-bg);">
+                    <div style="font-size:18px;min-width:28px;text-align:center;padding-top:2px;">${{short_answer:'✏️',multiple_choice:'🔘',dropdown:'▾',checkbox:'☑️'}[q.question_type] || '❓'}</div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:600;font-size:13px;margin-bottom:4px;">${q.question_text}</div>
+                        <div style="font-size:11px;color:var(--text-muted);">
+                            ${q.question_type.replace('_', ' ')}
+                            ${q.options && q.options.length ? ' · ' + q.options.join(', ') : ''}
+                            ${!q.counts_for_score ? ' · <em>not scored</em>' : ''}
+                            ${q.correct_answer !== undefined && q.correct_answer !== null ? ` · ✓ <strong>${Array.isArray(q.correct_answer) ? q.correct_answer.join(', ') : q.correct_answer}</strong>` : ''}
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                        <button class="btn btn-sm btn-secondary" onclick="showEditQuestionModal(${i})">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteWrestlingQuestion(${q.id})">Del</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showAddQuestionForm() {
+            editingQuestion = null;
+            document.getElementById('w-q-modal-title').textContent = 'Add Question';
+            document.getElementById('w-q-form').reset();
+            document.getElementById('w-q-options-row').style.display = 'none';
+            document.getElementById('w-q-alert').innerHTML = '';
+            document.getElementById('w-q-modal').classList.add('show');
+        }
+
+        function showEditQuestionModal(idx) {
+            const q = wrestlingQuestions[idx];
+            editingQuestion = q;
+            document.getElementById('w-q-modal-title').textContent = 'Edit Question';
+            document.getElementById('w-q-text').value = q.question_text;
+            document.getElementById('w-q-type').value = q.question_type;
+            document.getElementById('w-q-scored').checked = q.counts_for_score;
+            document.getElementById('w-q-sort').value = q.sort_order;
+            const hasOptions = ['multiple_choice','dropdown','checkbox'].includes(q.question_type);
+            document.getElementById('w-q-options-row').style.display = hasOptions ? '' : 'none';
+            document.getElementById('w-q-options').value = q.options ? q.options.join('\n') : '';
+            document.getElementById('w-q-alert').innerHTML = '';
+            document.getElementById('w-q-modal').classList.add('show');
+        }
+
+        function onWQTypeChange() {
+            const t = document.getElementById('w-q-type').value;
+            document.getElementById('w-q-options-row').style.display = ['multiple_choice','dropdown','checkbox'].includes(t) ? '' : 'none';
+        }
+
+        async function saveWrestlingQuestion(e) {
+            e.preventDefault();
+            const type = document.getElementById('w-q-type').value;
+            const optionsRaw = document.getElementById('w-q-options').value;
+            const options = ['multiple_choice','dropdown','checkbox'].includes(type)
+                ? optionsRaw.split('\n').map(s => s.trim()).filter(Boolean)
+                : null;
+            const data = {
+                question_text:    document.getElementById('w-q-text').value.trim(),
+                question_type:    type,
+                options:          options,
+                counts_for_score: document.getElementById('w-q-scored').checked,
+                sort_order:       parseInt(document.getElementById('w-q-sort').value) || 0,
+            };
+            try {
+                let res;
+                if (editingQuestion) {
+                    res = await fetch(`${API_URL}/api/wrestling/questions/${editingQuestion.id}`, {
+                        method: 'PATCH', headers: authHeaders(), body: JSON.stringify(data),
+                    });
+                } else {
+                    res = await fetch(`${API_URL}/api/wrestling/events/${currentWrestlingEventId}/questions`, {
+                        method: 'POST', headers: authHeaders(), body: JSON.stringify(data),
+                    });
+                }
+                if (!res.ok) throw new Error((await res.json()).detail || 'Failed');
+                closeModal('w-q-modal');
+                loadEventQuestions(currentWrestlingEventId);
+            } catch (err) {
+                document.getElementById('w-q-alert').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+            }
+        }
+
+        async function deleteWrestlingQuestion(qId) {
+            if (!confirm('Delete this question?')) return;
+            await fetch(`${API_URL}/api/wrestling/questions/${qId}`, { method: 'DELETE', headers: authHeaders() });
+            loadEventQuestions(currentWrestlingEventId);
+        }
+
+        // ── Grade modal ───────────────────────────────────────────────────────────
+
+        async function openGradeModal(eventId) {
+            currentWrestlingEventId = eventId;
+            const ev = wrestlingEvents.find(e => e.id === eventId);
+            document.getElementById('w-grade-event-title').textContent = ev ? ev.title : '';
+            document.getElementById('w-grade-alert').innerHTML = '';
+            document.getElementById('w-grade-modal').classList.add('show');
+            const container = document.getElementById('w-grade-questions');
+            container.innerHTML = '<div style="color:var(--text-muted);padding:12px;">Loading…</div>';
+            const res = await fetch(`${API_URL}/api/wrestling/events/${eventId}`, { headers: authHeaders() });
+            const evData = await res.json();
+            const qs = (evData.questions || []).filter(q => q.counts_for_score);
+            if (!qs.length) {
+                container.innerHTML = '<div style="color:var(--text-muted);">No scoreable questions.</div>';
+                return;
+            }
+            container.innerHTML = qs.map(q => `
+                <div style="margin-bottom:20px;padding:16px;border:1px solid var(--card-border);border-radius:8px;background:var(--card-bg);">
+                    <div style="font-weight:600;margin-bottom:10px;font-size:14px;">${q.question_text}</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">${q.question_type.replace('_',' ')}</div>
+                    ${q.correct_answer !== undefined && q.correct_answer !== null
+                        ? `<div style="font-size:12px;color:var(--accent);margin-bottom:8px;">Current answer: ${Array.isArray(q.correct_answer) ? q.correct_answer.join(', ') : q.correct_answer}</div>`
+                        : ''}
+                    ${renderGradeInput(q)}
+                </div>
+            `).join('');
+        }
+
+        function renderGradeInput(q) {
+            const fid = `grade-q-${q.id}`;
+            if (q.question_type === 'short_answer' || q.question_type === 'dropdown' || q.question_type === 'multiple_choice') {
+                if (q.options && q.options.length) {
+                    return `<select id="${fid}" style="width:100%;padding:8px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                        <option value="">-- select correct answer --</option>
+                        ${q.options.map(o => `<option value="${o}" ${q.correct_answer === o ? 'selected' : ''}>${o}</option>`).join('')}
+                    </select>`;
+                }
+                return `<input id="${fid}" type="text" placeholder="Correct answer…" value="${q.correct_answer || ''}"
+                    style="width:100%;padding:8px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:6px;color:var(--text-primary);font-size:13px;font-family:inherit;">`;
+            }
+            if (q.question_type === 'checkbox') {
+                const currentCorrect = Array.isArray(q.correct_answer) ? q.correct_answer : [];
+                return `<div>${(q.options || []).map(o => `
+                    <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;font-size:13px;">
+                        <input type="checkbox" name="${fid}" value="${o}" ${currentCorrect.includes(o) ? 'checked' : ''}> ${o}
+                    </label>`).join('')}</div>`;
+            }
+            return '';
+        }
+
+        async function submitGrades(e) {
+            e.preventDefault();
+            const container = document.getElementById('w-grade-questions');
+            const qDivs = container.querySelectorAll('[id^="grade-q-"]');
+            const answers = [];
+            // collect select/input answers
+            container.querySelectorAll('select[id^="grade-q-"], input[type="text"][id^="grade-q-"]').forEach(el => {
+                const qId = parseInt(el.id.replace('grade-q-', ''));
+                if (!isNaN(qId)) answers.push({ question_id: qId, correct_answer: el.value.trim() });
+            });
+            // collect checkbox answers
+            const checkboxGroups = {};
+            container.querySelectorAll('input[type="checkbox"][name^="grade-q-"]').forEach(cb => {
+                const qId = parseInt(cb.name.replace('grade-q-', ''));
+                if (!checkboxGroups[qId]) checkboxGroups[qId] = [];
+                if (cb.checked) checkboxGroups[qId].push(cb.value);
+            });
+            Object.entries(checkboxGroups).forEach(([qId, vals]) => {
+                answers.push({ question_id: parseInt(qId), correct_answer: vals });
+            });
+
+            try {
+                const res = await fetch(`${API_URL}/api/wrestling/events/${currentWrestlingEventId}/grade`, {
+                    method: 'POST', headers: authHeaders(), body: JSON.stringify({ answers }),
+                });
+                if (!res.ok) throw new Error((await res.json()).detail || 'Failed');
+                const result = await res.json();
+                document.getElementById('w-grade-alert').innerHTML = `<div class="alert alert-success">✓ ${result.message} (max ${result.max_score} pts)</div>`;
+                loadWrestlingEvents();
+            } catch (err) {
+                document.getElementById('w-grade-alert').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+            }
+        }
+
+        // ── Submissions modal ─────────────────────────────────────────────────────
+
+        async function openSubmissionsModal(eventId) {
+            const ev = wrestlingEvents.find(e => e.id === eventId);
+            document.getElementById('w-subs-event-title').textContent = ev ? ev.title : '';
+            document.getElementById('w-subs-modal').classList.add('show');
+            const container = document.getElementById('w-subs-list');
+            container.innerHTML = '<div style="color:var(--text-muted);padding:12px;">Loading…</div>';
+            try {
+                const res = await fetch(`${API_URL}/api/wrestling/events/${eventId}/submissions`, { headers: authHeaders() });
+                const subs = await res.json();
+                if (!subs.length) {
+                    container.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;">No submissions yet.</div>';
+                    return;
+                }
+                container.innerHTML = `<table class="table"><thead><tr><th>User</th><th>Score</th><th>%</th><th>Submitted</th></tr></thead><tbody>
+                    ${subs.map((s, i) => {
+                        const pct = s.max_score ? Math.round((s.score / s.max_score) * 100) : '—';
+                        return `<tr>
+                            <td><strong>#${i+1}</strong> ${s.username}</td>
+                            <td>${s.score !== null ? s.score + ' / ' + s.max_score : 'Pending'}</td>
+                            <td>${s.score !== null ? pct + '%' : '—'}</td>
+                            <td style="font-size:12px;color:var(--text-muted);">${s.submitted_at ? new Date(s.submitted_at).toLocaleDateString() : '—'}</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody></table>`;
+            } catch (err) {
+                container.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+            }
+        }
     </script>
+
+    <!-- Wrestling: New/Edit Event Modal -->
+    <div class="modal" id="w-event-modal">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header">
+                <h3 id="w-event-modal-title">New Event</h3>
+                <button class="modal-close" onclick="closeModal('w-event-modal')">×</button>
+            </div>
+            <div id="w-event-alert"></div>
+            <form id="w-event-form" onsubmit="saveWrestlingEvent(event)">
+                <div class="form-group">
+                    <label class="form-label">Event Title *</label>
+                    <input id="w-event-title" type="text" class="form-input" required placeholder="e.g. Royal Rumble 2025">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea id="w-event-description" class="form-input" rows="2" placeholder="Optional description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Poster / Banner URL</label>
+                    <input id="w-event-image-url" type="url" class="form-input" placeholder="https://…">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Event Date</label>
+                    <input id="w-event-date" type="datetime-local" class="form-input">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('w-event-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Event</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Wrestling: Questions Modal -->
+    <div class="modal" id="w-questions-modal">
+        <div class="modal-content" style="max-width:640px;max-height:85vh;overflow-y:auto;">
+            <div class="modal-header">
+                <h3>Questions — <span id="w-questions-event-title" style="color:var(--accent);"></span></h3>
+                <button class="modal-close" onclick="closeModal('w-questions-modal')">×</button>
+            </div>
+            <div id="w-questions-list" style="margin-bottom:16px;"></div>
+            <button class="btn btn-primary" style="width:100%;" onclick="showAddQuestionForm()">+ Add Question</button>
+        </div>
+    </div>
+
+    <!-- Wrestling: Add/Edit Question Modal -->
+    <div class="modal" id="w-q-modal">
+        <div class="modal-content" style="max-width:520px;">
+            <div class="modal-header">
+                <h3 id="w-q-modal-title">Add Question</h3>
+                <button class="modal-close" onclick="closeModal('w-q-modal')">×</button>
+            </div>
+            <div id="w-q-alert"></div>
+            <form id="w-q-form" onsubmit="saveWrestlingQuestion(event)">
+                <div class="form-group">
+                    <label class="form-label">Question *</label>
+                    <textarea id="w-q-text" class="form-input" rows="2" required placeholder="e.g. Who wins the WWE Championship?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type *</label>
+                    <select id="w-q-type" class="form-input" onchange="onWQTypeChange()" required>
+                        <option value="short_answer">Short Answer</option>
+                        <option value="multiple_choice">Multiple Choice</option>
+                        <option value="dropdown">Dropdown</option>
+                        <option value="checkbox">Checkboxes (multi-select)</option>
+                    </select>
+                </div>
+                <div class="form-group" id="w-q-options-row" style="display:none;">
+                    <label class="form-label">Options (one per line)</label>
+                    <textarea id="w-q-options" class="form-input" rows="5" placeholder="Cody Rhodes&#10;Roman Reigns&#10;Seth Rollins"></textarea>
+                </div>
+                <div style="display:flex;gap:16px;align-items:center;">
+                    <div class="form-group" style="flex:1;">
+                        <label class="form-label">Sort Order</label>
+                        <input id="w-q-sort" type="number" class="form-input" value="0" min="0">
+                    </div>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding-top:18px;">
+                        <input id="w-q-scored" type="checkbox" checked> Counts for score
+                    </label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('w-q-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Question</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Wrestling: Grade Modal -->
+    <div class="modal" id="w-grade-modal">
+        <div class="modal-content" style="max-width:600px;max-height:85vh;overflow-y:auto;">
+            <div class="modal-header">
+                <h3>Grade — <span id="w-grade-event-title" style="color:var(--accent);"></span></h3>
+                <button class="modal-close" onclick="closeModal('w-grade-modal')">×</button>
+            </div>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
+                Enter the correct answer for each question. Submissions will be scored automatically. You can re-grade as many times as needed.
+            </p>
+            <div id="w-grade-alert"></div>
+            <form onsubmit="submitGrades(event)">
+                <div id="w-grade-questions"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('w-grade-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit Answers & Grade</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Wrestling: Submissions Modal -->
+    <div class="modal" id="w-subs-modal">
+        <div class="modal-content" style="max-width:560px;max-height:80vh;overflow-y:auto;">
+            <div class="modal-header">
+                <h3>Submissions — <span id="w-subs-event-title" style="color:var(--accent);"></span></h3>
+                <button class="modal-close" onclick="closeModal('w-subs-modal')">×</button>
+            </div>
+            <div id="w-subs-list"></div>
+        </div>
+    </div>
 </body>
 </html>

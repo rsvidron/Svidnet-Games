@@ -86,6 +86,13 @@ try:
 except ImportError as e:
     print(f"⚠ Collection models not available: {e}")
 
+# Import Wrestling models
+try:
+    from models.wrestling import WrestlingEvent, WrestlingQuestion, WrestlingSubmission, WrestlingAnswer
+    print("✓ Wrestling models imported successfully")
+except ImportError as e:
+    print(f"⚠ Wrestling models not available: {e}")
+
 # Run Wordle table migration (if needed)
 try:
     from migrate_wordle_tables import migrate_wordle_tables
@@ -253,6 +260,14 @@ def movies_page():
 def rankings_page():
     """Redirect to the combined movies & TV page"""
     return RedirectResponse(url="/movies")
+
+@app.get("/wrestling")
+def wrestling_page():
+    """Serve the wrestling predictions page"""
+    path = os.path.join(os.path.dirname(__file__), "..", "frontend", "wrestling.html")
+    if os.path.exists(path):
+        return FileResponse(path)
+    raise HTTPException(404, "Wrestling page not found")
 
 @app.get("/health")
 def health():
@@ -556,6 +571,14 @@ try:
     print("✓ Rankings router loaded")
 except Exception as e:
     print(f"⚠ Warning: Could not import rankings router: {type(e).__name__}: {e}")
+
+# Include Wrestling router
+try:
+    from routers.wrestling import router as wrestling_router
+    app.include_router(wrestling_router)
+    print("✓ Wrestling router loaded")
+except Exception as e:
+    print(f"⚠ Warning: Could not import wrestling router: {type(e).__name__}: {e}")
 
 # Start odds sync scheduler on startup
 @app.on_event("startup")
