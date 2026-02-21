@@ -767,20 +767,23 @@ async def startup_event():
     except Exception as e:
         print(f"⚠ Warning: Could not seed admin roles: {e}")
 
-    # Migrate: add email_verified column if it doesn't exist yet
+    # Migrate: add new user columns if they don't exist yet
     try:
         from sqlalchemy import text
         db = SessionLocal()
         try:
             db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE"))
+            db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(100)"))
+            db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(100)"))
+            db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS bio VARCHAR(500)"))
             db.commit()
-            print("✓ email_verified column ensured on users table")
+            print("✓ User columns (email_verified, first_name, last_name, bio) ensured")
         except Exception:
             db.rollback()
         finally:
             db.close()
     except Exception as e:
-        print(f"⚠ Warning: Could not run email_verified migration: {e}")
+        print(f"⚠ Warning: Could not run user column migration: {e}")
 
     try:
         from app.services.odds_sync_scheduler import sync_scheduler

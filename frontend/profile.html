@@ -13,6 +13,7 @@
             --text-muted: #555555; --accent: #22c55e; --accent-hover: #16a34a;
             --accent-dim: rgba(34,197,94,0.1); --danger: #ef4444;
             --hover-bg: #252525; --divider: #2a2a2a; --stat-bg: #252525;
+            --input-bg: #252525; --input-border: #333333;
         }
         :root[data-theme="light"] {
             --bg: #f4f6f9; --sidebar-bg: #ffffff; --card-bg: #ffffff;
@@ -20,6 +21,7 @@
             --text-muted: #9ca3af; --accent: #16a34a; --accent-hover: #15803d;
             --accent-dim: rgba(22,163,74,0.08); --danger: #dc2626;
             --hover-bg: #f3f4f6; --divider: #e5e7eb; --stat-bg: #f3f4f6;
+            --input-bg: #f9fafb; --input-border: #d1d5db;
         }
 
         body {
@@ -48,7 +50,6 @@
         .sidebar-item:hover { background: var(--hover-bg); color: var(--text-primary); }
         .sidebar-item.active { background: var(--accent-dim); color: var(--accent); }
         .sidebar-item .icon { font-size: 16px; width: 20px; text-align: center; }
-        .soon-badge { margin-left: auto; background: var(--card-border); color: var(--text-muted); font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
         .sidebar-bottom { margin-top: auto; padding: 16px 12px; border-top: 1px solid var(--divider); }
 
         /* ── Main ── */
@@ -70,36 +71,131 @@
         .mobile-menu-btn { display: none; background: none; border: none; color: var(--text-primary); font-size: 22px; cursor: pointer; }
 
         /* ── Content ── */
-        .content { padding: 28px 32px; flex: 1; }
+        .content { padding: 28px 32px; flex: 1; max-width: 900px; }
 
-        /* ── Profile Card ── */
-        .profile-card {
+        /* ── Profile Hero Card ── */
+        .profile-hero {
             background: var(--card-bg); border: 1px solid var(--card-border);
-            border-radius: 16px; padding: 28px; margin-bottom: 20px;
+            border-radius: 16px; padding: 32px; margin-bottom: 20px;
             transition: background 0.3s, border-color 0.3s;
         }
-        .profile-header { display: flex; align-items: center; gap: 24px; margin-bottom: 28px; }
-        .profile-avatar {
-            width: 80px; height: 80px; border-radius: 50%;
-            background: var(--accent-dim); border: 2px solid var(--accent);
-            display: flex; align-items: center; justify-content: center;
-            color: var(--accent); font-size: 32px; font-weight: 700; flex-shrink: 0;
+        .profile-hero-inner { display: flex; align-items: flex-start; gap: 28px; }
+
+        /* ── Avatar Upload ── */
+        .avatar-wrapper {
+            position: relative; flex-shrink: 0; cursor: pointer;
         }
-        .profile-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-        .profile-info h2 { font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
-        .profile-info .email { color: var(--text-secondary); font-size: 14px; margin-bottom: 4px; }
-        .profile-info .member-since { color: var(--text-muted); font-size: 13px; }
+        .avatar-wrapper:hover .avatar-overlay { opacity: 1; }
+        .profile-avatar {
+            width: 96px; height: 96px; border-radius: 50%;
+            background: var(--accent-dim); border: 3px solid var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--accent); font-size: 36px; font-weight: 700;
+            overflow: hidden; transition: border-color 0.2s;
+        }
+        .profile-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .avatar-overlay {
+            position: absolute; inset: 0; border-radius: 50%;
+            background: rgba(0,0,0,0.55); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; opacity: 0;
+            transition: opacity 0.2s; cursor: pointer;
+        }
+        .avatar-overlay span { font-size: 20px; line-height: 1; }
+        .avatar-overlay small { font-size: 10px; color: #fff; margin-top: 3px; font-weight: 600; letter-spacing: 0.5px; }
+        #avatar-input { display: none; }
+
+        /* upload progress ring */
+        .avatar-uploading .profile-avatar { border-color: #f59e0b; }
+        .avatar-uploading .avatar-overlay { opacity: 1; background: rgba(0,0,0,0.7); }
+
+        /* ── Profile Info / Edit ── */
+        .profile-details { flex: 1; min-width: 0; }
+        .profile-view { display: flex; flex-direction: column; gap: 4px; }
+        .profile-view h2 {
+            font-size: 24px; font-weight: 700; color: var(--text-primary);
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        }
+        .profile-view .fullname { font-size: 14px; color: var(--text-secondary); }
+        .profile-view .email-line { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+        .profile-view .bio-text {
+            font-size: 13px; color: var(--text-secondary); margin-top: 8px;
+            line-height: 1.5; max-width: 480px;
+        }
+        .profile-view .meta-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
         .auth-badge {
             display: inline-block; padding: 3px 10px; border-radius: 6px;
-            font-size: 11px; font-weight: 600; margin-top: 6px;
+            font-size: 11px; font-weight: 600;
         }
         .auth-badge.google { background: rgba(66,133,244,0.12); color: #4285f4; }
         .auth-badge.local { background: var(--accent-dim); color: var(--accent); }
+        .role-badge {
+            display: inline-block; padding: 3px 10px; border-radius: 6px;
+            font-size: 11px; font-weight: 600;
+            background: rgba(168,85,247,0.12); color: #a855f7;
+        }
+
+        .btn-edit {
+            margin-top: 14px; padding: 8px 20px; background: var(--hover-bg);
+            border: 1px solid var(--card-border); border-radius: 8px;
+            color: var(--text-primary); font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-edit:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+        /* ── Edit Form ── */
+        .profile-edit { display: none; }
+        .profile-edit.active { display: block; }
+        .edit-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group input, .form-group textarea {
+            background: var(--input-bg); border: 1px solid var(--input-border);
+            border-radius: 8px; color: var(--text-primary); font-size: 14px;
+            padding: 10px 14px; outline: none; transition: border-color 0.2s;
+            font-family: inherit;
+        }
+        .form-group input:focus, .form-group textarea:focus { border-color: var(--accent); }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .edit-actions { display: flex; gap: 10px; margin-top: 16px; }
+        .btn-save {
+            padding: 9px 22px; background: var(--accent); color: #fff;
+            border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+            cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn-save:hover { background: var(--accent-hover); }
+        .btn-save:disabled { opacity: 0.6; cursor: default; }
+        .btn-cancel {
+            padding: 9px 22px; background: none; border: 1px solid var(--card-border);
+            border-radius: 8px; color: var(--text-secondary); font-size: 14px;
+            font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-cancel:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+
+        /* ── Verification Banner ── */
+        .verify-banner {
+            background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3);
+            border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .verify-banner-text { flex: 1; }
+        .verify-banner-text strong { color: #f59e0b; font-size: 13px; display: block; margin-bottom: 2px; }
+        .verify-banner-text p { color: var(--text-secondary); font-size: 12px; margin: 0; }
+        .btn-resend {
+            padding: 7px 15px; background: rgba(245,158,11,0.15); color: #f59e0b;
+            border: 1px solid rgba(245,158,11,0.3); border-radius: 7px; font-size: 12px;
+            font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s;
+        }
+        .btn-resend:hover { background: rgba(245,158,11,0.25); }
+        .btn-resend:disabled { opacity: 0.5; cursor: default; }
 
         /* ── Stats Grid ── */
+        .stats-card {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 16px; padding: 24px; margin-bottom: 20px;
+        }
         .stats-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 14px; margin-bottom: 28px;
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 12px;
         }
         .stat-box {
             background: var(--stat-bg); border: 1px solid var(--card-border);
@@ -110,12 +206,15 @@
 
         /* ── Section Title ── */
         .section-title {
-            font-size: 16px; font-weight: 600; color: var(--text-primary);
+            font-size: 15px; font-weight: 600; color: var(--text-primary);
             margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--divider);
         }
 
         /* ── Category Stats ── */
-        .category-stats { margin-bottom: 28px; }
+        .data-card {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 16px; padding: 24px; margin-bottom: 20px;
+        }
         .category-row {
             display: flex; justify-content: space-between; align-items: center;
             padding: 12px 0; border-bottom: 1px solid var(--divider);
@@ -127,7 +226,6 @@
         .category-detail .highlight { color: var(--accent); font-weight: 600; }
 
         /* ── Game History ── */
-        .game-history { margin-bottom: 12px; }
         .history-row {
             display: flex; justify-content: space-between; align-items: center;
             padding: 14px 0; border-bottom: 1px solid var(--divider);
@@ -140,8 +238,21 @@
         .history-right .detail { font-size: 12px; color: var(--text-muted); }
 
         /* ── Empty State ── */
-        .empty-state { text-align: center; padding: 32px 20px; color: var(--text-muted); font-size: 14px; }
+        .empty-state { text-align: center; padding: 28px 20px; color: var(--text-muted); font-size: 14px; }
         .empty-state a { color: var(--accent); }
+
+        /* ── Toast ── */
+        .toast {
+            position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 10px; padding: 14px 20px; font-size: 14px;
+            font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            transform: translateY(80px); opacity: 0; transition: all 0.3s;
+            max-width: 320px;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { border-color: rgba(34,197,94,0.4); color: var(--accent); }
+        .toast.error { border-color: rgba(239,68,68,0.4); color: #ef4444; }
 
         /* ── Mobile ── */
         @media (max-width: 768px) {
@@ -151,7 +262,8 @@
             .topbar { padding: 0 16px; }
             .content { padding: 16px; }
             .mobile-menu-btn { display: block; }
-            .profile-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+            .profile-hero-inner { flex-direction: column; align-items: flex-start; gap: 20px; }
+            .edit-row { grid-template-columns: 1fr; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .category-detail { gap: 10px; flex-wrap: wrap; }
         }
@@ -197,60 +309,111 @@
         </div>
 
         <div class="content">
-            <div class="profile-card">
-                <div class="profile-header">
-                    <div class="profile-avatar" id="profile-avatar"></div>
-                    <div class="profile-info">
-                        <h2 id="profile-username">Loading...</h2>
-                        <div class="email" id="profile-email"></div>
-                        <div class="member-since" id="member-since"></div>
-                    </div>
-                </div>
 
-                <!-- Email verification banner (shown if not verified) -->
-                <div id="verification-banner" style="display:none;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:16px 20px;margin-bottom:20px;">
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <span style="font-size:20px;">⚠️</span>
-                        <div style="flex:1;">
-                            <strong style="color:#f59e0b;font-size:14px;display:block;margin-bottom:4px;">Email not verified</strong>
-                            <p style="color:var(--text-secondary);font-size:13px;margin:0;">
-                                Check your inbox for a verification link to unlock full access.
-                            </p>
+            <!-- Email verification banner -->
+            <div id="verification-banner" style="display:none;" class="verify-banner">
+                <span style="font-size:20px;">⚠️</span>
+                <div class="verify-banner-text">
+                    <strong>Email not verified</strong>
+                    <p>Check your inbox for a verification link to unlock full access.</p>
+                </div>
+                <button id="resend-verification-btn" class="btn-resend" onclick="resendVerificationEmail()">
+                    📧 Resend Email
+                </button>
+            </div>
+
+            <!-- Profile Hero -->
+            <div class="profile-hero">
+                <div class="profile-hero-inner">
+
+                    <!-- Avatar -->
+                    <div class="avatar-wrapper" onclick="document.getElementById('avatar-input').click()" title="Click to change photo">
+                        <div class="profile-avatar" id="profile-avatar"></div>
+                        <div class="avatar-overlay" id="avatar-overlay">
+                            <span>📷</span>
+                            <small>CHANGE</small>
                         </div>
-                        <button
-                            id="resend-verification-btn"
-                            onclick="resendVerificationEmail()"
-                            style="padding:8px 16px;background:rgba(245,158,11,0.15);color:#f59e0b;border:1px solid rgba(245,158,11,0.3);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all 0.2s;">
-                            📧 Resend Email
-                        </button>
+                        <input type="file" id="avatar-input" accept="image/jpeg,image/png,image/gif,image/webp">
                     </div>
-                </div>
 
-                <div class="stats-grid" id="stats-grid">
-                    <div class="stat-box"><div class="value" id="total-games">0</div><div class="label">Games Played</div></div>
-                    <div class="stat-box"><div class="value" id="total-score">0</div><div class="label">Total Score</div></div>
-                    <div class="stat-box"><div class="value" id="avg-accuracy">0%</div><div class="label">Avg Accuracy</div></div>
-                    <div class="stat-box"><div class="value" id="best-accuracy">0%</div><div class="label">Best Accuracy</div></div>
-                    <div class="stat-box"><div class="value" id="total-correct">0</div><div class="label">Correct Answers</div></div>
-                    <div class="stat-box"><div class="value" id="total-questions">0</div><div class="label">Total Questions</div></div>
-                </div>
+                    <!-- Profile Info -->
+                    <div class="profile-details">
 
-                <div class="section-title">Performance by Category</div>
-                <div class="category-stats" id="category-stats">
-                    <div class="empty-state">No category data yet.</div>
-                </div>
+                        <!-- View Mode -->
+                        <div class="profile-view" id="profile-view">
+                            <h2 id="profile-username">Loading...</h2>
+                            <div class="fullname" id="profile-fullname"></div>
+                            <div class="email-line" id="profile-email"></div>
+                            <div class="bio-text" id="profile-bio" style="display:none;"></div>
+                            <div class="meta-row">
+                                <span class="auth-badge local" id="auth-badge"></span>
+                                <span class="role-badge" id="role-badge" style="display:none;"></span>
+                            </div>
+                            <button class="btn-edit" onclick="showEdit()">✏️ Edit Profile</button>
+                        </div>
 
-                <div class="section-title">Game History</div>
-                <div class="game-history" id="game-history">
-                    <div class="empty-state">No games played yet. <a href="/trivia">Play your first game!</a></div>
+                        <!-- Edit Mode -->
+                        <div class="profile-edit" id="profile-edit">
+                            <div class="edit-row">
+                                <div class="form-group">
+                                    <label>First Name</label>
+                                    <input type="text" id="edit-first-name" placeholder="First name" maxlength="100">
+                                </div>
+                                <div class="form-group">
+                                    <label>Last Name</label>
+                                    <input type="text" id="edit-last-name" placeholder="Last name" maxlength="100">
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-bottom:12px;">
+                                <label>Bio</label>
+                                <textarea id="edit-bio" placeholder="Write a short bio..." maxlength="500"></textarea>
+                                <span style="font-size:11px;color:var(--text-muted);text-align:right;" id="bio-char-count">0/500</span>
+                            </div>
+                            <div class="edit-actions">
+                                <button class="btn-save" id="save-btn" onclick="saveProfile()">💾 Save Changes</button>
+                                <button class="btn-cancel" onclick="cancelEdit()">Cancel</button>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
             </div>
+
+            <!-- Stats -->
+            <div class="stats-card">
+                <div class="section-title">Game Stats</div>
+                <div class="stats-grid">
+                    <div class="stat-box"><div class="value" id="total-games">—</div><div class="label">Games Played</div></div>
+                    <div class="stat-box"><div class="value" id="total-score">—</div><div class="label">Total Score</div></div>
+                    <div class="stat-box"><div class="value" id="avg-accuracy">—</div><div class="label">Avg Accuracy</div></div>
+                    <div class="stat-box"><div class="value" id="best-accuracy">—</div><div class="label">Best Accuracy</div></div>
+                    <div class="stat-box"><div class="value" id="total-correct">—</div><div class="label">Correct Answers</div></div>
+                    <div class="stat-box"><div class="value" id="total-questions">—</div><div class="label">Total Questions</div></div>
+                </div>
+            </div>
+
+            <!-- Category Stats -->
+            <div class="data-card">
+                <div class="section-title">Performance by Category</div>
+                <div id="category-stats"><div class="empty-state">No category data yet.</div></div>
+            </div>
+
+            <!-- Game History -->
+            <div class="data-card">
+                <div class="section-title">Game History</div>
+                <div id="game-history"><div class="empty-state">No games played yet. <a href="/trivia">Play your first game!</a></div></div>
+            </div>
+
         </div>
     </div>
+
+    <!-- Toast notification -->
+    <div class="toast" id="toast"></div>
 
     <script>
         const API_URL = window.location.origin;
 
+        // ── Theme ──
         function getTheme() { return localStorage.getItem('theme') || 'dark'; }
         function applyTheme(t) {
             document.documentElement.setAttribute('data-theme', t);
@@ -263,44 +426,207 @@
         }
         applyTheme(getTheme());
 
-        function getToken() {
-            return localStorage.getItem('access_token') || localStorage.getItem('token');
-        }
-        function getUser() {
-            const s = localStorage.getItem('user');
-            return s ? JSON.parse(s) : null;
-        }
-
-        function isAdmin(user) { return user && user.role === 'admin'; }
-        function hasRole(u, ...roles) { return u && roles.includes(u.role); }
-
+        // ── Auth helpers ──
+        function getToken() { return localStorage.getItem('access_token') || localStorage.getItem('token'); }
+        function getUser() { const s = localStorage.getItem('user'); return s ? JSON.parse(s) : null; }
         function logout() {
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
+            localStorage.removeItem('access_token'); localStorage.removeItem('token'); localStorage.removeItem('user');
             window.location.href = '/login';
         }
 
+        // ── Toast ──
+        let _toastTimer = null;
+        function showToast(msg, type = 'success') {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.className = `toast show ${type}`;
+            clearTimeout(_toastTimer);
+            _toastTimer = setTimeout(() => { el.className = 'toast'; }, 3500);
+        }
+
+        // ── Avatar upload ──
+        document.getElementById('avatar-input').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!allowed.includes(file.type)) { showToast('Only JPEG, PNG, GIF, and WEBP images allowed.', 'error'); return; }
+            if (file.size > 5 * 1024 * 1024) { showToast('Image must be under 5 MB.', 'error'); return; }
+
+            // Show preview immediately
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const avatarEl = document.getElementById('profile-avatar');
+                avatarEl.innerHTML = `<img src="${ev.target.result}" alt="avatar">`;
+            };
+            reader.readAsDataURL(file);
+
+            const wrapper = document.querySelector('.avatar-wrapper');
+            const overlay = document.getElementById('avatar-overlay');
+            wrapper.classList.add('avatar-uploading');
+            overlay.innerHTML = '<span>⏳</span><small>UPLOADING</small>';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                const res = await fetch(`${API_URL}/api/user/avatar`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${getToken()}` },
+                    body: formData
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || 'Upload failed');
+                }
+
+                const data = await res.json();
+                // Update localStorage user
+                const user = getUser();
+                if (user) { user.avatar_url = data.avatar_url; localStorage.setItem('user', JSON.stringify(user)); }
+                showToast('Profile photo updated!');
+            } catch (err) {
+                showToast('Upload failed: ' + err.message, 'error');
+                // Revert to initials if upload fails
+                renderAvatarFromUser(getUser());
+            } finally {
+                wrapper.classList.remove('avatar-uploading');
+                overlay.innerHTML = '<span>📷</span><small>CHANGE</small>';
+                e.target.value = '';
+            }
+        });
+
+        // ── Edit form ──
+        let _origFirst = '', _origLast = '', _origBio = '';
+
+        function showEdit() {
+            const user = getUser();
+            document.getElementById('edit-first-name').value = user && user.first_name ? user.first_name : '';
+            document.getElementById('edit-last-name').value = user && user.last_name ? user.last_name : '';
+            document.getElementById('edit-bio').value = user && user.bio ? user.bio : '';
+            updateBioCount();
+            document.getElementById('profile-view').style.display = 'none';
+            document.getElementById('profile-edit').classList.add('active');
+        }
+
+        function cancelEdit() {
+            document.getElementById('profile-edit').classList.remove('active');
+            document.getElementById('profile-view').style.display = '';
+        }
+
+        function updateBioCount() {
+            const v = document.getElementById('edit-bio').value;
+            document.getElementById('bio-char-count').textContent = v.length + '/500';
+        }
+        document.getElementById('edit-bio').addEventListener('input', updateBioCount);
+
+        async function saveProfile() {
+            const btn = document.getElementById('save-btn');
+            btn.disabled = true;
+            btn.textContent = 'Saving…';
+
+            const firstName = document.getElementById('edit-first-name').value.trim();
+            const lastName = document.getElementById('edit-last-name').value.trim();
+            const bio = document.getElementById('edit-bio').value.trim();
+
+            try {
+                const res = await fetch(`${API_URL}/api/user/profile`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ first_name: firstName, last_name: lastName, bio: bio })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || 'Save failed');
+                }
+
+                const data = await res.json();
+
+                // Update localStorage
+                const user = getUser();
+                if (user) {
+                    user.first_name = data.first_name;
+                    user.last_name = data.last_name;
+                    user.bio = data.bio;
+                    localStorage.setItem('user', JSON.stringify(user));
+                }
+
+                // Re-render view
+                renderProfileView(data);
+                cancelEdit();
+                showToast('Profile saved!');
+            } catch (err) {
+                showToast('Error: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '💾 Save Changes';
+            }
+        }
+
+        // ── Render helpers ──
+        function renderAvatarFromUser(user) {
+            const avatarEl = document.getElementById('profile-avatar');
+            if (user && user.avatar_url) {
+                avatarEl.innerHTML = `<img src="${user.avatar_url}" alt="avatar">`;
+            } else {
+                avatarEl.textContent = (user && user.username) ? user.username.charAt(0).toUpperCase() : '?';
+            }
+        }
+
+        function renderProfileView(u) {
+            // username
+            document.getElementById('profile-username').textContent = u.username || '';
+
+            // full name
+            const fnEl = document.getElementById('profile-fullname');
+            const fullName = [u.first_name, u.last_name].filter(Boolean).join(' ');
+            fnEl.textContent = fullName || '';
+            fnEl.style.display = fullName ? '' : 'none';
+
+            // email
+            document.getElementById('profile-email').textContent = u.email || '';
+
+            // bio
+            const bioEl = document.getElementById('profile-bio');
+            if (u.bio) { bioEl.textContent = u.bio; bioEl.style.display = ''; }
+            else { bioEl.style.display = 'none'; }
+
+            // auth badge
+            const authBadge = document.getElementById('auth-badge');
+            authBadge.textContent = u.auth_provider === 'google' ? '🔵 Google' : '✉️ Email';
+            authBadge.className = 'auth-badge ' + (u.auth_provider === 'google' ? 'google' : 'local');
+
+            // role badge
+            const roleBadge = document.getElementById('role-badge');
+            if (u.role && u.role !== 'basic' && u.role !== 'user') {
+                roleBadge.textContent = u.role.charAt(0).toUpperCase() + u.role.slice(1);
+                roleBadge.style.display = '';
+            } else {
+                roleBadge.style.display = 'none';
+            }
+
+            // avatar
+            renderAvatarFromUser(u);
+        }
+
+        // ── Load profile ──
         async function loadProfile() {
             const user = getUser();
             if (!user) { window.location.href = '/login'; return; }
 
-            if (isAdmin(user)) {
+            if (user.role === 'admin') {
                 document.getElementById('admin-sidebar-link').style.display = 'flex';
             }
 
-            document.getElementById('profile-username').textContent = user.username;
-            document.getElementById('profile-email').textContent = user.email || '';
-            const avatarEl = document.getElementById('profile-avatar');
-            if (user.avatar_url) {
-                avatarEl.innerHTML = `<img src="${user.avatar_url}" alt="avatar">`;
-            } else {
-                avatarEl.textContent = user.username.charAt(0).toUpperCase();
-            }
+            renderProfileView(user);
 
             // Show verification banner if email not verified (local accounts only)
             if (user.auth_provider === 'local' && !user.email_verified) {
-                document.getElementById('verification-banner').style.display = 'block';
+                document.getElementById('verification-banner').style.display = 'flex';
             }
 
             try {
@@ -318,7 +644,7 @@
                     renderCategories(data.category_stats);
                     renderHistory(data.game_history);
                 }
-            } catch (e) { console.error('Failed to load profile:', e); }
+            } catch (e) { console.error('Failed to load profile stats:', e); }
         }
 
         function renderCategories(cats) {
@@ -370,8 +696,7 @@
         function timeAgo(dateStr) {
             if (!dateStr) return '';
             const d = new Date(dateStr);
-            const now = new Date();
-            const diff = Math.floor((now - d) / 1000);
+            const diff = Math.floor((Date.now() - d) / 1000);
             if (diff < 60) return 'just now';
             if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
             if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
@@ -379,48 +704,26 @@
             return d.toLocaleDateString();
         }
 
-        loadProfile();
-
+        // ── Resend verification ──
         async function resendVerificationEmail() {
             const btn = document.getElementById('resend-verification-btn');
-            const originalText = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = '⏳ Sending...';
-            btn.style.opacity = '0.6';
-
+            btn.textContent = '⏳ Sending...';
             try {
                 const res = await fetch(`${API_URL}/api/auth/resend-verification`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${getToken()}` }
                 });
-
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.detail || 'Failed to send email');
-                }
-
-                const data = await res.json();
-                btn.innerHTML = '✅ Email Sent!';
-                btn.style.background = 'rgba(34,197,94,0.15)';
-                btn.style.color = '#22c55e';
-                btn.style.borderColor = 'rgba(34,197,94,0.3)';
-
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                    btn.style.opacity = '1';
-                    btn.style.background = 'rgba(245,158,11,0.15)';
-                    btn.style.color = '#f59e0b';
-                    btn.style.borderColor = 'rgba(245,158,11,0.3)';
-                }, 3000);
-
+                if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Failed'); }
+                btn.textContent = '✅ Email Sent!';
+                setTimeout(() => { btn.textContent = '📧 Resend Email'; btn.disabled = false; }, 3000);
             } catch (err) {
-                alert('❌ ' + err.message);
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-                btn.style.opacity = '1';
+                showToast('Error: ' + err.message, 'error');
+                btn.textContent = '📧 Resend Email'; btn.disabled = false;
             }
         }
+
+        loadProfile();
     </script>
 </body>
 </html>

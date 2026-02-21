@@ -1,13 +1,15 @@
 """
 User profile, dashboard, and friends API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from datetime import datetime, timezone
 from typing import Optional
 from pydantic import BaseModel
 from jose import jwt, JWTError
+import uuid
+import io
 
 import sys
 import os
@@ -48,7 +50,54 @@ def get_current_user_id(authorization: Optional[str] = Header(None)) -> int:
         return 1
 
 
+# --- S3 helper ---
+
+def _upload_avatar_to_s3(file_bytes: bytes, content_type: str, user_id: int) -> str:
+    """Upload avatar image to S3-compatible bucket, return public URL."""
+    import boto3
+    from botocore.client import Config
+
+    bucket   = os.getenv("S3_BUCKET_NAME", "")
+    endpoint = os.getenv("S3_ENDPOINT_URL", "")   # e.g. https://s3.us-east-1.amazonaws.com or Cloudflare R2
+    region   = os.getenv("S3_REGION", "us-east-1")
+    pub_url  = os.getenv("S3_PUBLIC_URL", "")      # CDN/public base URL override
+
+    if not bucket:
+        raise HTTPException(500, "S3_BUCKET_NAME not configured")
+
+    ext = "jpg" if "jpeg" in content_type else content_type.split("/")[-1]
+    key = f"avatars/{user_id}/{uuid.uuid4().hex}.{ext}"
+
+    kwargs = dict(
+        aws_access_key_id=os.getenv("S3_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("S3_SECRET_ACCESS_KEY"),
+        region_name=region,
+        config=Config(signature_version="s3v4"),
+    )
+    if endpoint:
+        kwargs["endpoint_url"] = endpoint
+
+    s3 = boto3.client("s3", **kwargs)
+    s3.upload_fileobj(
+        io.BytesIO(file_bytes),
+        bucket,
+        key,
+        ExtraArgs={"ContentType": content_type, "ACL": "public-read"},
+    )
+
+    if pub_url:
+        return f"{pub_url.rstrip('/')}/{key}"
+    if endpoint:
+        return f"{endpoint.rstrip('/')}/{bucket}/{key}"
+    return f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
+
+
 # --- Schemas ---
+
+class UpdateProfileRequest(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    bio: Optional[str] = None
 
 class AddFriendRequest(BaseModel):
     username: str
@@ -200,6 +249,75 @@ def get_profile(
         "category_stats": category_stats,
         "game_history": game_history
     }
+
+
+# --- Profile update ---
+
+@router.patch("/user/profile")
+def update_profile(
+    data: UpdateProfileRequest,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    """Update first_name, last_name, bio."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    if data.first_name is not None:
+        user.first_name = data.first_name.strip() or None
+    if data.last_name is not None:
+        user.last_name = data.last_name.strip() or None
+    if data.bio is not None:
+        user.bio = data.bio.strip()[:500] or None
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "bio": user.bio,
+        "avatar_url": user.avatar_url,
+        "role": user.role,
+        "auth_provider": user.auth_provider,
+        "email_verified": user.email_verified,
+    }
+
+
+@router.post("/user/avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id),
+):
+    """Upload a profile avatar image. Returns the new avatar URL."""
+    allowed = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    if file.content_type not in allowed:
+        raise HTTPException(400, "Only JPEG, PNG, GIF, and WEBP images are allowed")
+
+    max_bytes = 5 * 1024 * 1024  # 5 MB
+    file_bytes = await file.read()
+    if len(file_bytes) > max_bytes:
+        raise HTTPException(400, "Image must be under 5 MB")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    try:
+        avatar_url = _upload_avatar_to_s3(file_bytes, file.content_type, user_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Upload failed: {str(e)}")
+
+    user.avatar_url = avatar_url
+    db.commit()
+
+    return {"avatar_url": avatar_url}
 
 
 # --- Friends ---
