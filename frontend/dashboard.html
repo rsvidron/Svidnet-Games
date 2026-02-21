@@ -1074,6 +1074,10 @@
         async function loadDashboard() {
             currentUser = getUser();
             if (!currentUser) { window.location.href = '/login'; return; }
+            // Block unverified local accounts from accessing the dashboard
+            if (currentUser.email_verified === false && currentUser.auth_provider === 'local') {
+                window.location.href = '/login'; return;
+            }
 
             const role = currentUser.role || 'basic';
             const isUserOrAbove = ['user', 'admin'].includes(role);

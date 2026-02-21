@@ -526,6 +526,31 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(403, "Account is inactive")
 
+    # If email not verified, send a fresh verification email and return without full login
+    if not getattr(user, "email_verified", True):
+        try:
+            from services.email import send_verification_email
+            vtoken = create_verification_token(user.id, user.email)
+            send_verification_email(user.email, user.username, vtoken)
+        except Exception as e:
+            print(f"⚠ Could not resend verification on login: {e}")
+        # Return a token so the frontend knows who this is, but flag as unverified
+        access_token = create_token({"sub": str(user.id), "username": user.username})
+        refresh_token = create_token({"sub": str(user.id)})
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user={
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "role": user.role,
+                "avatar_url": user.avatar_url,
+                "auth_provider": user.auth_provider,
+                "email_verified": False,
+            }
+        )
+
     access_token = create_token({"sub": str(user.id), "username": user.username})
     refresh_token = create_token({"sub": str(user.id)})
 
@@ -539,7 +564,7 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
             "role": user.role,
             "avatar_url": user.avatar_url,
             "auth_provider": user.auth_provider,
-            "email_verified": getattr(user, "email_verified", False),
+            "email_verified": True,
         }
     )
 

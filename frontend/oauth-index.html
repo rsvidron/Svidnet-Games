@@ -125,6 +125,31 @@
         .api-status.online { background: var(--accent-dim); color: var(--accent); }
         .api-status.offline { background: rgba(239,68,68,0.1); color: var(--danger); }
 
+        /* ── Verify email screen ── */
+        .verify-box { text-align: center; }
+        .verify-icon {
+            font-size: 48px; margin-bottom: 16px; display: block;
+        }
+        .verify-box h3 { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+        .verify-box .verify-sub {
+            font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; line-height: 1.6;
+        }
+        .verify-email-display {
+            display: inline-block; background: var(--input-bg); border: 1px solid var(--input-border);
+            border-radius: 8px; padding: 6px 14px; font-size: 13px; font-weight: 600;
+            color: var(--accent); margin: 8px 0 20px;
+        }
+        .btn-resend {
+            display: block; width: 100%; padding: 13px; background: var(--accent);
+            color: white; border: none; border-radius: 10px; font-size: 14px;
+            font-weight: 700; cursor: pointer; transition: background 0.2s; margin-bottom: 10px;
+        }
+        .btn-resend:hover { background: var(--accent-hover); }
+        .btn-resend:disabled { opacity: 0.6; cursor: not-allowed; }
+        .verify-hint {
+            font-size: 11px; color: var(--text-muted); margin-top: 16px; line-height: 1.6;
+        }
+
         /* ── Logged-in state ── */
         .logged-in-box { text-align: center; }
         .user-avatar-circle {
@@ -247,6 +272,25 @@
                 <button class="btn-logout" onclick="logout()">Sign out</button>
             </div>
         </div>
+
+        <!-- Verify Email State -->
+        <div id="verify-section" class="hidden">
+            <div class="verify-box">
+                <span class="verify-icon">📬</span>
+                <h3>Check your inbox</h3>
+                <p class="verify-sub">We sent a verification link to</p>
+                <div class="verify-email-display" id="verify-email-display"></div>
+                <p class="verify-sub">Click the link in the email to activate your account and get full access.</p>
+                <button class="btn-resend" id="resend-btn" onclick="resendVerification()">
+                    Resend verification email
+                </button>
+                <button class="btn-logout" onclick="logout()">Use a different account</button>
+                <p class="verify-hint">
+                    Didn't get it? Check your spam folder.<br>
+                    The link expires after 24 hours.
+                </p>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -302,6 +346,91 @@
             document.getElementById('message').innerHTML = `<div class="message ${type}">${text}</div>`;
         }
 
+        // ── Auth state helpers ────────────────────────────────────────────────
+
+        function showVerifyScreen(email, token) {
+            // Store token so resend button can use it, but don't redirect
+            localStorage.setItem('token', token);
+            localStorage.setItem('access_token', token);
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('dashboard-section').classList.add('hidden');
+            document.getElementById('verify-section').classList.remove('hidden');
+            document.getElementById('verify-email-display').textContent = email;
+        }
+
+        function showLoggedIn(user, token) {
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('verify-section').classList.add('hidden');
+            document.getElementById('dashboard-section').classList.remove('hidden');
+            document.getElementById('user-name').textContent = user.username;
+            document.getElementById('user-email-display').textContent = user.email || '';
+            const avatar = document.getElementById('logged-in-avatar');
+            if (user.avatar_url) {
+                avatar.innerHTML = `<img src="${user.avatar_url}" alt="avatar">`;
+            } else {
+                avatar.textContent = user.username.charAt(0).toUpperCase();
+            }
+        }
+
+        function handleAuthResponse(data) {
+            // Called after both login and register with the API response
+            if (data.user.email_verified === false && data.user.auth_provider === 'local') {
+                // Store user but stay on verify screen — don't redirect
+                localStorage.setItem('user', JSON.stringify(data.user));
+                showVerifyScreen(data.user.email, data.access_token);
+            } else {
+                localStorage.setItem('token', data.access_token);
+                localStorage.setItem('access_token', data.access_token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                window.location.href = '/';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('user');
+            document.getElementById('auth-section').classList.remove('hidden');
+            document.getElementById('dashboard-section').classList.add('hidden');
+            document.getElementById('verify-section').classList.add('hidden');
+            document.getElementById('login-form').reset();
+            document.getElementById('register-form').reset();
+        }
+
+        async function resendVerification() {
+            const btn = document.getElementById('resend-btn');
+            const orig = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Sending…';
+            try {
+                const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+                const res = await fetch(`${API_URL}/api/auth/resend-verification`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    btn.textContent = '✓ Email sent — check your inbox';
+                    btn.style.background = '#16a34a';
+                    setTimeout(() => {
+                        btn.textContent = orig;
+                        btn.disabled = false;
+                        btn.style.background = '';
+                    }, 4000);
+                } else {
+                    const err = await res.json();
+                    showMessage(err.detail || 'Could not resend email', 'error');
+                    btn.textContent = orig;
+                    btn.disabled = false;
+                }
+            } catch {
+                showMessage('Error connecting to API', 'error');
+                btn.textContent = orig;
+                btn.disabled = false;
+            }
+        }
+
+        // ── Form handlers ─────────────────────────────────────────────────────
+
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('login-username').value;
@@ -314,10 +443,7 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    localStorage.setItem('token', data.access_token);
-                    localStorage.setItem('access_token', data.access_token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    window.location.href = '/';
+                    handleAuthResponse(data);
                 } else {
                     showMessage(data.detail || 'Login failed', 'error');
                 }
@@ -354,10 +480,7 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    localStorage.setItem('token', data.access_token);
-                    localStorage.setItem('access_token', data.access_token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    window.location.href = '/';
+                    handleAuthResponse(data);
                 } else {
                     showMessage(data.detail || 'Registration failed', 'error');
                 }
@@ -366,32 +489,12 @@
             }
         });
 
-        function showLoggedIn(user, token) {
-            document.getElementById('auth-section').classList.add('hidden');
-            document.getElementById('dashboard-section').classList.remove('hidden');
-            document.getElementById('user-name').textContent = user.username;
-            document.getElementById('user-email-display').textContent = user.email || '';
-            const avatar = document.getElementById('logged-in-avatar');
-            if (user.avatar_url) {
-                avatar.innerHTML = `<img src="${user.avatar_url}" alt="avatar">`;
-            } else {
-                avatar.textContent = user.username.charAt(0).toUpperCase();
-            }
-        }
-
-        function logout() {
-            localStorage.removeItem('token');
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('user');
-            document.getElementById('auth-section').classList.remove('hidden');
-            document.getElementById('dashboard-section').classList.add('hidden');
-            document.getElementById('login-form').reset();
-            document.getElementById('register-form').reset();
-        }
+        // ── Page load ─────────────────────────────────────────────────────────
 
         window.addEventListener('load', () => {
             checkAPI();
 
+            // Google OAuth callback — token in URL params
             const params = new URLSearchParams(window.location.search);
             const token = params.get('token');
             const userId = params.get('user_id');
@@ -399,7 +502,8 @@
             const email = params.get('email');
 
             if (token && userId) {
-                const user = { id: parseInt(userId), username, email, role: 'user', auth_provider: 'google' };
+                // Google users are always verified
+                const user = { id: parseInt(userId), username, email, role: 'user', auth_provider: 'google', email_verified: true };
                 localStorage.setItem('token', token);
                 localStorage.setItem('access_token', token);
                 localStorage.setItem('user', JSON.stringify(user));
@@ -407,10 +511,16 @@
                 return;
             }
 
+            // Already have a session stored
             const storedToken = localStorage.getItem('token') || localStorage.getItem('access_token');
             const storedUser = localStorage.getItem('user');
             if (storedToken && storedUser) {
-                showLoggedIn(JSON.parse(storedUser), storedToken);
+                const user = JSON.parse(storedUser);
+                if (user.email_verified === false && user.auth_provider === 'local') {
+                    showVerifyScreen(user.email, storedToken);
+                } else {
+                    showLoggedIn(user, storedToken);
+                }
             }
         });
     </script>
