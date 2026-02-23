@@ -541,8 +541,6 @@ def export_collection_leaderboard(
     import io
     try:
         import openpyxl
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-        from openpyxl.utils import get_column_letter
     except ImportError:
         raise HTTPException(500, "openpyxl not installed — cannot generate Excel file")
 
@@ -606,24 +604,6 @@ def export_collection_leaderboard(
     # ── Build Excel workbook ───────────────────────────────────────────────────
     wb = openpyxl.Workbook()
 
-    # Style helpers
-    HDR_FILL   = PatternFill("solid", fgColor="1A1A2E")
-    HDR_FONT   = Font(bold=True, color="22C55E", size=11)
-    ACCENT_FILL = PatternFill("solid", fgColor="22C55E")
-    ACCENT_FONT = Font(bold=True, color="FFFFFF", size=11)
-    BORDER_SIDE = Side(style="thin", color="2A2A3E")
-    THIN_BORDER = Border(bottom=Border(bottom=BORDER_SIDE).bottom)
-
-    def style_header(cell, accent=False):
-        cell.font      = ACCENT_FONT if accent else HDR_FONT
-        cell.fill      = ACCENT_FILL if accent else HDR_FILL
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-    def auto_width(ws, min_w=10, max_w=50):
-        for col in ws.columns:
-            length = max((len(str(c.value or "")) for c in col), default=min_w)
-            ws.column_dimensions[get_column_letter(col[0].column)].width = min(max(length + 2, min_w), max_w)
-
     # ── Sheet 1: Consensus Leaderboard ────────────────────────────────────────
     ws1 = wb.active
     ws1.title = "Consensus Leaderboard"
@@ -639,10 +619,7 @@ def export_collection_leaderboard(
 
     headers1 = ["Rank", "Title", "Type", "Year", "Avg Rank", "# Rankers"] + all_usernames
     for col_idx, h in enumerate(headers1, 1):
-        cell = ws1.cell(row=1, column=col_idx, value=h)
-        style_header(cell, accent=(col_idx <= 6))
-
-    ws1.row_dimensions[1].height = 28
+        ws1.cell(row=1, column=col_idx, value=h)
 
     for row_idx, item in enumerate(result_items, 2):
         user_rank_map = {ur["username"]: ur["rank"] for ur in item["user_rankings"]}
@@ -655,13 +632,7 @@ def export_collection_leaderboard(
             item["rank_count"],
         ] + [user_rank_map.get(u, "") for u in all_usernames]
         for col_idx, val in enumerate(row_data, 1):
-            cell = ws1.cell(row=row_idx, column=col_idx, value=val)
-            cell.alignment = Alignment(horizontal="center" if col_idx != 2 else "left", vertical="center")
-            if row_idx % 2 == 0:
-                cell.fill = PatternFill("solid", fgColor="141428")
-
-    auto_width(ws1)
-    ws1.freeze_panes = "A2"
+            ws1.cell(row=row_idx, column=col_idx, value=val)
 
     # ── Sheet 2: All Submissions ───────────────────────────────────────────────
     ws2 = wb.create_sheet("All Submissions")
@@ -678,30 +649,16 @@ def export_collection_leaderboard(
     for uname in user_submissions:
         user_submissions[uname].sort(key=lambda x: x[0])
 
-    max_items = max((len(v) for v in user_submissions.values()), default=0)
     usernames_sorted = sorted(user_submissions.keys())
 
-    # Header row: collection title + one column per user
-    ws2.cell(row=1, column=1, value=col.title)
-    ws2.cell(row=1, column=1).font = Font(bold=True, color="22C55E", size=13)
-    ws2.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max(len(usernames_sorted), 1))
-
-    # Row 2: usernames as column headers
-    ws2.row_dimensions[2].height = 24
+    # Row 1: usernames as column headers
     for col_idx, uname in enumerate(usernames_sorted, 1):
-        cell = ws2.cell(row=2, column=col_idx, value=uname)
-        style_header(cell, accent=True)
+        ws2.cell(row=1, column=col_idx, value=uname)
 
-    # Rows 3+: each user's ranked items in order
+    # Rows 2+: each user's ranked items in order
     for col_idx, uname in enumerate(usernames_sorted, 1):
-        for rank_idx, (rank, title) in enumerate(user_submissions[uname], 3):
-            cell = ws2.cell(row=rank_idx, column=col_idx, value=f"#{rank} {title}")
-            cell.alignment = Alignment(vertical="center", wrap_text=False)
-            if rank_idx % 2 == 1:
-                cell.fill = PatternFill("solid", fgColor="141428")
-
-    auto_width(ws2)
-    ws2.freeze_panes = "A3"
+        for rank_idx, (rank, title) in enumerate(user_submissions[uname], 2):
+            ws2.cell(row=rank_idx, column=col_idx, value=f"#{rank} {title}")
 
     # ── Stream response ────────────────────────────────────────────────────────
     buf = io.BytesIO()
