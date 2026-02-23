@@ -271,6 +271,7 @@
                 <button class="tab" onclick="switchTab('collections', this)">Collections</button>
                 <button class="tab" onclick="switchTab('users', this)">Users</button>
                 <button class="tab" onclick="switchTab('wrestling', this)">🤼 Wrestling</button>
+                <button class="tab" onclick="switchTab('sportsbook', this)">🏈 Sportsbook</button>
                 <button class="tab" onclick="switchTab('import', this)">Import/Export</button>
             </div>
 
@@ -366,6 +367,80 @@
                         Create prediction forms for wrestling shows. Add questions, lock submissions, then submit correct answers to auto-grade everyone.
                     </p>
                     <div id="wrestling-events-list"></div>
+                </div>
+            </div>
+
+            <!-- Sportsbook Section -->
+            <div class="content-section" id="sportsbook-section">
+
+                <!-- Settlement controls -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Bet Settlement</h2>
+                        <button class="btn btn-primary" onclick="runSettlement()" id="settle-btn">⚡ Run Settlement Now</button>
+                    </div>
+                    <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px;">
+                        Manually trigger score fetching from The Odds API and settle all pending bets.
+                        Runs automatically every 30 minutes when pending bets exist.
+                    </p>
+                    <div id="settlement-result"></div>
+
+                    <!-- Stats row -->
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:8px;">
+                        <div style="background:var(--hover-bg);border:1px solid var(--card-border);border-radius:10px;padding:16px;text-align:center;">
+                            <div style="font-size:24px;font-weight:700;color:var(--accent);" id="sb-stat-pending">—</div>
+                            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Pending Bets</div>
+                        </div>
+                        <div style="background:var(--hover-bg);border:1px solid var(--card-border);border-radius:10px;padding:16px;text-align:center;">
+                            <div style="font-size:24px;font-weight:700;color:#22c55e;" id="sb-stat-won">—</div>
+                            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Won</div>
+                        </div>
+                        <div style="background:var(--hover-bg);border:1px solid var(--card-border);border-radius:10px;padding:16px;text-align:center;">
+                            <div style="font-size:24px;font-weight:700;color:#ef4444;" id="sb-stat-lost">—</div>
+                            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Lost</div>
+                        </div>
+                        <div style="background:var(--hover-bg);border:1px solid var(--card-border);border-radius:10px;padding:16px;text-align:center;">
+                            <div style="font-size:24px;font-weight:700;color:#f59e0b;" id="sb-stat-matches">—</div>
+                            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Completed Matches</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pending bets table -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Pending Bets</h2>
+                        <button class="btn btn-secondary btn-sm" onclick="loadSportsbook()">↻ Refresh</button>
+                    </div>
+                    <div id="sb-pending-list"><div class="empty-state"><div class="empty-state-icon">⏳</div>Loading...</div></div>
+                </div>
+
+                <!-- All bets table -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>All Bets <span id="sb-all-count" style="color:var(--text-muted);font-size:14px;font-weight:400;"></span></h2>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <select id="sb-filter-status" onchange="renderAllBets()" style="padding:7px 10px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:8px;font-size:13px;color:var(--text-primary);outline:none;">
+                                <option value="">All Statuses</option>
+                                <option value="pending">Pending</option>
+                                <option value="won">Won</option>
+                                <option value="lost">Lost</option>
+                                <option value="push">Push</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="sb-all-list"></div>
+                </div>
+
+                <!-- Manual score override modal trigger -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Manual Score Override</h2>
+                    </div>
+                    <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px;">
+                        Force-settle a specific match by entering the final score manually. Use this if the API hasn't picked up the result yet.
+                    </p>
+                    <div id="sb-matches-list"><div class="empty-state"><div class="empty-state-icon">🏟️</div>Loading matches...</div></div>
                 </div>
             </div>
 
@@ -710,6 +785,9 @@
             } else if (tab === 'wrestling') {
                 document.getElementById('wrestling-section').classList.add('active');
                 loadWrestlingEvents();
+            } else if (tab === 'sportsbook') {
+                document.getElementById('sportsbook-section').classList.add('active');
+                loadSportsbook();
             } else if (tab === 'import') {
                 document.getElementById('import-section').classList.add('active');
             }
@@ -1863,6 +1941,212 @@
         }
     </script>
 
+    <script>
+        // ── Sportsbook Admin ────────────────────────────────────────────────────
+
+        let sbAllBets = [];
+        let sbManualMatchId = null;
+
+        const STATUS_COLORS = {
+            pending: '#f59e0b', won: '#22c55e', lost: '#ef4444', push: '#3b82f6', cancelled: '#888'
+        };
+
+        function sbBadge(status) {
+            const color = STATUS_COLORS[status] || '#888';
+            return `<span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:700;background:${color}22;color:${color};">${status.toUpperCase()}</span>`;
+        }
+
+        async function loadSportsbook() {
+            await Promise.all([loadSbStats(), loadSbPending(), loadSbAllBets(), loadSbMatches()]);
+        }
+
+        async function loadSbStats() {
+            try {
+                const res = await authFetch(`${API_URL}/api/sports/admin/stats`, { headers: authHeaders() });
+                if (!res.ok) return;
+                const data = await res.json();
+                document.getElementById('sb-stat-pending').textContent = data.pending ?? '—';
+                document.getElementById('sb-stat-won').textContent = data.won ?? '—';
+                document.getElementById('sb-stat-lost').textContent = data.lost ?? '—';
+                document.getElementById('sb-stat-matches').textContent = data.completed_matches ?? '—';
+            } catch (_) {}
+        }
+
+        async function loadSbPending() {
+            const el = document.getElementById('sb-pending-list');
+            try {
+                const res = await authFetch(`${API_URL}/api/sports/admin/bets?status=pending`, { headers: authHeaders() });
+                const data = await res.json();
+                const bets = data.bets || [];
+                if (!bets.length) {
+                    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">✅</div>No pending bets</div>`;
+                    return;
+                }
+                el.innerHTML = renderBetsTable(bets);
+            } catch (err) {
+                el.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+            }
+        }
+
+        async function loadSbAllBets() {
+            try {
+                const res = await authFetch(`${API_URL}/api/sports/admin/bets`, { headers: authHeaders() });
+                const data = await res.json();
+                sbAllBets = data.bets || [];
+                renderAllBets();
+            } catch (err) {
+                document.getElementById('sb-all-list').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+            }
+        }
+
+        function renderAllBets() {
+            const filter = document.getElementById('sb-filter-status').value;
+            const bets = filter ? sbAllBets.filter(b => b.status === filter) : sbAllBets;
+            document.getElementById('sb-all-count').textContent = `(${bets.length})`;
+            document.getElementById('sb-all-list').innerHTML = bets.length
+                ? renderBetsTable(bets)
+                : `<div class="empty-state"><div class="empty-state-icon">📭</div>No bets found</div>`;
+        }
+
+        function renderBetsTable(bets) {
+            return `<div style="overflow-x:auto;"><table class="table">
+                <thead><tr>
+                    <th>ID</th><th>User</th><th>Type</th><th>Stake</th>
+                    <th>Payout</th><th>Status</th><th>Placed</th><th>Picks</th>
+                </tr></thead>
+                <tbody>${bets.map(b => `
+                    <tr>
+                        <td style="color:var(--text-muted);">#${b.id}</td>
+                        <td style="font-weight:600;">${b.username || b.user_id}</td>
+                        <td>${b.is_parlay ? '<span style="color:#a78bfa;font-weight:600;">Parlay</span>' : 'Single'}</td>
+                        <td>${b.stake} pts</td>
+                        <td style="color:${b.status === 'won' ? '#22c55e' : 'var(--text-primary)'};">
+                            ${b.status === 'won' ? '+' : ''}${b.actual_payout > 0 ? b.actual_payout.toFixed(0) : b.potential_payout.toFixed(0)} pts
+                        </td>
+                        <td>${sbBadge(b.status)}</td>
+                        <td style="color:var(--text-muted);font-size:12px;">${new Date(b.placed_at).toLocaleDateString()}</td>
+                        <td>
+                            <details style="cursor:pointer;">
+                                <summary style="font-size:12px;color:var(--accent);">${b.picks.length} pick${b.picks.length > 1 ? 's' : ''}</summary>
+                                <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;">
+                                ${b.picks.map(p => `
+                                    <div style="font-size:12px;padding:4px 8px;background:var(--hover-bg);border-radius:6px;">
+                                        <span style="color:var(--text-secondary);">${p.match_description}</span><br>
+                                        <span style="font-weight:600;">${p.selection.toUpperCase()}</span>
+                                        · ${p.bet_type} · <span style="color:${p.odds > 0 ? '#22c55e' : '#f59e0b'}">${p.odds > 0 ? '+' : ''}${p.odds}</span>
+                                        ${p.point != null ? `· ${p.point > 0 ? '+' : ''}${p.point}` : ''}
+                                        ${p.result ? `· ${sbBadge(p.result)}` : ''}
+                                    </div>`).join('')}
+                                </div>
+                            </details>
+                        </td>
+                    </tr>`).join('')}
+                </tbody></table></div>`;
+        }
+
+        async function loadSbMatches() {
+            const el = document.getElementById('sb-matches-list');
+            try {
+                const res = await authFetch(`${API_URL}/api/sports/admin/matches`, { headers: authHeaders() });
+                const data = await res.json();
+                const matches = data.matches || [];
+                if (!matches.length) {
+                    el.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🏟️</div>No active matches in database</div>`;
+                    return;
+                }
+                el.innerHTML = `<div style="overflow-x:auto;"><table class="table">
+                    <thead><tr><th>Match</th><th>Sport</th><th>Starts</th><th>Status</th><th>Score</th><th>Action</th></tr></thead>
+                    <tbody>${matches.map(m => `
+                        <tr>
+                            <td style="font-weight:600;">${m.away_team} @ ${m.home_team}</td>
+                            <td style="color:var(--text-muted);font-size:12px;">${m.sport_title}</td>
+                            <td style="color:var(--text-muted);font-size:12px;">${new Date(m.commence_time).toLocaleString()}</td>
+                            <td>${sbBadge(m.status)}</td>
+                            <td style="font-size:13px;">${m.home_score != null ? `${m.away_score}–${m.home_score}` : '—'}</td>
+                            <td>${m.status !== 'completed' ? `
+                                <button class="btn btn-secondary btn-sm" onclick="openScoreModal(${m.id}, '${m.away_team.replace(/'/g,"\\'")} @ ${m.home_team.replace(/'/g,"\\'")}', '${m.home_team.replace(/'/g,"\\'")}', '${m.away_team.replace(/'/g,"\\'")}')">
+                                    Enter Score
+                                </button>` : '<span style="color:var(--text-muted);font-size:12px;">Done</span>'}</td>
+                        </tr>`).join('')}
+                    </tbody></table></div>`;
+            } catch (err) {
+                el.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+            }
+        }
+
+        async function runSettlement() {
+            const btn = document.getElementById('settle-btn');
+            const resultEl = document.getElementById('settlement-result');
+            btn.disabled = true;
+            btn.textContent = '⏳ Running...';
+            resultEl.innerHTML = '';
+            try {
+                const res = await authFetch(`${API_URL}/api/sports/admin/settle-bets`, {
+                    method: 'POST', headers: authHeaders()
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    const skipped = data.skipped ? ' (no pending bets — skipped API call)' : '';
+                    resultEl.innerHTML = `<div class="alert alert-success">
+                        ✅ Settlement complete: <strong>${data.matches_settled}</strong> match${data.matches_settled !== 1 ? 'es' : ''} settled,
+                        <strong>${data.bets_settled}</strong> bet${data.bets_settled !== 1 ? 's' : ''} graded${skipped}.
+                    </div>`;
+                    loadSportsbook();
+                } else {
+                    resultEl.innerHTML = `<div class="alert alert-error">❌ ${data.detail || 'Settlement failed'}</div>`;
+                }
+            } catch (err) {
+                resultEl.innerHTML = `<div class="alert alert-error">❌ ${err.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '⚡ Run Settlement Now';
+            }
+        }
+
+        function openScoreModal(matchId, matchup, homeTeam, awayTeam) {
+            sbManualMatchId = matchId;
+            document.getElementById('sb-score-matchup').textContent = matchup;
+            document.getElementById('sb-score-home-label').textContent = `${homeTeam} (Home)`;
+            document.getElementById('sb-score-away-label').textContent = `${awayTeam} (Away)`;
+            document.getElementById('sb-score-home').value = '';
+            document.getElementById('sb-score-away').value = '';
+            document.getElementById('sb-score-result').innerHTML = '';
+            document.getElementById('sb-score-modal').classList.add('show');
+        }
+
+        async function submitManualScore() {
+            const home = parseInt(document.getElementById('sb-score-home').value);
+            const away = parseInt(document.getElementById('sb-score-away').value);
+            const resultEl = document.getElementById('sb-score-result');
+            const btn = document.getElementById('sb-score-submit-btn');
+
+            if (isNaN(home) || isNaN(away)) {
+                resultEl.innerHTML = `<div class="alert alert-error">Enter both scores.</div>`;
+                return;
+            }
+            btn.disabled = true;
+            btn.textContent = 'Settling...';
+            try {
+                const res = await authFetch(
+                    `${API_URL}/api/sports/admin/update-result/${sbManualMatchId}?home_score=${home}&away_score=${away}`,
+                    { method: 'POST', headers: authHeaders() }
+                );
+                const data = await res.json();
+                if (res.ok) {
+                    resultEl.innerHTML = `<div class="alert alert-success">✅ Settled — ${data.picks_settled} pick${data.picks_settled !== 1 ? 's' : ''} graded, ${data.bets_evaluated} bet${data.bets_evaluated !== 1 ? 's' : ''} evaluated.</div>`;
+                    loadSportsbook();
+                } else {
+                    resultEl.innerHTML = `<div class="alert alert-error">❌ ${data.detail || 'Failed'}</div>`;
+                }
+            } catch (err) {
+                resultEl.innerHTML = `<div class="alert alert-error">❌ ${err.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Settle Bets';
+            }
+        }
+    </script>
+
     <!-- Wrestling: New/Edit Event Modal -->
     <div class="modal" id="w-event-modal">
         <div class="modal-content" style="max-width:500px;">
@@ -1978,6 +2262,32 @@
                     <button type="submit" class="btn btn-primary">Submit Answers & Grade</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Sportsbook: Manual Score Modal -->
+    <div class="modal" id="sb-score-modal">
+        <div class="modal-content" style="max-width:420px;">
+            <div class="modal-header">
+                <h3>Enter Final Score</h3>
+                <button class="modal-close" onclick="closeModal('sb-score-modal')">×</button>
+            </div>
+            <p id="sb-score-matchup" style="color:var(--text-secondary);font-size:14px;margin-bottom:18px;"></p>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group">
+                    <label id="sb-score-home-label">Home Score</label>
+                    <input type="number" id="sb-score-home" min="0" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label id="sb-score-away-label">Away Score</label>
+                    <input type="number" id="sb-score-away" min="0" placeholder="0">
+                </div>
+            </div>
+            <div id="sb-score-result"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('sb-score-modal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitManualScore()" id="sb-score-submit-btn">Settle Bets</button>
+            </div>
         </div>
     </div>
 

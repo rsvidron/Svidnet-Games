@@ -784,6 +784,96 @@ async def sync_matches(
         raise HTTPException(500, f"Failed to sync: {str(e)}")
 
 
+@router.get("/admin/stats")
+def admin_get_stats(
+    db: Session = Depends(get_db),
+    _admin: bool = Depends(is_admin)
+):
+    """Admin: Bet and match summary counts"""
+    from sqlalchemy import func
+    counts = db.query(Bet.status, func.count(Bet.id)).group_by(Bet.status).all()
+    status_map = {str(s): c for s, c in counts}
+    completed_matches = db.query(SportsMatch).filter(SportsMatch.status == MatchStatus.COMPLETED).count()
+    return {
+        "pending": status_map.get("pending", 0),
+        "won": status_map.get("won", 0),
+        "lost": status_map.get("lost", 0),
+        "push": status_map.get("push", 0),
+        "completed_matches": completed_matches,
+    }
+
+
+@router.get("/admin/bets")
+def admin_get_bets(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+    _admin: bool = Depends(is_admin)
+):
+    """Admin: List all bets with pick details and username"""
+    query = db.query(Bet).order_by(desc(Bet.placed_at))
+    if status:
+        query = query.filter(Bet.status == status)
+    bets = query.limit(200).all()
+
+    result = []
+    for bet in bets:
+        user = db.query(User).filter(User.id == bet.user_id).first()
+        pick_responses = []
+        for pick in bet.picks:
+            match = db.query(SportsMatch).get(pick.match_id)
+            pick_responses.append({
+                "id": pick.id,
+                "match_id": pick.match_id,
+                "match_description": f"{match.away_team} @ {match.home_team}" if match else "Unknown",
+                "bet_type": pick.bet_type.value,
+                "selection": pick.selection.value,
+                "odds": pick.odds,
+                "point": pick.point,
+                "result": pick.result.value if pick.result else None,
+            })
+        result.append({
+            "id": bet.id,
+            "user_id": bet.user_id,
+            "username": user.username if user else str(bet.user_id),
+            "is_parlay": bet.is_parlay,
+            "total_picks": bet.total_picks,
+            "stake": bet.stake,
+            "potential_payout": bet.potential_payout,
+            "actual_payout": bet.actual_payout,
+            "status": bet.status.value,
+            "placed_at": bet.placed_at.isoformat(),
+            "settled_at": bet.settled_at.isoformat() if bet.settled_at else None,
+            "picks": pick_responses,
+        })
+    return {"bets": result, "total": len(result)}
+
+
+@router.get("/admin/matches")
+def admin_get_matches(
+    db: Session = Depends(get_db),
+    _admin: bool = Depends(is_admin)
+):
+    """Admin: List all matches in DB (most recent first)"""
+    matches = db.query(SportsMatch).order_by(desc(SportsMatch.commence_time)).limit(100).all()
+    return {
+        "matches": [
+            {
+                "id": m.id,
+                "external_id": m.external_id,
+                "sport_key": m.sport_key,
+                "sport_title": m.sport_title,
+                "home_team": m.home_team,
+                "away_team": m.away_team,
+                "commence_time": m.commence_time.isoformat(),
+                "status": m.status.value,
+                "home_score": m.home_score,
+                "away_score": m.away_score,
+            }
+            for m in matches
+        ]
+    }
+
+
 @router.post("/admin/settle-bets")
 def admin_settle_bets(
     db: Session = Depends(get_db),
