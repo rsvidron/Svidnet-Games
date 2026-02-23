@@ -259,6 +259,12 @@ def settle_completed_matches(db: Session) -> dict:
     import asyncio
     from app.services.odds_service import odds_service
 
+    # Skip entirely if no pending bets exist
+    pending_count = db.query(Bet).filter(Bet.status == BetStatus.PENDING).count()
+    if pending_count == 0:
+        logger.info("Settlement skipped — no pending bets")
+        return {"matches_settled": 0, "bets_settled": 0, "skipped": True}
+
     try:
         all_scores = asyncio.run(odds_service.get_all_scores(days_from=1))
     except Exception as e:
