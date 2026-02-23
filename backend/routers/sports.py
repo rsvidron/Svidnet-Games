@@ -957,6 +957,66 @@ def admin_get_matches(
     }
 
 
+@router.post("/admin/bets/{bet_id}/force-settle")
+def admin_force_settle_bet(
+    bet_id: int,
+    outcome: str,  # "won" or "lost"
+    db: Session = Depends(get_db),
+    _admin: bool = Depends(is_admin)
+):
+    """Admin: Force a pending bet to won or lost regardless of game state."""
+    if outcome not in ("won", "lost"):
+        raise HTTPException(400, "outcome must be 'won' or 'lost'")
+
+    bet = db.query(Bet).filter(Bet.id == bet_id).first()
+    if not bet:
+        raise HTTPException(404, "Bet not found")
+    if bet.status != BetStatus.PENDING:
+        raise HTTPException(400, f"Bet is already '{bet.status.value}'")
+
+    now = datetime.now(timezone.utc)
+    if outcome == "won":
+        bet.status = BetStatus.WON
+        bet.actual_payout = bet.potential_payout
+        for pick in bet.picks:
+            pick.result = BetStatus.WON
+    else:
+        bet.status = BetStatus.LOST
+        bet.actual_payout = 0
+        for pick in bet.picks:
+            pick.result = BetStatus.LOST
+
+    bet.settled_at = now
+
+    # Update leaderboard
+    sport_category_map = {
+        "basketball": ["basketball_nba", "basketball_ncaab", "basketball_wnba", "basketball_euroleague"],
+        "football": ["americanfootball_nfl", "americanfootball_ncaaf", "americanfootball_cfl", "australianfootball_afl"],
+        "baseball": ["baseball_mlb", "baseball_kbo", "baseball_npb"],
+        "hockey": ["icehockey_nhl", "icehockey_ahl", "icehockey_shl", "icehockey_allsvenskan", "icehockey_liiga"],
+        "soccer": ["soccer_epl", "soccer_germany_bundesliga", "soccer_spain_la_liga",
+                   "soccer_italy_serie_a", "soccer_france_ligue_one", "soccer_brazil_campeonato",
+                   "soccer_uefa_champs_league", "soccer_uefa_europa_league"],
+    }
+    first_match = db.query(SportsMatch).get(bet.picks[0].match_id) if bet.picks else None
+    sport_category = "other"
+    if first_match:
+        for cat, keys in sport_category_map.items():
+            if first_match.sport_key in keys:
+                sport_category = cat
+                break
+
+    update_leaderboard(db, bet.user_id, sport_category, bet)
+    db.commit()
+
+    return {
+        "success": True,
+        "bet_id": bet_id,
+        "outcome": outcome,
+        "payout": bet.actual_payout,
+    }
+
+
 @router.post("/admin/settle-bets")
 def admin_settle_bets(
     db: Session = Depends(get_db),

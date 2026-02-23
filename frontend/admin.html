@@ -2040,9 +2040,16 @@
                                 </div>
                             </details>
                         </td>
-                        <td>${b.status === 'pending'
-                            ? `<button class="btn btn-danger btn-sm" onclick="adminCancelBet(${b.id}, ${b.stake})">Cancel</button>`
-                            : ''}</td>
+                        <td>${b.status === 'pending' ? `
+                            <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
+                                <button class="btn btn-danger btn-sm" onclick="adminCancelBet(${b.id}, ${b.stake})">Cancel</button>
+                                <select id="force-outcome-${b.id}" style="padding:4px 6px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:6px;font-size:12px;color:var(--text-primary);outline:none;">
+                                    <option value="">Force…</option>
+                                    <option value="won">Won</option>
+                                    <option value="lost">Lost</option>
+                                </select>
+                                <button class="btn btn-secondary btn-sm" onclick="adminForceSettle(${b.id})">Go</button>
+                            </div>` : ''}</td>
                     </tr>`).join('')}
                 </tbody></table></div>`;
         }
@@ -2062,6 +2069,33 @@
                     setTimeout(loadSportsbook, 600);
                 } else {
                     alert(data.detail || 'Could not cancel bet');
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
+        }
+
+        async function adminForceSettle(betId) {
+            const outcome = document.getElementById(`force-outcome-${betId}`)?.value;
+            if (!outcome) { alert('Select Won or Lost first.'); return; }
+            if (!confirm(`Force settle bet #${betId} as ${outcome.toUpperCase()}?`)) return;
+            try {
+                const res = await authFetch(
+                    `${API_URL}/api/sports/admin/bets/${betId}/force-settle?outcome=${outcome}`,
+                    { method: 'POST', headers: authHeaders() }
+                );
+                const data = await res.json();
+                if (res.ok) {
+                    const row = document.getElementById(`sb-bet-row-${betId}`);
+                    if (row) row.style.opacity = '0.4';
+                    const payoutMsg = outcome === 'won'
+                        ? `Payout: ${data.payout.toFixed(0)} pts`
+                        : 'No payout';
+                    document.getElementById('settlement-result').innerHTML =
+                        `<div class="alert alert-success">✅ Bet #${betId} force-settled as <strong>${outcome.toUpperCase()}</strong>. ${payoutMsg}.</div>`;
+                    setTimeout(loadSportsbook, 600);
+                } else {
+                    alert(data.detail || 'Could not force-settle bet');
                 }
             } catch (err) {
                 alert('Error: ' + err.message);
