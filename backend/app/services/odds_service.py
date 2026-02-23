@@ -309,6 +309,39 @@ class OddsAPIService:
 
         return parsed
 
+    async def get_scores(self, sport: str, days_from: int = 1) -> List[Dict]:
+        """
+        Fetch scores for a sport. Returns completed and in-progress games.
+        days_from=1 includes games from the last 24 hours.
+        """
+        params = {"daysFrom": days_from, "dateFormat": "iso"}
+        data = await self._make_request(f"sports/{sport}/scores", params)
+        return data or []
+
+    async def get_all_scores(self, days_from: int = 1) -> Dict[str, List[Dict]]:
+        """
+        Fetch scores across all tracked sports.
+        Returns dict of sport_key -> list of score events.
+        Only fetches sports that have at least one match in our DB to save API calls.
+        """
+        from database import SessionLocal
+        from models.sports import SportsMatch
+
+        db = SessionLocal()
+        try:
+            active_sport_keys = [
+                row[0] for row in db.query(SportsMatch.sport_key).distinct().all()
+            ]
+        finally:
+            db.close()
+
+        results = {}
+        for sport_key in active_sport_keys:
+            scores = await self.get_scores(sport_key, days_from=days_from)
+            if scores:
+                results[sport_key] = scores
+        return results
+
     async def check_api_quota(self) -> Dict:
         """
         Check remaining API quota

@@ -12,8 +12,11 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+SETTLEMENT_INTERVAL_SECONDS = 30 * 60  # 30 minutes
+
+
 class OddsSyncScheduler:
-    """Background thread that syncs odds at scheduled times"""
+    """Background thread that syncs odds at scheduled times and settles bets every 30 minutes"""
 
     def __init__(self):
         self.sync_times = [(6, 0), (15, 0)]  # 6 AM and 3 PM
@@ -22,6 +25,7 @@ class OddsSyncScheduler:
         self.thread = None
         self.last_sync_day = None
         self.synced_hours = set()
+        self.last_settlement_time = 0  # epoch seconds
 
     def start(self):
         """Start the background sync scheduler"""
@@ -36,7 +40,7 @@ class OddsSyncScheduler:
         self.running = True
         self.thread = threading.Thread(target=self._run_scheduler, daemon=True)
         self.thread.start()
-        logger.info(f"🕐 Odds sync scheduler started - syncing at 6 AM and 3 PM ET")
+        logger.info("🕐 Odds sync scheduler started - syncing at 6 AM and 3 PM ET, settling bets every 30 min")
 
     def stop(self):
         """Stop the background sync scheduler"""
@@ -62,15 +66,20 @@ class OddsSyncScheduler:
                     self.last_sync_day = current_day
                     logger.info(f"New day detected: {current_day}, resetting sync tracker")
 
-                # Check if we should sync now
+                # Check if we should sync odds now (6 AM / 3 PM ET)
                 for sync_hour, sync_minute in self.sync_times:
                     if current_hour == sync_hour and current_minute == sync_minute:
-                        # Only sync once per hour
                         if sync_hour not in self.synced_hours:
                             logger.info(f"⏰ Sync time reached: {sync_hour}:00 ET")
                             self._trigger_sync()
                             self.synced_hours.add(sync_hour)
                         break
+
+                # Settle bets every 30 minutes
+                now_epoch = time.time()
+                if now_epoch - self.last_settlement_time >= SETTLEMENT_INTERVAL_SECONDS:
+                    self._trigger_settlement()
+                    self.last_settlement_time = now_epoch
 
                 # Sleep for 60 seconds before next check
                 time.sleep(60)
@@ -194,6 +203,28 @@ class OddsSyncScheduler:
 
         except Exception as e:
             logger.error(f"Error triggering sync: {str(e)}", exc_info=True)
+
+
+    def _trigger_settlement(self):
+        """Fetch scores from The Odds API and settle completed bets"""
+        try:
+            logger.info("💰 Triggering automatic bet settlement...")
+
+            from database import SessionLocal
+            from routers.sports import settle_completed_matches
+
+            db = SessionLocal()
+            try:
+                result = settle_completed_matches(db)
+                logger.info(
+                    f"✅ Settlement complete: {result.get('matches_settled', 0)} matches, "
+                    f"{result.get('bets_settled', 0)} bets settled"
+                )
+            finally:
+                db.close()
+
+        except Exception as e:
+            logger.error(f"❌ Settlement failed: {str(e)}", exc_info=True)
 
 
 # Global scheduler instance

@@ -250,6 +250,146 @@ def update_leaderboard(db: Session, user_id: int, sport_category: str, bet: Bet)
     db.commit()
 
 
+def settle_completed_matches(db: Session) -> dict:
+    """
+    Fetch scores from The Odds API for all sports we have matches for,
+    update match results, and settle any pending bets.
+    Returns summary counts. Safe to call repeatedly — skips already-settled bets.
+    """
+    import asyncio
+    from app.services.odds_service import odds_service
+
+    try:
+        all_scores = asyncio.run(odds_service.get_all_scores(days_from=1))
+    except Exception as e:
+        logger.error(f"Failed to fetch scores: {e}")
+        return {"error": str(e), "matches_settled": 0, "bets_settled": 0}
+
+    matches_settled = 0
+    bets_settled = 0
+
+    for sport_key, score_events in all_scores.items():
+        for event in score_events:
+            # Only process completed games that have scores
+            completed = event.get("completed", False)
+            scores = event.get("scores")
+            if not completed or not scores:
+                continue
+
+            external_id = event.get("id")
+            match = db.query(SportsMatch).filter(
+                SportsMatch.external_id == external_id
+            ).first()
+
+            if not match:
+                continue
+
+            # Skip if already marked completed
+            if match.status == MatchStatus.COMPLETED:
+                continue
+
+            # Parse home/away scores from the scores list
+            home_score = None
+            away_score = None
+            for score_entry in scores:
+                name = score_entry.get("name")
+                score_val = score_entry.get("score")
+                if score_val is None:
+                    continue
+                try:
+                    score_int = int(score_val)
+                except (ValueError, TypeError):
+                    continue
+                if name == match.home_team:
+                    home_score = score_int
+                elif name == match.away_team:
+                    away_score = score_int
+
+            if home_score is None or away_score is None:
+                logger.warning(
+                    f"Could not parse scores for {match.home_team} vs {match.away_team} "
+                    f"(external_id={external_id})"
+                )
+                continue
+
+            # Mark match completed
+            match.home_score = home_score
+            match.away_score = away_score
+            match.status = MatchStatus.COMPLETED
+            match.completed_at = datetime.now(timezone.utc)
+            matches_settled += 1
+
+            # Settle all pending picks for this match
+            picks = db.query(BetPick).filter(BetPick.match_id == match.id).all()
+            affected_bet_ids = set(p.bet_id for p in picks)
+
+            for pick in picks:
+                if pick.result is None:
+                    pick.result = determine_pick_result(pick, match)
+
+            # Evaluate each affected bet
+            sport_category_map = {
+                "basketball": ["basketball_nba", "basketball_ncaab", "basketball_wnba", "basketball_euroleague"],
+                "football": ["americanfootball_nfl", "americanfootball_ncaaf", "americanfootball_cfl", "australianfootball_afl"],
+                "baseball": ["baseball_mlb", "baseball_kbo", "baseball_npb"],
+                "hockey": ["icehockey_nhl", "icehockey_ahl", "icehockey_shl", "icehockey_allsvenskan", "icehockey_liiga"],
+                "soccer": ["soccer_epl", "soccer_germany_bundesliga", "soccer_spain_la_liga",
+                           "soccer_italy_serie_a", "soccer_france_ligue_one", "soccer_brazil_campeonato",
+                           "soccer_uefa_champs_league", "soccer_uefa_europa_league"],
+            }
+
+            for bet_id in affected_bet_ids:
+                bet = db.query(Bet).get(bet_id)
+                if not bet or bet.status != BetStatus.PENDING:
+                    continue
+
+                # A parlay is only fully settled when ALL picks have a result
+                if any(p.result is None for p in bet.picks):
+                    continue
+
+                any_lost = any(p.result == BetStatus.LOST for p in bet.picks)
+                all_won = all(p.result == BetStatus.WON for p in bet.picks)
+                all_push = all(p.result == BetStatus.PUSH for p in bet.picks)
+
+                if any_lost:
+                    bet.status = BetStatus.LOST
+                    bet.actual_payout = 0
+                elif all_won:
+                    bet.status = BetStatus.WON
+                    bet.actual_payout = bet.potential_payout
+                elif all_push:
+                    bet.status = BetStatus.PUSH
+                    bet.actual_payout = bet.stake
+                else:
+                    # Mixed push/win — treat pushed picks as 1.0x multiplier
+                    # Recalculate payout using only non-push picks
+                    won_picks = [p for p in bet.picks if p.result == BetStatus.WON]
+                    if won_picks:
+                        bet.status = BetStatus.WON
+                        bet.actual_payout = calculate_payout(won_picks, bet.stake)
+                    else:
+                        bet.status = BetStatus.PUSH
+                        bet.actual_payout = bet.stake
+
+                bet.settled_at = datetime.now(timezone.utc)
+                bets_settled += 1
+
+                # Update leaderboard
+                first_match = db.query(SportsMatch).get(bet.picks[0].match_id)
+                sport_key_lb = first_match.sport_key if first_match else sport_key
+                sport_category = "other"
+                for cat, keys in sport_category_map.items():
+                    if sport_key_lb in keys:
+                        sport_category = cat
+                        break
+                update_leaderboard(db, bet.user_id, sport_category, bet)
+
+        db.commit()
+
+    logger.info(f"Settlement run complete: {matches_settled} matches, {bets_settled} bets settled")
+    return {"matches_settled": matches_settled, "bets_settled": bets_settled}
+
+
 # Endpoints
 @router.get("/today")
 def get_todays_games(category: Optional[str] = None, db: Session = Depends(get_db)):
@@ -636,6 +776,16 @@ async def sync_matches(
             db.commit()
 
         raise HTTPException(500, f"Failed to sync: {str(e)}")
+
+
+@router.post("/admin/settle-bets")
+def admin_settle_bets(
+    db: Session = Depends(get_db),
+    _admin: bool = Depends(is_admin)
+):
+    """Admin: Manually trigger bet settlement by fetching scores from The Odds API"""
+    result = settle_completed_matches(db)
+    return {"success": True, **result}
 
 
 @router.post("/admin/update-result/{match_id}")
