@@ -784,6 +784,89 @@ async def sync_matches(
         raise HTTPException(500, f"Failed to sync: {str(e)}")
 
 
+@router.delete("/bets/{bet_id}")
+def cancel_bet(
+    bet_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(get_current_user_id)
+):
+    """
+    Cancel a pending bet and refund the stake.
+    Only allowed while every game in the bet hasn't started yet.
+    Admins can cancel any bet; users can only cancel their own.
+    """
+    bet = db.query(Bet).filter(Bet.id == bet_id).first()
+    if not bet:
+        raise HTTPException(404, "Bet not found")
+
+    # Check ownership (allow admin to cancel any bet)
+    user = db.query(User).filter(User.id == user_id).first()
+    is_user_admin = user and (
+        user.role == "admin"
+        or user.username in ["svidthekid"]
+        or user.email in ["svidron.robert@gmail.com"]
+    )
+    if bet.user_id != user_id and not is_user_admin:
+        raise HTTPException(403, "You can only cancel your own bets")
+
+    if bet.status != BetStatus.PENDING:
+        raise HTTPException(400, f"Cannot cancel a bet with status '{bet.status.value}'")
+
+    # Block cancellation if any game has already started
+    now = datetime.now(timezone.utc)
+    for pick in bet.picks:
+        match = db.query(SportsMatch).get(pick.match_id)
+        if match:
+            commence = match.commence_time
+            if commence.tzinfo is None:
+                commence = commence.replace(tzinfo=timezone.utc)
+            if commence <= now:
+                raise HTTPException(
+                    400,
+                    f"Cannot cancel — {match.away_team} @ {match.home_team} has already started"
+                )
+
+    # Mark cancelled
+    bet.status = BetStatus.CANCELLED
+    bet.settled_at = now
+    bet.actual_payout = bet.stake  # refund
+
+    for pick in bet.picks:
+        pick.result = BetStatus.CANCELLED
+
+    # Reverse leaderboard wagered amount so net_profit stays accurate
+    sport_category_map = {
+        "basketball": ["basketball_nba", "basketball_ncaab", "basketball_wnba", "basketball_euroleague"],
+        "football": ["americanfootball_nfl", "americanfootball_ncaaf", "americanfootball_cfl", "australianfootball_afl"],
+        "baseball": ["baseball_mlb", "baseball_kbo", "baseball_npb"],
+        "hockey": ["icehockey_nhl", "icehockey_ahl", "icehockey_shl", "icehockey_allsvenskan", "icehockey_liiga"],
+        "soccer": ["soccer_epl", "soccer_germany_bundesliga", "soccer_spain_la_liga",
+                   "soccer_italy_serie_a", "soccer_france_ligue_one", "soccer_brazil_campeonato",
+                   "soccer_uefa_champs_league", "soccer_uefa_europa_league"],
+    }
+    first_match = db.query(SportsMatch).get(bet.picks[0].match_id)
+    sport_category = "other"
+    if first_match:
+        for cat, keys in sport_category_map.items():
+            if first_match.sport_key in keys:
+                sport_category = cat
+                break
+
+    lb = db.query(SportsLeaderboard).filter(
+        SportsLeaderboard.user_id == bet.user_id,
+        SportsLeaderboard.sport_category == sport_category
+    ).first()
+    if lb:
+        lb.total_bets = max(0, lb.total_bets - 1)
+        if bet.is_parlay:
+            lb.total_parlays = max(0, lb.total_parlays - 1)
+        lb.total_wagered = max(0, lb.total_wagered - bet.stake)
+        lb.net_profit = lb.total_won - lb.total_wagered
+
+    db.commit()
+    return {"success": True, "bet_id": bet_id, "refunded": bet.stake}
+
+
 @router.get("/admin/stats")
 def admin_get_stats(
     db: Session = Depends(get_db),

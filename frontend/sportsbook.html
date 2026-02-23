@@ -901,7 +901,10 @@
                     timeZone: 'America/New_York', timeZoneName: 'short'
                 });
                 const payout = bet.status === 'won' ? bet.actual_payout : bet.status === 'push' ? bet.stake : 0;
-                return `<div class="bet-card ${statusClass}">
+                const cancelBtn = bet.status === 'pending'
+                    ? `<button onclick="cancelBet(${bet.id})" style="margin-top:10px;width:100%;padding:7px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;" onmouseover="this.style.background='rgba(239,68,68,0.18)'" onmouseout="this.style.background='rgba(239,68,68,0.08)'">Cancel Bet &amp; Refund ${bet.stake} pts</button>`
+                    : '';
+                return `<div class="bet-card ${statusClass}" id="bet-card-${bet.id}">
                     <div class="bet-header">
                         <span class="bet-type-badge">${betType}</span>
                         <span class="bet-status ${statusClass}">${bet.status}</span>
@@ -913,12 +916,39 @@
                             ${bet.status === 'pending' ? `To Win: ${bet.potential_payout.toFixed(2)} pts`
                               : bet.status === 'won' ? `Won: +${payout.toFixed(2)} pts`
                               : bet.status === 'push' ? `Returned: ${payout.toFixed(2)} pts`
+                              : bet.status === 'cancelled' ? `Refunded: ${bet.stake} pts`
                               : `Lost: -${bet.stake} pts`}
                         </span>
                     </div>
                     <div class="bet-date">${placedDate}</div>
+                    ${cancelBtn}
                 </div>`;
             }).join('');
+        }
+
+        async function cancelBet(betId) {
+            if (!confirm('Cancel this bet and refund your stake?')) return;
+            try {
+                const res = await authFetch(`${API}/api/sports/bets/${betId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${getToken()}` }
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    const card = document.getElementById(`bet-card-${betId}`);
+                    if (card) {
+                        card.style.opacity = '0.5';
+                        card.innerHTML += `<div style="text-align:center;color:#22c55e;font-size:13px;font-weight:600;margin-top:8px;">✓ Cancelled — ${data.refunded} pts refunded</div>`;
+                        card.querySelector('button')?.remove();
+                    }
+                    // Reload full history to update stats
+                    setTimeout(loadMyBets, 800);
+                } else {
+                    alert(data.detail || 'Could not cancel bet');
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
         }
 
         // Initialize

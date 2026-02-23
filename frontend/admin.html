@@ -2012,10 +2012,10 @@
             return `<div style="overflow-x:auto;"><table class="table">
                 <thead><tr>
                     <th>ID</th><th>User</th><th>Type</th><th>Stake</th>
-                    <th>Payout</th><th>Status</th><th>Placed</th><th>Picks</th>
+                    <th>Payout</th><th>Status</th><th>Placed</th><th>Picks</th><th></th>
                 </tr></thead>
                 <tbody>${bets.map(b => `
-                    <tr>
+                    <tr id="sb-bet-row-${b.id}">
                         <td style="color:var(--text-muted);">#${b.id}</td>
                         <td style="font-weight:600;">${b.username || b.user_id}</td>
                         <td>${b.is_parlay ? '<span style="color:#a78bfa;font-weight:600;">Parlay</span>' : 'Single'}</td>
@@ -2040,8 +2040,32 @@
                                 </div>
                             </details>
                         </td>
+                        <td>${b.status === 'pending'
+                            ? `<button class="btn btn-danger btn-sm" onclick="adminCancelBet(${b.id}, ${b.stake})">Cancel</button>`
+                            : ''}</td>
                     </tr>`).join('')}
                 </tbody></table></div>`;
+        }
+
+        async function adminCancelBet(betId, stake) {
+            if (!confirm(`Cancel bet #${betId} and refund ${stake} pts to user?`)) return;
+            try {
+                const res = await authFetch(`${API_URL}/api/sports/bets/${betId}`, {
+                    method: 'DELETE', headers: authHeaders()
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    const row = document.getElementById(`sb-bet-row-${betId}`);
+                    if (row) row.style.opacity = '0.4';
+                    document.getElementById('settlement-result').innerHTML =
+                        `<div class="alert alert-success">✅ Bet #${betId} cancelled — ${data.refunded} pts refunded.</div>`;
+                    setTimeout(loadSportsbook, 600);
+                } else {
+                    alert(data.detail || 'Could not cancel bet');
+                }
+            } catch (err) {
+                alert('Error: ' + err.message);
+            }
         }
 
         async function loadSbMatches() {
