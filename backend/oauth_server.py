@@ -743,6 +743,14 @@ try:
 except Exception as e:
     print(f"⚠ Warning: Could not import rankings router: {type(e).__name__}: {e}")
 
+# Include Overseerr proxy router
+try:
+    from routers.overseerr import router as overseerr_router
+    app.include_router(overseerr_router)
+    print("✓ Overseerr router loaded")
+except Exception as e:
+    print(f"⚠ Warning: Could not import overseerr router: {type(e).__name__}: {e}")
+
 # Include Wrestling router
 try:
     from routers.wrestling import router as wrestling_router
