@@ -511,7 +511,7 @@
                                     <div class="list-detail-desc" id="collection-detail-desc"></div>
                                 </div>
                                 <div style="display:flex;align-items:center;gap:8px;">
-                                    <button class="lb-toggle-btn" id="lb-toggle-btn" onclick="toggleLeaderboard()" title="Toggle Leaderboard">📊 Leaderboard</button>
+                                    <button class="lb-toggle-btn" id="lb-toggle-btn" onclick="openLeaderboardPage()" title="View Leaderboard">📊 Leaderboard</button>
                                     <div class="list-detail-actions" id="collection-admin-actions" style="display:none;">
                                         <button class="btn btn-secondary btn-sm" id="edit-order-btn" onclick="toggleOfficialOrderPanel()">Edit Order</button>
                                         <button class="btn btn-secondary btn-sm" onclick="showEditCollectionModal()">Edit</button>
@@ -1723,6 +1723,13 @@
         // ── Leaderboard sidebar ────────────────────────────────────────────────────
         let lbOpen = false;
         let lbLoaded = false;
+
+        function openLeaderboardPage() {
+            const url = currentCollectionId
+                ? `/movie-leaderboard?collection=${currentCollectionId}`
+                : '/movie-leaderboard';
+            window.location.href = url;
+        }
 
         function toggleLeaderboard() {
             lbOpen = !lbOpen;

@@ -280,6 +280,14 @@ def movies_page():
         return FileResponse(movies_path)
     raise HTTPException(404, "Movies page not found")
 
+@app.get("/movie-leaderboard")
+def movie_leaderboard_page():
+    """Serve the standalone movie rankings leaderboard page"""
+    path = os.path.join(os.path.dirname(__file__), "..", "frontend", "movie-leaderboard.html")
+    if os.path.exists(path):
+        return FileResponse(path)
+    raise HTTPException(404, "Leaderboard page not found")
+
 @app.get("/rankings")
 def rankings_page():
     """Redirect to the combined movies & TV page"""

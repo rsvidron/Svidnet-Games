@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Leaderboard - Svidhaus Arena</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root[data-theme="dark"] {
+            --bg: #0f0f0f; --sidebar-bg: #1a1a1a; --card-bg: #1e1e1e;
+            --card-border: #2a2a2a; --text-primary: #ffffff; --text-secondary: #888888;
+            --text-muted: #555555; --accent: #22c55e; --accent-hover: #16a34a;
+            --accent-dim: rgba(34,197,94,0.1); --danger: #ef4444;
+            --hover-bg: #252525; --divider: #2a2a2a; --stat-bg: #252525;
+            --poster-bg: #2a2a2a;
+        }
+        :root[data-theme="light"] {
+            --bg: #f4f6f9; --sidebar-bg: #ffffff; --card-bg: #ffffff;
+            --card-border: #e5e7eb; --text-primary: #111827; --text-secondary: #6b7280;
+            --text-muted: #9ca3af; --accent: #16a34a; --accent-hover: #15803d;
+            --accent-dim: rgba(22,163,74,0.08); --danger: #dc2626;
+            --hover-bg: #f3f4f6; --divider: #e5e7eb; --stat-bg: #f3f4f6;
+            --poster-bg: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg); color: var(--text-primary);
+            min-height: 100vh; display: flex; transition: background 0.3s, color 0.3s;
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: 240px; background: var(--sidebar-bg); border-right: 1px solid var(--divider);
+            display: flex; flex-direction: column; padding: 24px 0;
+            position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
+            transition: background 0.3s, border-color 0.3s, transform 0.3s;
+        }
+        .sidebar-logo { padding: 0 24px 28px; border-bottom: 1px solid var(--divider); margin-bottom: 16px; }
+        .sidebar-logo h1 { font-size: 18px; font-weight: 700; color: var(--text-primary); }
+        .sidebar-logo span { font-size: 12px; color: var(--text-secondary); }
+        .sidebar-section { padding: 0 12px; margin-bottom: 8px; }
+        .sidebar-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; padding: 0 12px; margin-bottom: 4px; }
+        .sidebar-item {
+            display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+            border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-secondary);
+            cursor: pointer; text-decoration: none; transition: background 0.15s, color 0.15s; margin-bottom: 2px;
+        }
+        .sidebar-item:hover { background: var(--hover-bg); color: var(--text-primary); }
+        .sidebar-item.active { background: var(--accent-dim); color: var(--accent); }
+        .sidebar-item .icon { font-size: 16px; width: 20px; text-align: center; }
+        .sidebar-bottom { margin-top: auto; padding: 16px 12px; border-top: 1px solid var(--divider); }
+
+        /* ── Main ── */
+        .main { margin-left: 240px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+        .topbar {
+            background: var(--sidebar-bg); border-bottom: 1px solid var(--divider);
+            padding: 0 32px; height: 64px; display: flex; align-items: center;
+            justify-content: space-between; position: sticky; top: 0; z-index: 50;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 12px; }
+        .topbar-left h2 { font-size: 18px; font-weight: 600; }
+        .topbar-right { display: flex; align-items: center; gap: 10px; }
+        .theme-toggle {
+            width: 36px; height: 36px; border-radius: 8px; background: var(--hover-bg);
+            border: 1px solid var(--card-border); font-size: 16px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .theme-toggle:hover { background: var(--accent-dim); border-color: var(--accent); }
+        .mobile-menu-btn { display: none; background: none; border: none; color: var(--text-primary); font-size: 22px; cursor: pointer; }
+
+        /* ── Content ── */
+        .content { padding: 28px 32px; flex: 1; }
+
+        /* ── Collection selector ── */
+        .page-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 24px; gap: 16px; flex-wrap: wrap;
+        }
+        .page-title { font-size: 22px; font-weight: 700; }
+        .page-title span { color: var(--text-muted); font-size: 14px; font-weight: 400; margin-left: 8px; }
+        .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+        .collection-select {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 8px; color: var(--text-primary); font-size: 14px;
+            padding: 8px 12px; outline: none; cursor: pointer; min-width: 220px;
+            font-family: inherit;
+        }
+        .collection-select:focus { border-color: var(--accent); }
+
+        .btn {
+            padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: none; transition: all 0.2s; font-family: inherit;
+            display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+        }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-primary:disabled { opacity: 0.5; cursor: default; }
+        .btn-outline {
+            background: var(--hover-bg); border: 1px solid var(--card-border);
+            color: var(--text-secondary);
+        }
+        .btn-outline:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .btn-outline:disabled { opacity: 0.5; cursor: default; }
+
+        /* ── Stats row ── */
+        .stats-row {
+            display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
+        }
+        .stat-chip {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 10px; padding: 12px 20px; display: flex; flex-direction: column; gap: 2px;
+        }
+        .stat-chip .val { font-size: 22px; font-weight: 700; color: var(--accent); }
+        .stat-chip .lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* ── Leaderboard table ── */
+        .lb-card {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 14px; overflow: hidden; margin-bottom: 24px;
+        }
+        .lb-card-header {
+            padding: 16px 20px; border-bottom: 1px solid var(--divider);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .lb-card-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+        .lb-card-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+        .lb-table { width: 100%; border-collapse: collapse; }
+        .lb-table th {
+            font-size: 11px; font-weight: 600; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.5px;
+            padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--divider);
+            background: var(--stat-bg);
+        }
+        .lb-table th.num { text-align: center; }
+        .lb-table td { padding: 10px 16px; border-bottom: 1px solid var(--divider); vertical-align: middle; }
+        .lb-table tr:last-child td { border-bottom: none; }
+        .lb-table tr:hover td { background: var(--hover-bg); }
+
+        .rank-cell { text-align: center; font-size: 18px; font-weight: 800; width: 50px; }
+        .rank-cell.top { color: var(--accent); }
+        .rank-cell.normal { color: var(--text-muted); font-size: 14px; }
+
+        .media-cell { display: flex; align-items: center; gap: 12px; }
+        .lb-poster { width: 36px; height: 54px; border-radius: 5px; object-fit: cover; flex-shrink: 0; background: var(--poster-bg); }
+        .lb-poster-ph { width: 36px; height: 54px; border-radius: 5px; background: var(--poster-bg); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .media-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+        .media-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+        .avg-cell { text-align: center; }
+        .avg-val { font-size: 16px; font-weight: 700; color: var(--accent); }
+        .avg-bar-wrap { height: 4px; border-radius: 2px; background: var(--divider); margin-top: 4px; width: 80px; }
+        .avg-bar { height: 100%; border-radius: 2px; background: var(--accent); opacity: 0.6; }
+
+        .rankers-cell { text-align: center; color: var(--text-secondary); font-size: 13px; }
+
+        /* ── Expandable user breakdown ── */
+        .breakdown-row td { padding: 0; border-bottom: 1px solid var(--divider); }
+        .breakdown-inner { display: none; padding: 8px 20px 12px 68px; background: var(--stat-bg); }
+        .breakdown-inner.open { display: block; }
+        .breakdown-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .user-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .user-chip {
+            display: flex; align-items: center; gap: 6px;
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 20px; padding: 4px 10px 4px 4px; font-size: 12px;
+        }
+        .user-chip-avatar {
+            width: 22px; height: 22px; border-radius: 50%;
+            background: var(--accent-dim); border: 1px solid var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 700; color: var(--accent); overflow: hidden; flex-shrink: 0;
+        }
+        .user-chip-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .user-chip-name { color: var(--text-secondary); }
+        .user-chip-rank { font-weight: 700; color: var(--text-primary); margin-left: 2px; }
+
+        .expand-btn { cursor: pointer; background: none; border: none; color: var(--text-muted); font-size: 12px; padding: 2px 6px; border-radius: 4px; transition: color 0.15s; }
+        .expand-btn:hover { color: var(--accent); }
+
+        /* ── Submitters table ── */
+        .sub-table { width: 100%; border-collapse: collapse; }
+        .sub-table th {
+            font-size: 11px; font-weight: 600; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.5px;
+            padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--divider);
+            background: var(--stat-bg);
+        }
+        .sub-table td { padding: 10px 16px; border-bottom: 1px solid var(--divider); vertical-align: middle; font-size: 13px; }
+        .sub-table tr:last-child td { border-bottom: none; }
+        .sub-table tr:hover td { background: var(--hover-bg); }
+        .sub-avatar {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: var(--accent-dim); border: 1px solid var(--accent);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 700; color: var(--accent); overflow: hidden;
+            vertical-align: middle; margin-right: 8px;
+        }
+        .sub-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .rank-pill {
+            display: inline-block; padding: 1px 8px; border-radius: 10px;
+            font-size: 11px; font-weight: 600;
+            background: var(--stat-bg); color: var(--text-secondary); margin: 1px;
+        }
+
+        /* ── Empty / Loading ── */
+        .empty { text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14px; }
+        .empty .icon { font-size: 40px; margin-bottom: 12px; }
+        .loading-spinner { display: flex; align-items: center; justify-content: center; padding: 60px 20px; }
+        .spinner { width: 32px; height: 32px; border: 3px solid var(--divider); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Mobile ── */
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; }
+            .topbar { padding: 0 16px; }
+            .content { padding: 16px; }
+            .mobile-menu-btn { display: block; }
+            .lb-table th:nth-child(3), .lb-table td:nth-child(3) { display: none; }
+            .avg-bar-wrap { display: none; }
+            .breakdown-inner { padding-left: 20px; }
+            .header-actions { width: 100%; }
+            .collection-select { flex: 1; min-width: 0; }
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <h1>Svidhaus Arena</h1>
+            <span>Gaming Hub</span>
+        </div>
+        <div class="sidebar-section">
+            <div class="sidebar-label">Menu</div>
+            <a href="/" class="sidebar-item"><span class="icon">⊞</span> Dashboard</a>
+            <a href="/profile" class="sidebar-item"><span class="icon">👤</span> Profile</a>
+            <a href="/links" class="sidebar-item"><span class="icon">🔗</span> Links</a>
+            <a href="/admin" class="sidebar-item" id="admin-sidebar-link" style="display:none;"><span class="icon">⚙️</span> Admin</a>
+        </div>
+        <div class="sidebar-section" style="margin-top:12px;">
+            <div class="sidebar-label">Games</div>
+            <a href="/trivia" class="sidebar-item"><span class="icon">🤓</span> Trivia</a>
+            <a href="/wordle" class="sidebar-item"><span class="icon">🟩</span> Wordle</a>
+            <a href="/sportsbook" class="sidebar-item"><span class="icon">🏈</span> Sportsbook</a>
+            <a href="/movies" class="sidebar-item active"><span class="icon">🎬</span> Movies &amp; TV</a>
+            <a href="/wrestling" class="sidebar-item"><span class="icon">🤼</span> Wrestling</a>
+        </div>
+        <div class="sidebar-bottom">
+            <button class="sidebar-item" onclick="logout()" style="background:none;border:none;text-align:left;width:100%;color:var(--danger);cursor:pointer;">
+                <span class="icon">↩</span> Logout
+            </button>
+        </div>
+    </aside>
+
+    <div class="main">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="mobile-menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+                <h2>📊 Community Leaderboard</h2>
+            </div>
+            <div class="topbar-right">
+                <a href="/movies" class="btn btn-outline" style="text-decoration:none;">← Back to Movies</a>
+                <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">☀️</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="page-header">
+                <div>
+                    <div class="page-title">Rankings <span id="collection-name-sub"></span></div>
+                </div>
+                <div class="header-actions">
+                    <select class="collection-select" id="collection-select" onchange="onCollectionChange()">
+                        <option value="">Select a collection…</option>
+                    </select>
+                    <button class="btn btn-primary" id="export-btn" onclick="exportExcel()" disabled>⬇ Export Excel</button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-row" id="stats-row" style="display:none;">
+                <div class="stat-chip"><div class="val" id="stat-rankers">—</div><div class="lbl">Rankers</div></div>
+                <div class="stat-chip"><div class="val" id="stat-items">—</div><div class="lbl">Items Ranked</div></div>
+                <div class="stat-chip"><div class="val" id="stat-consensus">#1</div><div class="lbl">Top Pick</div></div>
+            </div>
+
+            <!-- Leaderboard table -->
+            <div class="lb-card" id="lb-card">
+                <div class="lb-card-header">
+                    <div>
+                        <div class="lb-card-title">Consensus Ranking</div>
+                        <div class="lb-card-sub">Average position across all submissions — lower is better</div>
+                    </div>
+                </div>
+                <div id="lb-body">
+                    <div class="empty"><div class="icon">🎬</div>Select a collection to view the leaderboard</div>
+                </div>
+            </div>
+
+            <!-- Submitters table -->
+            <div class="lb-card" id="sub-card" style="display:none;">
+                <div class="lb-card-header">
+                    <div>
+                        <div class="lb-card-title">All Submissions</div>
+                        <div class="lb-card-sub">Every user's full ranking</div>
+                    </div>
+                </div>
+                <div id="sub-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = window.location.origin;
+        const POSTER = 'https://image.tmdb.org/t/p/w92';
+
+        // ── Theme ──
+        function getTheme() { return localStorage.getItem('theme') || 'dark'; }
+        function applyTheme(t) {
+            document.documentElement.setAttribute('data-theme', t);
+            document.getElementById('theme-btn').textContent = t === 'dark' ? '☀️' : '🌙';
+        }
+        function toggleTheme() {
+            const n = getTheme() === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('theme', n); applyTheme(n);
+        }
+        applyTheme(getTheme());
+
+        // ── Auth ──
+        function getToken() { return localStorage.getItem('access_token') || localStorage.getItem('token'); }
+        function getUser() { const s = localStorage.getItem('user'); return s ? JSON.parse(s) : null; }
+        function logout() {
+            ['access_token','token','user'].forEach(k => localStorage.removeItem(k));
+            window.location.href = '/login';
+        }
+        async function authFetch(url, opts = {}) {
+            const res = await fetch(url, opts);
+            if (res.status === 401) {
+                logout(); window.location.href = '/login?session=expired'; return res;
+            }
+            return res;
+        }
+
+        // ── State ──
+        let currentData = null;
+        let currentCollectionId = null;
+
+        function escHtml(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // ── Init ──
+        async function init() {
+            const user = getUser();
+            if (user && user.role === 'admin') {
+                document.getElementById('admin-sidebar-link').style.display = 'flex';
+            }
+
+            // Check URL param for pre-selected collection
+            const params = new URLSearchParams(window.location.search);
+            const preId = params.get('collection');
+
+            await loadCollections(preId ? parseInt(preId) : null);
+        }
+
+        async function loadCollections(preSelectId) {
+            try {
+                const res = await fetch(`${API}/api/rankings/collections`);
+                const cols = await res.json();
+                const sel = document.getElementById('collection-select');
+                cols.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.title;
+                    sel.appendChild(opt);
+                });
+                if (preSelectId) {
+                    sel.value = preSelectId;
+                    await loadLeaderboard(preSelectId);
+                }
+            } catch (e) {
+                console.error('Failed to load collections', e);
+            }
+        }
+
+        async function onCollectionChange() {
+            const id = parseInt(document.getElementById('collection-select').value);
+            if (!id) return;
+            // Update URL without reload
+            history.replaceState({}, '', `?collection=${id}`);
+            await loadLeaderboard(id);
+        }
+
+        async function loadLeaderboard(collectionId) {
+            currentCollectionId = collectionId;
+            document.getElementById('export-btn').disabled = true;
+            document.getElementById('lb-body').innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+            document.getElementById('sub-card').style.display = 'none';
+            document.getElementById('stats-row').style.display = 'none';
+
+            try {
+                const res = await fetch(`${API}/api/rankings/collections/${collectionId}/leaderboard`);
+                if (!res.ok) throw new Error(await res.text());
+                currentData = await res.json();
+                renderLeaderboard(currentData);
+                renderSubmitters(currentData);
+                document.getElementById('export-btn').disabled = false;
+            } catch (e) {
+                document.getElementById('lb-body').innerHTML = `<div class="empty"><div class="icon">⚠️</div>Failed to load leaderboard</div>`;
+            }
+        }
+
+        function renderLeaderboard(data) {
+            const medals = ['🥇','🥈','🥉'];
+            const items = data.items || [];
+
+            // Stats
+            document.getElementById('stat-rankers').textContent = data.ranker_count;
+            document.getElementById('stat-items').textContent = items.length;
+            document.getElementById('stat-consensus').textContent = items.length ? escHtml(items[0].title) : '—';
+            document.getElementById('stats-row').style.display = 'flex';
+            document.getElementById('collection-name-sub').textContent = data.title ? `— ${data.title}` : '';
+
+            if (!items.length) {
+                document.getElementById('lb-body').innerHTML = '<div class="empty"><div class="icon">🏆</div>No rankings submitted yet for this collection.</div>';
+                return;
+            }
+
+            const maxAvg = Math.max(...items.map(i => i.avg_rank));
+            let rows = '';
+
+            items.forEach((item, idx) => {
+                const pos = idx + 1;
+                const isTop = pos <= 3;
+                const rankDisplay = isTop ? medals[pos - 1] : pos;
+                const spreadPct = maxAvg > 0 ? Math.round((item.avg_rank / maxAvg) * 100) : 50;
+                const avgDisplay = item.avg_rank % 1 === 0 ? item.avg_rank : item.avg_rank.toFixed(1);
+                const poster = item.poster_path
+                    ? `<img class="lb-poster" src="${POSTER}${escHtml(item.poster_path)}" loading="lazy" alt="">`
+                    : `<div class="lb-poster-ph">${item.media_type === 'tv' ? '📺' : '🎬'}</div>`;
+                const notAll = item.rank_count < data.ranker_count
+                    ? ` <span style="color:var(--text-muted);font-size:11px;">(${item.rank_count}/${data.ranker_count})</span>` : '';
+
+                const userChips = (item.user_rankings || []).map(ur => {
+                    const rankLabel = ur.rank <= 3 ? medals[ur.rank - 1] : `#${ur.rank}`;
+                    const av = ur.avatar_url
+                        ? `<img src="${escHtml(ur.avatar_url)}" alt="">`
+                        : escHtml(ur.username.charAt(0).toUpperCase());
+                    return `<div class="user-chip">
+                        <div class="user-chip-avatar">${av}</div>
+                        <span class="user-chip-name">${escHtml(ur.username)}</span>
+                        <span class="user-chip-rank">${rankLabel}</span>
+                    </div>`;
+                }).join('');
+
+                const rowId = `row-${idx}`;
+                const bdId = `bd-${idx}`;
+
+                rows += `
+                <tr class="lb-main-row" onclick="toggleBreakdown('${bdId}', this)">
+                    <td class="rank-cell ${isTop ? 'top' : 'normal'}">${rankDisplay}</td>
+                    <td><div class="media-cell">
+                        ${poster}
+                        <div>
+                            <div class="media-title">${escHtml(item.title)}</div>
+                            <div class="media-meta">${escHtml(item.media_type === 'tv' ? 'TV Show' : 'Movie')}${item.release_year ? ' · ' + escHtml(item.release_year) : ''}${notAll}</div>
+                        </div>
+                    </div></td>
+                    <td class="avg-cell">
+                        <div class="avg-val">avg #${avgDisplay}</div>
+                        <div class="avg-bar-wrap"><div class="avg-bar" style="width:${spreadPct}%"></div></div>
+                    </td>
+                    <td class="rankers-cell">${item.rank_count}</td>
+                    <td style="text-align:center;color:var(--text-muted);font-size:14px;" id="expand-icon-${idx}">▾</td>
+                </tr>
+                <tr class="breakdown-row">
+                    <td colspan="5"><div class="breakdown-inner" id="${bdId}">
+                        <div class="breakdown-title">Individual rankings</div>
+                        <div class="user-chips">${userChips || '<span style="color:var(--text-muted);font-size:12px;">No data</span>'}</div>
+                    </div></td>
+                </tr>`;
+            });
+
+            document.getElementById('lb-body').innerHTML = `
+                <table class="lb-table">
+                    <thead><tr>
+                        <th class="num">#</th>
+                        <th>Title</th>
+                        <th class="num">Avg Rank</th>
+                        <th class="num">Rankers</th>
+                        <th></th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+        }
+
+        function toggleBreakdown(bdId, row) {
+            const bd = document.getElementById(bdId);
+            if (!bd) return;
+            const isOpen = bd.classList.contains('open');
+            // Close all
+            document.querySelectorAll('.breakdown-inner.open').forEach(el => el.classList.remove('open'));
+            document.querySelectorAll('.lb-main-row.expanded').forEach(el => el.classList.remove('expanded'));
+            if (!isOpen) { bd.classList.add('open'); row.classList.add('expanded'); }
+        }
+
+        function renderSubmitters(data) {
+            const items = data.items || [];
+            if (!items.length || !data.ranker_count) return;
+
+            // Build per-user map: username -> {avatar, rankings: {title -> rank}}
+            const userMap = {};
+            items.forEach(item => {
+                (item.user_rankings || []).forEach(ur => {
+                    if (!userMap[ur.username]) {
+                        userMap[ur.username] = { avatar_url: ur.avatar_url, rankings: {} };
+                    }
+                    userMap[ur.username].rankings[item.title] = ur.rank;
+                });
+            });
+
+            const medals = ['🥇','🥈','🥉'];
+            const titles = items.map(i => i.title);
+
+            let rows = Object.entries(userMap).map(([username, info]) => {
+                const av = info.avatar_url
+                    ? `<img src="${escHtml(info.avatar_url)}" alt="">`
+                    : escHtml(username.charAt(0).toUpperCase());
+                const rankPills = titles.map(title => {
+                    const r = info.rankings[title];
+                    if (!r) return `<span class="rank-pill" style="opacity:0.4;">—</span>`;
+                    const label = r <= 3 ? medals[r-1] : `#${r}`;
+                    return `<span class="rank-pill" title="${escHtml(title)}">${label} ${escHtml(title.length > 20 ? title.slice(0,18)+'…' : title)}</span>`;
+                }).join('');
+                return `<tr>
+                    <td><div class="sub-avatar">${av}</div>${escHtml(username)}</td>
+                    <td>${rankPills}</td>
+                </tr>`;
+            }).join('');
+
+            document.getElementById('sub-body').innerHTML = `
+                <table class="sub-table">
+                    <thead><tr><th>User</th><th>Rankings</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+            document.getElementById('sub-card').style.display = 'block';
+        }
+
+        // ── Excel export ──
+        async function exportExcel() {
+            if (!currentCollectionId) return;
+            const btn = document.getElementById('export-btn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Exporting…';
+            try {
+                const res = await authFetch(
+                    `${API}/api/rankings/collections/${currentCollectionId}/leaderboard/export`,
+                    { headers: { 'Authorization': `Bearer ${getToken()}` } }
+                );
+                if (!res.ok) throw new Error(await res.text());
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const name = (currentData?.title || 'leaderboard').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                a.download = `${name}_leaderboard.xlsx`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                alert('Export failed: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '⬇ Export Excel';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

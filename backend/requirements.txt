@@ -24,5 +24,8 @@ httpx==0.28.1
 # Utilities
 python-dotenv==1.0.1
 
+# Excel Export
+openpyxl==3.1.5
+
 # Rate Limiting
 slowapi==0.1.9

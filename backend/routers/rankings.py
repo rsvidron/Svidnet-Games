@@ -528,6 +528,196 @@ def get_collection_leaderboard(
     }
 
 
+@router.get("/collections/{collection_id}/leaderboard/export")
+def export_collection_leaderboard(
+    collection_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Export leaderboard as an .xlsx file with two sheets:
+      Sheet 1 – Consensus Leaderboard (avg rank, all user ranks per item)
+      Sheet 2 – All Submissions (one column per user, rows = items in their ranked order)
+    """
+    import io
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise HTTPException(500, "openpyxl not installed — cannot generate Excel file")
+
+    from fastapi.responses import StreamingResponse
+
+    # ── Reuse the leaderboard query logic ─────────────────────────────────────
+    col = db.query(Collection).filter(Collection.id == collection_id).first()
+    if not col:
+        raise HTTPException(404, "Collection not found")
+
+    matching_lists = db.query(RankedList).filter(RankedList.title == col.title).all()
+    if not matching_lists:
+        raise HTTPException(404, "No submissions found for this collection")
+
+    list_ids = [l.id for l in matching_lists]
+    ranker_count = len(list_ids)
+
+    canonical_items = db.query(CollectionItem).filter(
+        CollectionItem.collection_id == collection_id
+    ).order_by(asc(CollectionItem.sort_order)).all()
+    canonical_map = {ci.title: ci for ci in canonical_items}
+
+    list_user_map = {}
+    for lst in matching_lists:
+        user = db.query(User).filter(User.id == lst.user_id).first()
+        list_user_map[lst.id] = user
+
+    all_items = db.query(RankedListItem).filter(
+        RankedListItem.list_id.in_(list_ids)
+    ).all()
+
+    rank_accumulator: dict[str, list[dict]] = {}
+    for item in all_items:
+        title = item.title
+        user = list_user_map.get(item.list_id)
+        if title not in rank_accumulator:
+            rank_accumulator[title] = []
+        rank_accumulator[title].append({
+            "username": user.username if user else "Unknown",
+            "rank": item.rank,
+        })
+
+    result_items = []
+    for title, user_rankings in rank_accumulator.items():
+        if title not in canonical_map:
+            continue
+        ci = canonical_map[title]
+        avg_rank = sum(r["rank"] for r in user_rankings) / len(user_rankings)
+        result_items.append({
+            "title": title,
+            "media_type": ci.media_type,
+            "release_year": ci.release_year or "",
+            "avg_rank": round(avg_rank, 2),
+            "rank_count": len(user_rankings),
+            "user_rankings": sorted(user_rankings, key=lambda x: x["rank"]),
+        })
+    result_items.sort(key=lambda x: x["avg_rank"])
+    for idx, item in enumerate(result_items, start=1):
+        item["consensus_rank"] = idx
+
+    # ── Build Excel workbook ───────────────────────────────────────────────────
+    wb = openpyxl.Workbook()
+
+    # Style helpers
+    HDR_FILL   = PatternFill("solid", fgColor="1A1A2E")
+    HDR_FONT   = Font(bold=True, color="22C55E", size=11)
+    ACCENT_FILL = PatternFill("solid", fgColor="22C55E")
+    ACCENT_FONT = Font(bold=True, color="FFFFFF", size=11)
+    BORDER_SIDE = Side(style="thin", color="2A2A3E")
+    THIN_BORDER = Border(bottom=Border(bottom=BORDER_SIDE).bottom)
+
+    def style_header(cell, accent=False):
+        cell.font      = ACCENT_FONT if accent else HDR_FONT
+        cell.fill      = ACCENT_FILL if accent else HDR_FILL
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    def auto_width(ws, min_w=10, max_w=50):
+        for col in ws.columns:
+            length = max((len(str(c.value or "")) for c in col), default=min_w)
+            ws.column_dimensions[get_column_letter(col[0].column)].width = min(max(length + 2, min_w), max_w)
+
+    # ── Sheet 1: Consensus Leaderboard ────────────────────────────────────────
+    ws1 = wb.active
+    ws1.title = "Consensus Leaderboard"
+
+    # Collect all usernames in submission order
+    all_usernames = []
+    seen = set()
+    for item in result_items:
+        for ur in item["user_rankings"]:
+            if ur["username"] not in seen:
+                all_usernames.append(ur["username"])
+                seen.add(ur["username"])
+
+    headers1 = ["Rank", "Title", "Type", "Year", "Avg Rank", "# Rankers"] + all_usernames
+    for col_idx, h in enumerate(headers1, 1):
+        cell = ws1.cell(row=1, column=col_idx, value=h)
+        style_header(cell, accent=(col_idx <= 6))
+
+    ws1.row_dimensions[1].height = 28
+
+    for row_idx, item in enumerate(result_items, 2):
+        user_rank_map = {ur["username"]: ur["rank"] for ur in item["user_rankings"]}
+        row_data = [
+            item["consensus_rank"],
+            item["title"],
+            item["media_type"].upper(),
+            item["release_year"],
+            item["avg_rank"],
+            item["rank_count"],
+        ] + [user_rank_map.get(u, "") for u in all_usernames]
+        for col_idx, val in enumerate(row_data, 1):
+            cell = ws1.cell(row=row_idx, column=col_idx, value=val)
+            cell.alignment = Alignment(horizontal="center" if col_idx != 2 else "left", vertical="center")
+            if row_idx % 2 == 0:
+                cell.fill = PatternFill("solid", fgColor="141428")
+
+    auto_width(ws1)
+    ws1.freeze_panes = "A2"
+
+    # ── Sheet 2: All Submissions ───────────────────────────────────────────────
+    ws2 = wb.create_sheet("All Submissions")
+
+    # Build per-user submission: username -> sorted list of (rank, title)
+    user_submissions: dict[str, list] = {}
+    for item in all_items:
+        user = list_user_map.get(item.list_id)
+        uname = user.username if user else "Unknown"
+        if uname not in user_submissions:
+            user_submissions[uname] = []
+        user_submissions[uname].append((item.rank, item.title))
+
+    for uname in user_submissions:
+        user_submissions[uname].sort(key=lambda x: x[0])
+
+    max_items = max((len(v) for v in user_submissions.values()), default=0)
+    usernames_sorted = sorted(user_submissions.keys())
+
+    # Header row: collection title + one column per user
+    ws2.cell(row=1, column=1, value=col.title)
+    ws2.cell(row=1, column=1).font = Font(bold=True, color="22C55E", size=13)
+    ws2.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max(len(usernames_sorted), 1))
+
+    # Row 2: usernames as column headers
+    ws2.row_dimensions[2].height = 24
+    for col_idx, uname in enumerate(usernames_sorted, 1):
+        cell = ws2.cell(row=2, column=col_idx, value=uname)
+        style_header(cell, accent=True)
+
+    # Rows 3+: each user's ranked items in order
+    for col_idx, uname in enumerate(usernames_sorted, 1):
+        for rank_idx, (rank, title) in enumerate(user_submissions[uname], 3):
+            cell = ws2.cell(row=rank_idx, column=col_idx, value=f"#{rank} {title}")
+            cell.alignment = Alignment(vertical="center", wrap_text=False)
+            if rank_idx % 2 == 1:
+                cell.fill = PatternFill("solid", fgColor="141428")
+
+    auto_width(ws2)
+    ws2.freeze_panes = "A3"
+
+    # ── Stream response ────────────────────────────────────────────────────────
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    safe_title = "".join(c if c.isalnum() or c in " _-" else "_" for c in col.title)[:40]
+    filename = f"{safe_title}_leaderboard.xlsx"
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # FRIENDS RANKINGS
 # ═══════════════════════════════════════════════════════════════════════════════
