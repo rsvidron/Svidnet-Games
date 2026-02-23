@@ -545,8 +545,22 @@
         window.addEventListener('load', () => {
             checkAPI();
 
-            // Google OAuth callback — token in URL params
+            // Show session-expired or logged-out banner if redirected here
             const params = new URLSearchParams(window.location.search);
+            if (params.get('session') === 'expired') {
+                const msgEl = document.getElementById('message');
+                msgEl.innerHTML = `<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:18px;">🔒</span>
+                    <div>
+                        <strong style="color:#ef4444;font-size:13px;display:block;">Session expired</strong>
+                        <span style="color:var(--text-secondary);font-size:12px;">Please log in again to continue.</span>
+                    </div>
+                </div>`;
+                // Clean the URL so refresh doesn't re-show it
+                window.history.replaceState({}, '', '/login');
+            }
+
+            // Google OAuth callback — token in URL params
             const token = params.get('token');
             const userId = params.get('user_id');
             const username = params.get('username');

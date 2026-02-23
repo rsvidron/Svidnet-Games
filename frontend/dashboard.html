@@ -1016,6 +1016,18 @@
             window.location.href = '/login';
         }
 
+        async function authFetch(url, options = {}) {
+            const res = await fetch(url, options);
+            if (res.status === 401) {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login?session=expired';
+                return res;
+            }
+            return res;
+        }
+
         // ─── Toast ───────────────────────────────────
         function showToast(msg) {
             const el = document.getElementById('toast');
@@ -1039,7 +1051,7 @@
             const username = document.getElementById('friend-username').value.trim();
             if (!username) return;
             try {
-                const res = await fetch(`${API_URL}/api/friends/add`, {
+                const res = await authFetch(`${API_URL}/api/friends/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
                     body: JSON.stringify({ username })
@@ -1062,7 +1074,7 @@
         async function removeFriend(friendId) {
             if (!confirm('Remove this friend?')) return;
             try {
-                const res = await fetch(`${API_URL}/api/friends/${friendId}`, {
+                const res = await authFetch(`${API_URL}/api/friends/${friendId}`, {
                     method: 'DELETE',
                     headers: { 'Authorization': `Bearer ${getToken()}` }
                 });
@@ -1073,7 +1085,7 @@
         // ─── Refresh user from server → update localStorage ──────────
         async function refreshUser() {
             try {
-                const res = await fetch(`${API_URL}/api/auth/verification-status`, {
+                const res = await authFetch(`${API_URL}/api/auth/verification-status`, {
                     headers: { 'Authorization': `Bearer ${getToken()}` }
                 });
                 if (res.ok) {
@@ -1132,7 +1144,7 @@
                 `<span class="accent-dot"></span>Welcome back, ${currentUser.username}! <span style="font-size:12px;font-weight:600;background:${rm.color}22;color:${rm.color};border:1px solid ${rm.color}44;border-radius:8px;padding:2px 9px;vertical-align:middle;">${rm.label}</span>`;
 
             try {
-                const res = await fetch(`${API_URL}/api/user/dashboard`, {
+                const res = await authFetch(`${API_URL}/api/user/dashboard`, {
                     headers: { 'Authorization': `Bearer ${getToken()}` }
                 });
                 if (res.ok) {
@@ -1179,7 +1191,7 @@
 
         async function loadFriends() {
             try {
-                const res = await fetch(`${API_URL}/api/friends`, {
+                const res = await authFetch(`${API_URL}/api/friends`, {
                     headers: { 'Authorization': `Bearer ${getToken()}` }
                 });
                 if (res.ok) {
