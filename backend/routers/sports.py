@@ -988,7 +988,8 @@ def admin_force_settle_bet(
 
     bet.settled_at = now
 
-    # Update leaderboard
+    # Update leaderboard — only adjust win/loss record and payout,
+    # NOT total_bets or total_wagered (those were already counted when bet was placed)
     sport_category_map = {
         "basketball": ["basketball_nba", "basketball_ncaab", "basketball_wnba", "basketball_euroleague"],
         "football": ["americanfootball_nfl", "americanfootball_ncaaf", "americanfootball_cfl", "australianfootball_afl"],
@@ -1006,7 +1007,26 @@ def admin_force_settle_bet(
                 sport_category = cat
                 break
 
-    update_leaderboard(db, bet.user_id, sport_category, bet)
+    lb = db.query(SportsLeaderboard).filter(
+        SportsLeaderboard.user_id == bet.user_id,
+        SportsLeaderboard.sport_category == sport_category
+    ).first()
+    if lb:
+        if outcome == "won":
+            lb.bets_won += 1
+            lb.total_won += int(bet.actual_payout)
+            lb.current_streak = max(1, lb.current_streak + 1) if lb.current_streak >= 0 else 1
+            lb.best_win_streak = max(lb.best_win_streak, lb.current_streak)
+            if bet.actual_payout > lb.biggest_win:
+                lb.biggest_win = bet.actual_payout
+        else:
+            lb.bets_lost += 1
+            lb.current_streak = min(-1, lb.current_streak - 1) if lb.current_streak <= 0 else -1
+        total_decided = lb.bets_won + lb.bets_lost
+        if total_decided > 0:
+            lb.win_percentage = round((lb.bets_won / total_decided) * 100, 2)
+        lb.net_profit = lb.total_won - lb.total_wagered
+
     db.commit()
 
     return {
