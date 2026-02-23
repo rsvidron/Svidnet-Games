@@ -209,13 +209,12 @@
 
         /* ── Rankings: Ranked items ── */
         .ranked-list { display: flex; flex-direction: column; gap: 6px; }
-        .ranked-item { display: flex; align-items: center; gap: 12px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; transition: border-color 0.15s, box-shadow 0.15s; cursor: grab; user-select: none; }
-        .ranked-item:active { cursor: grabbing; }
+        .ranked-item { display: flex; align-items: center; gap: 12px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; transition: border-color 0.15s, box-shadow 0.15s; user-select: none; touch-action: pan-y; }
         .ranked-item.dragging { opacity: 0.4; }
         .ranked-item.drag-over { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); background: var(--drag-over); }
         .rank-num { min-width: 36px; height: 36px; border-radius: 8px; background: var(--rank-bg); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; color: var(--text-muted); flex-shrink: 0; }
         .rank-num.top3 { color: var(--accent); }
-        .drag-handle { color: var(--text-muted); font-size: 16px; cursor: grab; flex-shrink: 0; padding: 0 4px; }
+        .drag-handle { color: var(--text-muted); font-size: 16px; cursor: grab; flex-shrink: 0; padding: 4px 6px; touch-action: none; }
         .item-poster { width: 36px; height: 54px; border-radius: 5px; object-fit: cover; background: var(--poster-bg); flex-shrink: 0; }
         .item-poster-placeholder { width: 36px; height: 54px; border-radius: 5px; background: var(--poster-bg); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
         .item-info { flex: 1; min-width: 0; }
@@ -340,7 +339,7 @@
             .item-poster { width: 30px; height: 45px; }
             .item-poster-placeholder { width: 30px; height: 45px; }
             .item-title { font-size: 13px; }
-            .drag-handle { font-size: 20px; padding: 4px 6px; color: var(--text-secondary); }
+            .drag-handle { font-size: 22px; padding: 6px 8px; color: var(--text-secondary); min-width: 36px; text-align: center; }
 
             /* List detail header stacks on mobile */
             .list-detail-header { flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -1169,13 +1168,16 @@
                 });
             }
 
-            // ── Mobile: touch events ───────────────────────────────────────────
-            let touchSrcId = null;
+            // ── Mobile: long-press to drag ────────────────────────────────────
+            // Short taps / swipes scroll normally.
+            // Holding the drag handle (≥180ms) activates drag mode.
+            let touchSrcId  = null;
             let touchClone  = null;
             let touchOffX   = 0, touchOffY = 0;
+            let longPressTimer = null;
+            let touchDragging  = false;   // true once long-press activates
 
             function getItemAt(x, y) {
-                // Temporarily hide the clone so elementFromPoint can reach real items
                 if (touchClone) touchClone.style.display = 'none';
                 const el = document.elementFromPoint(x, y);
                 if (touchClone) touchClone.style.display = '';
@@ -1183,36 +1185,68 @@
                 return el.closest('.ranked-item[data-id]');
             }
 
+            function activateDrag(el, t) {
+                touchDragging = true;
+                touchSrcId = parseInt(el.dataset.id);
+                const rect = el.getBoundingClientRect();
+                touchOffX = t.clientX - rect.left;
+                touchOffY = t.clientY - rect.top;
+
+                touchClone = el.cloneNode(true);
+                touchClone.style.cssText = `
+                    position:fixed; left:${rect.left}px; top:${rect.top}px;
+                    width:${rect.width}px; pointer-events:none; z-index:9999;
+                    opacity:0.88; box-shadow:0 8px 28px rgba(0,0,0,0.55);
+                    border-radius:10px; background:var(--card-bg);
+                    border:2px solid var(--accent); transition:none;
+                    transform:scale(1.03);
+                `;
+                document.body.appendChild(touchClone);
+                el.classList.add('dragging');
+
+                // Haptic feedback if available
+                if (navigator.vibrate) navigator.vibrate(40);
+            }
+
+            function cancelLongPress() {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+
             function bindTouch(el) {
-                el.addEventListener('touchstart', e => {
+                // Only the drag handle triggers long-press drag; rest of item scrolls freely
+                const handle = el.querySelector('.drag-handle') || el;
+
+                handle.addEventListener('touchstart', e => {
                     if (e.touches.length !== 1) return;
                     const t = e.touches[0];
-                    touchSrcId = parseInt(el.dataset.id);
-                    const rect = el.getBoundingClientRect();
-                    touchOffX = t.clientX - rect.left;
-                    touchOffY = t.clientY - rect.top;
+                    const startX = t.clientX, startY = t.clientY;
 
-                    // Create floating clone
-                    touchClone = el.cloneNode(true);
-                    touchClone.style.cssText = `
-                        position:fixed; left:${rect.left}px; top:${rect.top}px;
-                        width:${rect.width}px; pointer-events:none; z-index:9999;
-                        opacity:0.85; box-shadow:0 8px 24px rgba(0,0,0,0.5);
-                        border-radius:10px; background:var(--card-bg);
-                        border:1px solid var(--accent); transition:none;
-                    `;
-                    document.body.appendChild(touchClone);
-                    el.classList.add('dragging');
+                    cancelLongPress();
+                    longPressTimer = setTimeout(() => {
+                        // Only activate if finger hasn't moved much (not a scroll attempt)
+                        activateDrag(el, t);
+                    }, 180);
+
+                    // Cancel long press if finger moves significantly (user is scrolling)
+                    const onMoveCancel = (ev) => {
+                        const mt = ev.touches[0];
+                        if (Math.abs(mt.clientX - startX) > 8 || Math.abs(mt.clientY - startY) > 8) {
+                            cancelLongPress();
+                            handle.removeEventListener('touchmove', onMoveCancel);
+                        }
+                    };
+                    handle.addEventListener('touchmove', onMoveCancel, { passive: true });
                 }, { passive: true });
 
+                // Use document-level touchmove so drag works even if finger leaves the handle
                 el.addEventListener('touchmove', e => {
-                    if (!touchClone || touchSrcId === null) return;
-                    e.preventDefault();
+                    if (!touchDragging || !touchClone || touchSrcId === null) return;
+                    e.preventDefault();   // block page scroll only when actively dragging
                     const t = e.touches[0];
                     touchClone.style.left = (t.clientX - touchOffX) + 'px';
                     touchClone.style.top  = (t.clientY - touchOffY) + 'px';
 
-                    // Highlight target
                     listEl.querySelectorAll('.ranked-item').forEach(r => r.classList.remove('drag-over'));
                     const over = getItemAt(t.clientX, t.clientY);
                     if (over && parseInt(over.dataset.id) !== touchSrcId) {
@@ -1221,15 +1255,20 @@
                 }, { passive: false });
 
                 el.addEventListener('touchend', async e => {
-                    if (!touchClone || touchSrcId === null) return;
+                    cancelLongPress();
+                    if (!touchDragging || !touchClone || touchSrcId === null) {
+                        touchDragging = false;
+                        return;
+                    }
                     const t = e.changedTouches[0];
                     touchClone.remove(); touchClone = null;
+                    touchDragging = false;
                     listEl.querySelectorAll('.ranked-item').forEach(r => {
                         r.classList.remove('dragging', 'drag-over');
                     });
 
                     const over = getItemAt(t.clientX, t.clientY);
-                    const toId = over ? parseInt(over.dataset.id) : null;
+                    const toId   = over ? parseInt(over.dataset.id) : null;
                     const fromId = touchSrcId;
                     touchSrcId = null;
 
@@ -1241,6 +1280,15 @@
                     itemsArr.splice(toIdx, 0, moved);
                     itemsArr.forEach((item, idx) => { item.rank = idx + 1; });
                     await onDrop();
+                }, { passive: true });
+
+                el.addEventListener('touchcancel', () => {
+                    cancelLongPress();
+                    if (touchClone) { touchClone.remove(); touchClone = null; }
+                    touchDragging = false; touchSrcId = null;
+                    listEl.querySelectorAll('.ranked-item').forEach(r => {
+                        r.classList.remove('dragging', 'drag-over');
+                    });
                 }, { passive: true });
             }
 
