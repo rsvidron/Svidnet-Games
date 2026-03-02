@@ -4,6 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sportsbook - Svidhaus Arena</title>
+
+    <!-- Page Access Control -->
+    <script>
+        // Check page access before loading the page
+        (async function() {
+            const API_URL = 'http://localhost:8000';
+            const token = localStorage.getItem('access_token');
+
+            if (!token) {
+                window.location.href = `/access-denied.html?page=sportsbook&message=${encodeURIComponent('Please log in to access this page')}`;
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/admin/page-access/check`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ page_name: 'sportsbook' })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (!data.has_access) {
+                        window.location.href = `/access-denied.html?page=sportsbook&message=${encodeURIComponent(data.message)}`;
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking page access:', error);
+                // Fail open - allow access if check fails
+            }
+        })();
+    </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 

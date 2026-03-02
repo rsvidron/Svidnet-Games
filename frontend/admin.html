@@ -270,6 +270,7 @@
                 <button class="tab" onclick="switchTab('links', this)">Links</button>
                 <button class="tab" onclick="switchTab('collections', this)">Collections</button>
                 <button class="tab" onclick="switchTab('users', this)">Users</button>
+                <button class="tab" onclick="switchTab('page-access', this)">🔒 Page Access</button>
                 <button class="tab" onclick="switchTab('wrestling', this)">🤼 Wrestling</button>
                 <button class="tab" onclick="switchTab('sportsbook', this)">🏈 Sportsbook</button>
                 <button class="tab" onclick="switchTab('import', this)">Import/Export</button>
@@ -353,6 +354,20 @@
                             style="width:100%;max-width:360px;padding:9px 14px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:8px;font-size:13px;color:var(--text-primary);outline:none;font-family:inherit;">
                     </div>
                     <div id="users-list"></div>
+                </div>
+            </div>
+
+            <!-- Page Access Section -->
+            <div class="content-section" id="page-access-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Page Access Control</h2>
+                        <button class="btn btn-primary" onclick="showCreatePageAccessModal()">+ New Page</button>
+                    </div>
+                    <p style="color:var(--text-secondary);margin-bottom:20px;font-size:14px;">
+                        Control which user roles can access each page. Roles: <strong>Basic</strong> → <strong>User</strong> → <strong>Admin</strong>
+                    </p>
+                    <div id="page-access-list"></div>
                 </div>
             </div>
 
@@ -782,6 +797,9 @@
             } else if (tab === 'users') {
                 document.getElementById('users-section').classList.add('active');
                 loadUsers();
+            } else if (tab === 'page-access') {
+                document.getElementById('page-access-section').classList.add('active');
+                loadPageAccess();
             } else if (tab === 'wrestling') {
                 document.getElementById('wrestling-section').classList.add('active');
                 loadWrestlingEvents();
@@ -1577,6 +1595,262 @@
                 loadUsers();
             } catch (e) {
                 alert('Failed to delete user: ' + e.message);
+            }
+        }
+
+        // ── Page Access Admin ───────────────────────────────────────────────────
+        let allPages = [];
+        const AVAILABLE_ROLES = [
+            { value: 'basic', label: 'Basic', color: '#6b7280' },
+            { value: 'user', label: 'User', color: '#3b82f6' },
+            { value: 'admin', label: 'Admin', color: '#22c55e' }
+        ];
+
+        async function loadPageAccess() {
+            const container = document.getElementById('page-access-list');
+            container.innerHTML = '<div style="padding:20px;color:var(--text-muted);">Loading...</div>';
+            try {
+                const res = await fetch(`${API_URL}/api/admin/page-access`, { headers: authHeaders() });
+                if (!res.ok) throw new Error(await res.text());
+                allPages = await res.json();
+                renderPageAccess(allPages);
+            } catch (e) {
+                container.innerHTML = `<div style="padding:20px;color:var(--danger);">Failed to load page access: ${e.message}</div>`;
+            }
+        }
+
+        function renderPageAccess(pages) {
+            const container = document.getElementById('page-access-list');
+            if (!pages.length) {
+                container.innerHTML = '<div style="padding:20px;color:var(--text-muted);">No pages configured.</div>';
+                return;
+            }
+            container.innerHTML = `
+                <table class="table">
+                    <thead><tr>
+                        <th>Page Name</th>
+                        <th>Display Name</th>
+                        <th>Allowed Roles</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        ${pages.map(page => {
+                            const rolesHtml = page.allowed_roles.map(role => {
+                                const roleInfo = AVAILABLE_ROLES.find(r => r.value === role);
+                                const color = roleInfo ? roleInfo.color : '#6b7280';
+                                const label = roleInfo ? roleInfo.label : role;
+                                return `<span style="display:inline-block;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700;background:${color}22;color:${color};margin:2px;">${label}</span>`;
+                            }).join('');
+                            return `<tr>
+                                <td><code style="background:var(--hover-bg);padding:4px 8px;border-radius:6px;font-size:12px;">${escapeHtml(page.page_name)}</code></td>
+                                <td><strong>${escapeHtml(page.display_name)}</strong></td>
+                                <td>${rolesHtml}</td>
+                                <td><span class="badge ${page.is_active ? 'active' : 'inactive'}">${page.is_active ? 'Active' : 'Inactive'}</span></td>
+                                <td>
+                                    <button class="btn btn-secondary btn-sm" onclick="showEditPageAccessModal(${page.id})">Edit</button>
+                                    <button class="btn btn-danger btn-sm" onclick="deletePageAccess(${page.id}, '${escapeHtml(page.page_name)}')">Delete</button>
+                                </td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>`;
+        }
+
+        function showCreatePageAccessModal() {
+            const rolesCheckboxes = AVAILABLE_ROLES.map(role => `
+                <label style="display:flex;align-items:center;gap:8px;padding:8px;cursor:pointer;">
+                    <input type="checkbox" name="page-roles" value="${role.value}" style="cursor:pointer;" checked>
+                    <span style="color:${role.color};font-weight:600;">${role.label}</span>
+                    <span style="color:var(--text-muted);font-size:12px;margin-left:auto;">${role.value}</span>
+                </label>
+            `).join('');
+
+            showModal(`
+                <h2>Create New Page Access</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Page Name (URL slug)</label>
+                        <input type="text" id="new-page-name" placeholder="e.g., sportsbook" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Display Name</label>
+                        <input type="text" id="new-page-display" placeholder="e.g., Sportsbook" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="new-page-desc" placeholder="Optional description"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Allowed Roles</label>
+                        <div style="display:flex;flex-direction:column;gap:4px;border:1px solid var(--input-border);border-radius:8px;padding:8px;background:var(--input-bg);">
+                            ${rolesCheckboxes}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="new-page-active" checked style="cursor:pointer;">
+                            <span>Page is active</span>
+                        </label>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:20px;">
+                    <button class="btn btn-primary" onclick="createPageAccess()">Create Page</button>
+                    <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                </div>
+            `);
+        }
+
+        async function createPageAccess() {
+            const pageName = document.getElementById('new-page-name').value.trim();
+            const displayName = document.getElementById('new-page-display').value.trim();
+            const description = document.getElementById('new-page-desc').value.trim();
+            const isActive = document.getElementById('new-page-active').checked;
+            const allowedRoles = Array.from(document.querySelectorAll('input[name="page-roles"]:checked')).map(cb => cb.value);
+
+            if (!pageName || !displayName) {
+                alert('Page name and display name are required');
+                return;
+            }
+
+            if (allowedRoles.length === 0) {
+                alert('At least one role must be selected');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/page-access`, {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        page_name: pageName,
+                        display_name: displayName,
+                        description: description || null,
+                        allowed_roles: allowedRoles,
+                        is_active: isActive
+                    })
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Failed to create page access');
+                }
+
+                closeModal();
+                loadPageAccess();
+            } catch (e) {
+                alert('Failed to create page access: ' + e.message);
+            }
+        }
+
+        function showEditPageAccessModal(pageId) {
+            const page = allPages.find(p => p.id === pageId);
+            if (!page) return;
+
+            const rolesCheckboxes = AVAILABLE_ROLES.map(role => {
+                const checked = page.allowed_roles.includes(role.value);
+                return `
+                    <label style="display:flex;align-items:center;gap:8px;padding:8px;cursor:pointer;">
+                        <input type="checkbox" name="edit-page-roles" value="${role.value}" style="cursor:pointer;" ${checked ? 'checked' : ''}>
+                        <span style="color:${role.color};font-weight:600;">${role.label}</span>
+                        <span style="color:var(--text-muted);font-size:12px;margin-left:auto;">${role.value}</span>
+                    </label>
+                `;
+            }).join('');
+
+            showModal(`
+                <h2>Edit Page Access: ${escapeHtml(page.page_name)}</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Page Name (URL slug)</label>
+                        <input type="text" value="${escapeHtml(page.page_name)}" disabled style="opacity:0.6;cursor:not-allowed;">
+                        <small style="color:var(--text-muted);font-size:11px;">Cannot change page name</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Display Name</label>
+                        <input type="text" id="edit-page-display" value="${escapeHtml(page.display_name)}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="edit-page-desc">${escapeHtml(page.description || '')}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Allowed Roles</label>
+                        <div style="display:flex;flex-direction:column;gap:4px;border:1px solid var(--input-border);border-radius:8px;padding:8px;background:var(--input-bg);">
+                            ${rolesCheckboxes}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="edit-page-active" ${page.is_active ? 'checked' : ''} style="cursor:pointer;">
+                            <span>Page is active</span>
+                        </label>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:20px;">
+                    <button class="btn btn-primary" onclick="updatePageAccess('${escapeHtml(page.page_name)}')">Update Page</button>
+                    <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                </div>
+            `);
+        }
+
+        async function updatePageAccess(pageName) {
+            const displayName = document.getElementById('edit-page-display').value.trim();
+            const description = document.getElementById('edit-page-desc').value.trim();
+            const isActive = document.getElementById('edit-page-active').checked;
+            const allowedRoles = Array.from(document.querySelectorAll('input[name="edit-page-roles"]:checked')).map(cb => cb.value);
+
+            if (!displayName) {
+                alert('Display name is required');
+                return;
+            }
+
+            if (allowedRoles.length === 0) {
+                alert('At least one role must be selected');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/page-access/${pageName}`, {
+                    method: 'PUT',
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        display_name: displayName,
+                        description: description || null,
+                        allowed_roles: allowedRoles,
+                        is_active: isActive
+                    })
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Failed to update page access');
+                }
+
+                closeModal();
+                loadPageAccess();
+            } catch (e) {
+                alert('Failed to update page access: ' + e.message);
+            }
+        }
+
+        async function deletePageAccess(pageId, pageName) {
+            if (!confirm(`Delete page access configuration for "${pageName}"? This cannot be undone.`)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/api/admin/page-access/${pageName}`, {
+                    method: 'DELETE',
+                    headers: authHeaders()
+                });
+
+                if (!res.ok) {
+                    const error = await res.json();
+                    throw new Error(error.detail || 'Failed to delete page access');
+                }
+
+                loadPageAccess();
+            } catch (e) {
+                alert('Failed to delete page access: ' + e.message);
             }
         }
 
