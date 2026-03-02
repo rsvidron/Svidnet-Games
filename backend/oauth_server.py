@@ -93,6 +93,13 @@ try:
 except ImportError as e:
     print(f"⚠ Wrestling models not available: {e}")
 
+# Import Page Access model
+try:
+    from models.page_access import PageAccess
+    print("✓ Page Access model imported successfully")
+except ImportError as e:
+    print(f"⚠ Page Access model not available: {e}")
+
 # Run Wordle table migration (if needed)
 try:
     from migrate_wordle_tables import migrate_wordle_tables
