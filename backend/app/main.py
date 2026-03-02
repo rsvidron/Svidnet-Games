@@ -27,6 +27,20 @@ async def lifespan(app: FastAPI):
     logger.info("Starting application...")
     await redis_client.connect()
     logger.info("Connected to Redis")
+
+    # Initialize page access data
+    try:
+        from .db.session import get_async_db
+        from .db.init_page_access import init_page_access
+
+        async for db in get_async_db():
+            count = await init_page_access(db)
+            if count:
+                logger.info(f"Initialized {count} default page access configurations")
+            break
+    except Exception as e:
+        logger.warning(f"Failed to initialize page access data: {e}")
+
     yield
     # Shutdown
     logger.info("Shutting down application...")
